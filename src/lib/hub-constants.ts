@@ -133,5 +133,4 @@ export const ACTIVITY_CATEGORIES: Category[] = [
   "LIBRARY",
 ];
 
-export const DEFAULT_ADMIN_PASSWORD = "community-center-admin";
 export const ADMIN_COOKIE_NAME = "common-ground-community-center-admin";

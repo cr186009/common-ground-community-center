@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import { ADMIN_COOKIE_NAME, DEFAULT_ADMIN_PASSWORD } from "@/lib/hub-constants";
+import { ADMIN_COOKIE_NAME } from "@/lib/hub-constants";
 
 function hashValue(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -20,7 +20,14 @@ function secureEquals(left: string, right: string) {
 }
 
 export function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error(
+      "ADMIN_PASSWORD environment variable is not set. " +
+        "Set it in your Replit Secrets before using the admin panel."
+    );
+  }
+  return password;
 }
 
 export async function isAdminAuthenticated() {
