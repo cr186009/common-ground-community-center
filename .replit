@@ -26,6 +26,15 @@ router = "path"
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Build Community"
+mode = "sequential"
+author = 38167140
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install && pnpm run build"
+
 [agent]
 expertMode = true
 
