@@ -1,0 +1,560 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Common Ground Community Hub API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: homepage
+    description: Homepage data
+  - name: events
+    description: Events and activities
+  - name: alerts
+    description: Alerts and notices
+  - name: meetings
+    description: Public meetings
+  - name: volunteer
+    description: Volunteer opportunities
+  - name: sources
+    description: Data sources
+  - name: search
+    description: Global search
+  - name: submissions
+    description: Community submissions and subscriptions
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /homepage:
+    get:
+      operationId: getHomepage
+      tags: [homepage]
+      summary: Get homepage data
+      responses:
+        "200":
+          description: Homepage data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageData"
+
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events
+      parameters:
+        - { name: query, in: query, schema: { type: string } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: free, in: query, schema: { type: string } }
+        - { name: kids, in: query, schema: { type: string } }
+        - { name: outdoor, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string } }
+        - { name: to, in: query, schema: { type: string } }
+        - { name: sort, in: query, schema: { type: string } }
+        - { name: month, in: query, schema: { type: string } }
+        - { name: view, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event by ID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Event detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /activities:
+    get:
+      operationId: listActivities
+      tags: [events]
+      summary: List activity events
+      parameters:
+        - { name: query, in: query, schema: { type: string } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: free, in: query, schema: { type: string } }
+        - { name: kids, in: query, schema: { type: string } }
+        - { name: outdoor, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string } }
+        - { name: to, in: query, schema: { type: string } }
+        - { name: sort, in: query, schema: { type: string } }
+        - { name: month, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /calendar-events:
+    get:
+      operationId: listCalendarEvents
+      tags: [events]
+      summary: List events for calendar view
+      parameters:
+        - { name: month, in: query, schema: { type: string } }
+        - { name: activity, in: query, schema: { type: string } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Events for calendar
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List alerts
+      parameters:
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Alerts grouped by status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsResult"
+
+  /meetings:
+    get:
+      operationId: listMeetings
+      tags: [meetings]
+      summary: List meetings
+      parameters:
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: body, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Meetings grouped by status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingsResult"
+
+  /meetings/{id}:
+    get:
+      operationId: getMeeting
+      tags: [meetings]
+      summary: Get meeting by ID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Meeting detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /volunteer:
+    get:
+      operationId: listVolunteer
+      tags: [volunteer]
+      summary: List volunteer opportunities
+      parameters:
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: List of volunteer opportunities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VolunteerOpportunity"
+
+  /sources:
+    get:
+      operationId: listSources
+      tags: [sources]
+      summary: List public sources
+      responses:
+        "200":
+          description: List of sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Source"
+
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [search]
+      summary: Global search across all content
+      parameters:
+        - { name: query, in: query, schema: { type: string } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: county, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: free, in: query, schema: { type: string } }
+        - { name: kids, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string } }
+        - { name: to, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+  /submit:
+    post:
+      operationId: submitItem
+      tags: [submissions]
+      summary: Submit a community item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitItemInput"
+      responses:
+        "200":
+          description: Submission accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitResult"
+
+  /subscribe:
+    post:
+      operationId: subscribe
+      tags: [submissions]
+      summary: Subscribe to the weekly digest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeInput"
+      responses:
+        "200":
+          description: Subscription saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribeResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        category: { type: string }
+        status: { type: string }
+        startDateTime: { type: string, format: date-time }
+        endDateTime: { type: ["string", "null"], format: date-time }
+        locationName: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        county: { type: ["string", "null"] }
+        cost: { type: ["string", "null"] }
+        isFree: { type: boolean }
+        isKidFriendly: { type: boolean }
+        isOutdoor: { type: boolean }
+        tags: { type: ["string", "null"] }
+        sourceUrl: { type: ["string", "null"] }
+        sourceName: { type: ["string", "null"] }
+        originalUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, category, status, startDateTime, isFree, isKidFriendly, isOutdoor, createdAt, updatedAt]
+
+    Alert:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        alertType: { type: string }
+        severity: { type: string }
+        status: { type: string }
+        city: { type: ["string", "null"] }
+        county: { type: ["string", "null"] }
+        startsAt: { type: string, format: date-time }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        sourceUrl: { type: ["string", "null"] }
+        sourceName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, alertType, severity, status, startsAt, createdAt, updatedAt]
+
+    Meeting:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        governmentBody: { type: string }
+        meetingType: { type: string }
+        status: { type: string }
+        startDateTime: { type: string, format: date-time }
+        endDateTime: { type: ["string", "null"], format: date-time }
+        locationName: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        county: { type: ["string", "null"] }
+        agendaUrl: { type: ["string", "null"] }
+        minutesUrl: { type: ["string", "null"] }
+        videoUrl: { type: ["string", "null"] }
+        originalUrl: { type: ["string", "null"] }
+        sourceUrl: { type: ["string", "null"] }
+        sourceName: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        plainEnglishSummary: { type: ["string", "null"] }
+        whyResidentsCare: { type: ["string", "null"] }
+        keyTopics: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, governmentBody, meetingType, status, startDateTime, createdAt, updatedAt]
+
+    VolunteerOpportunity:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        organization: { type: string }
+        description: { type: ["string", "null"] }
+        dateTime: { type: ["string", "null"], format: date-time }
+        locationName: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        county: { type: ["string", "null"] }
+        status: { type: string }
+        contactName: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"] }
+        sourceUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, organization, status, createdAt, updatedAt]
+
+    Source:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        url: { type: string }
+        type: { type: string }
+        section: { type: string }
+        county: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        active: { type: boolean }
+        lastScrapedAt: { type: ["string", "null"], format: date-time }
+        notes: { type: ["string", "null"] }
+        eventCount: { type: integer }
+        alertCount: { type: integer }
+        meetingCount: { type: integer }
+        volunteerCount: { type: integer }
+      required: [id, name, url, type, section, active, eventCount, alertCount, meetingCount, volunteerCount]
+
+    HomepageData:
+      type: object
+      properties:
+        topAlert:
+          oneOf:
+            - $ref: "#/components/schemas/Alert"
+            - type: "null"
+        upcomingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        weekendEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        freeEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        kidFriendlyEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        upcomingMeetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        volunteerOpportunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolunteerOpportunity"
+        pendingSubmissions: { type: integer }
+        activeSubscriberCount: { type: integer }
+        lastUpdatedAt: { type: ["string", "null"], format: date-time }
+      required: [upcomingEvents, weekendEvents, freeEvents, kidFriendlyEvents, upcomingMeetings, volunteerOpportunities, pendingSubmissions, activeSubscriberCount]
+
+    AlertsResult:
+      type: object
+      properties:
+        activeAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        expiredAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+      required: [activeAlerts, expiredAlerts]
+
+    MeetingsResult:
+      type: object
+      properties:
+        upcomingMeetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        completedMeetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        governmentBodies:
+          type: array
+          items:
+            type: string
+      required: [upcomingMeetings, completedMeetings, governmentBodies]
+
+    SearchResults:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        meetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        volunteer:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolunteerOpportunity"
+      required: [events, alerts, meetings, volunteer]
+
+    SubmitItemInput:
+      type: object
+      properties:
+        submitterName: { type: string }
+        submitterEmail: { type: string }
+        submissionType: { type: string }
+        category: { type: string }
+        title: { type: string }
+        description: { type: string }
+        startDateTime: { type: string }
+        endDateTime: { type: string }
+        locationName: { type: string }
+        address: { type: string }
+        city: { type: string }
+        county: { type: string }
+        cost: { type: string }
+        tags: { type: string }
+        sourceUrl: { type: string }
+        isFree: { type: boolean }
+        isKidFriendly: { type: boolean }
+        isOutdoor: { type: boolean }
+      required: [submitterName, submitterEmail, title, startDateTime, city, county]
+
+    SubmitResult:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success, message]
+
+    SubscribeInput:
+      type: object
+      properties:
+        email: { type: string }
+        city: { type: string }
+        county: { type: string }
+        interests: { type: string }
+      required: [email]
+
+    SubscribeResult:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success, message]

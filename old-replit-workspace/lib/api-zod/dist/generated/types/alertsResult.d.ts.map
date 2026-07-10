@@ -1,0 +1,1 @@
+{"version":3,"file":"alertsResult.d.ts","sourceRoot":"","sources":["../../../src/generated/types/alertsResult.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AACH,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AAErC,MAAM,WAAW,YAAY;IAC3B,YAAY,EAAE,KAAK,EAAE,CAAC;IACtB,aAAa,EAAE,KAAK,EAAE,CAAC;CACxB"}

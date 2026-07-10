@@ -1,0 +1,301 @@
+{
+  "snapshots": [
+    {
+      "id": "snapshot-2026-05-25",
+      "snapshotDate": "2026-05-25",
+      "sourceName": "2026-05-25.csv",
+      "importedAt": "2026-06-21T17:23:36.942Z",
+      "cityMetrics": [
+        {
+          "city": "Atlanta",
+          "state": "GA",
+          "percentage": 18.4,
+          "followers": 1840,
+          "isGeorgia": true
+        },
+        {
+          "city": "Marietta",
+          "state": "GA",
+          "percentage": 10.5,
+          "followers": 1050,
+          "isGeorgia": true
+        },
+        {
+          "city": "Acworth",
+          "state": "GA",
+          "percentage": 9.2,
+          "followers": 920,
+          "isGeorgia": true
+        },
+        {
+          "city": "Douglasville",
+          "state": "GA",
+          "percentage": 8.8,
+          "followers": 880,
+          "isGeorgia": true
+        },
+        {
+          "city": "Kennesaw",
+          "state": "GA",
+          "percentage": 8,
+          "followers": 800,
+          "isGeorgia": true
+        },
+        {
+          "city": "Dallas",
+          "state": "GA",
+          "percentage": 7.1,
+          "followers": 710,
+          "isGeorgia": true
+        },
+        {
+          "city": "Smyrna",
+          "state": "GA",
+          "percentage": 6.2,
+          "followers": 620,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rome",
+          "state": "GA",
+          "percentage": 5.4,
+          "followers": 540,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cartersville",
+          "state": "GA",
+          "percentage": 4.7,
+          "followers": 470,
+          "isGeorgia": true
+        },
+        {
+          "city": "Hiram",
+          "state": "GA",
+          "percentage": 4.4,
+          "followers": 440,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rockmart",
+          "state": "GA",
+          "percentage": 3.6,
+          "followers": 360,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cedartown",
+          "state": "GA",
+          "percentage": 3.1,
+          "followers": 310,
+          "isGeorgia": true
+        },
+        {
+          "city": "Mableton",
+          "state": "GA",
+          "percentage": 2.8,
+          "followers": 280,
+          "isGeorgia": true
+        }
+      ]
+    },
+    {
+      "id": "snapshot-2026-06-01",
+      "snapshotDate": "2026-06-01",
+      "sourceName": "2026-06-01.csv",
+      "importedAt": "2026-06-21T17:23:36.946Z",
+      "cityMetrics": [
+        {
+          "city": "Atlanta",
+          "state": "GA",
+          "percentage": 19.1,
+          "followers": 1910,
+          "isGeorgia": true
+        },
+        {
+          "city": "Marietta",
+          "state": "GA",
+          "percentage": 10.3,
+          "followers": 1030,
+          "isGeorgia": true
+        },
+        {
+          "city": "Acworth",
+          "state": "GA",
+          "percentage": 9.7,
+          "followers": 970,
+          "isGeorgia": true
+        },
+        {
+          "city": "Douglasville",
+          "state": "GA",
+          "percentage": 8.4,
+          "followers": 840,
+          "isGeorgia": true
+        },
+        {
+          "city": "Kennesaw",
+          "state": "GA",
+          "percentage": 8.2,
+          "followers": 820,
+          "isGeorgia": true
+        },
+        {
+          "city": "Dallas",
+          "state": "GA",
+          "percentage": 7.5,
+          "followers": 750,
+          "isGeorgia": true
+        },
+        {
+          "city": "Smyrna",
+          "state": "GA",
+          "percentage": 6.1,
+          "followers": 610,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rome",
+          "state": "GA",
+          "percentage": 5,
+          "followers": 500,
+          "isGeorgia": true
+        },
+        {
+          "city": "Hiram",
+          "state": "GA",
+          "percentage": 4.8,
+          "followers": 480,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cartersville",
+          "state": "GA",
+          "percentage": 4.5,
+          "followers": 450,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rockmart",
+          "state": "GA",
+          "percentage": 3.8,
+          "followers": 380,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cedartown",
+          "state": "GA",
+          "percentage": 3,
+          "followers": 300,
+          "isGeorgia": true
+        },
+        {
+          "city": "Mableton",
+          "state": "GA",
+          "percentage": 2.9,
+          "followers": 290,
+          "isGeorgia": true
+        }
+      ]
+    },
+    {
+      "id": "snapshot-2026-06-08",
+      "snapshotDate": "2026-06-08",
+      "sourceName": "2026-06-08.csv",
+      "importedAt": "2026-06-21T17:23:36.949Z",
+      "cityMetrics": [
+        {
+          "city": "Atlanta",
+          "state": "GA",
+          "percentage": 19.9,
+          "followers": 1990,
+          "isGeorgia": true
+        },
+        {
+          "city": "Acworth",
+          "state": "GA",
+          "percentage": 10.4,
+          "followers": 1040,
+          "isGeorgia": true
+        },
+        {
+          "city": "Marietta",
+          "state": "GA",
+          "percentage": 10.1,
+          "followers": 1010,
+          "isGeorgia": true
+        },
+        {
+          "city": "Douglasville",
+          "state": "GA",
+          "percentage": 8.2,
+          "followers": 820,
+          "isGeorgia": true
+        },
+        {
+          "city": "Kennesaw",
+          "state": "GA",
+          "percentage": 8,
+          "followers": 800,
+          "isGeorgia": true
+        },
+        {
+          "city": "Dallas",
+          "state": "GA",
+          "percentage": 7.9,
+          "followers": 790,
+          "isGeorgia": true
+        },
+        {
+          "city": "Smyrna",
+          "state": "GA",
+          "percentage": 6,
+          "followers": 600,
+          "isGeorgia": true
+        },
+        {
+          "city": "Hiram",
+          "state": "GA",
+          "percentage": 5.2,
+          "followers": 520,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rome",
+          "state": "GA",
+          "percentage": 4.9,
+          "followers": 490,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cartersville",
+          "state": "GA",
+          "percentage": 4.3,
+          "followers": 430,
+          "isGeorgia": true
+        },
+        {
+          "city": "Rockmart",
+          "state": "GA",
+          "percentage": 4.1,
+          "followers": 410,
+          "isGeorgia": true
+        },
+        {
+          "city": "Cedartown",
+          "state": "GA",
+          "percentage": 3.4,
+          "followers": 340,
+          "isGeorgia": true
+        },
+        {
+          "city": "Mableton",
+          "state": "GA",
+          "percentage": 2.7,
+          "followers": 270,
+          "isGeorgia": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Paulding-Polk Community Hub"
+version = "1.0.0"
+id = "artifacts/community-hub"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20674
+
+[services.development]
+run = "pnpm --filter @workspace/community-hub run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/community-hub", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/community-hub/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20674"
+BASE_PATH = "/"
