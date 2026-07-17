@@ -1,0 +1,188 @@
+{
+  "source": "dev.db",
+  "integrity": "ok",
+  "tables": {
+    "Source": {
+      "rows": 79,
+      "columns": [
+        "id",
+        "name",
+        "url",
+        "type",
+        "section",
+        "city",
+        "county",
+        "active",
+        "scrapeFrequency",
+        "lastScrapedAt",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ],
+      "sha256": "83176efe6cfd3255b30e07450739453f90eba964174835dcdd0ef7208db0fa98"
+    },
+    "Event": {
+      "rows": 11,
+      "columns": [
+        "id",
+        "title",
+        "description",
+        "startDateTime",
+        "endDateTime",
+        "locationName",
+        "address",
+        "city",
+        "county",
+        "category",
+        "tags",
+        "cost",
+        "isFree",
+        "isKidFriendly",
+        "isOutdoor",
+        "sourceName",
+        "sourceUrl",
+        "originalUrl",
+        "imageUrl",
+        "status",
+        "confidenceScore",
+        "createdAt",
+        "updatedAt",
+        "lastSeenAt",
+        "sourceId"
+      ],
+      "sha256": "3f9cd5f57df243a7f20189d893b6934c092a7ecff93df67b44fb581ef1f10cac"
+    },
+    "Alert": {
+      "rows": 4,
+      "columns": [
+        "id",
+        "title",
+        "description",
+        "alertType",
+        "severity",
+        "city",
+        "county",
+        "locationName",
+        "address",
+        "sourceName",
+        "sourceUrl",
+        "originalUrl",
+        "startsAt",
+        "expiresAt",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "lastSeenAt",
+        "sourceId"
+      ],
+      "sha256": "a81fc0bddb559d238de87eccd7a51f28ba016d4b51ee86064274958ef791fbcd"
+    },
+    "Meeting": {
+      "rows": 4,
+      "columns": [
+        "id",
+        "title",
+        "governmentBody",
+        "meetingType",
+        "startDateTime",
+        "endDateTime",
+        "locationName",
+        "address",
+        "city",
+        "county",
+        "agendaUrl",
+        "minutesUrl",
+        "videoUrl",
+        "sourceName",
+        "sourceUrl",
+        "originalUrl",
+        "status",
+        "summary",
+        "plainEnglishSummary",
+        "keyTopics",
+        "whyResidentsCare",
+        "createdAt",
+        "updatedAt",
+        "lastSeenAt",
+        "sourceId"
+      ],
+      "sha256": "267a1303597b083d3b48839aa9d17a9188ae459d507d0b74d362891952873cd6"
+    },
+    "VolunteerOpportunity": {
+      "rows": 5,
+      "columns": [
+        "id",
+        "title",
+        "organization",
+        "description",
+        "dateTime",
+        "locationName",
+        "address",
+        "city",
+        "county",
+        "category",
+        "contactName",
+        "contactEmail",
+        "sourceName",
+        "sourceUrl",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "sourceId"
+      ],
+      "sha256": "372fdc679873a083cf075c24a004a8266224c6aeb067e2f9677cfb54fa9d5a04"
+    },
+    "ScrapeLog": {
+      "rows": 32,
+      "columns": [
+        "id",
+        "sourceId",
+        "sourceName",
+        "status",
+        "message",
+        "details",
+        "itemsFound",
+        "itemsCreated",
+        "itemsUpdated",
+        "createdAt"
+      ],
+      "sha256": "6a50a018fa192e8afe975e925d78785eee3e29ef2df75a2cc626cff2895d681f"
+    },
+    "SubmittedEvent": {
+      "rows": 3,
+      "columns": [
+        "id",
+        "submitterName",
+        "submitterEmail",
+        "submissionType",
+        "title",
+        "description",
+        "startDateTime",
+        "endDateTime",
+        "locationName",
+        "address",
+        "city",
+        "county",
+        "category",
+        "cost",
+        "sourceUrl",
+        "status",
+        "createdAt"
+      ],
+      "sha256": "d10fab6e04685ba2e7ec89a17ff9bdcd8f307df419374bb5cbe64bea3704614c"
+    },
+    "Subscriber": {
+      "rows": 4,
+      "columns": [
+        "id",
+        "email",
+        "city",
+        "county",
+        "interests",
+        "active",
+        "createdAt"
+      ],
+      "sha256": "298595802602566f2f5d784e6b00b7a489be1a14649df59e2f463752301eaf64"
+    }
+  }
+}

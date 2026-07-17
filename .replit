@@ -8,6 +8,10 @@ packages = ["psmisc"]
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 5555
+externalPort = 3000
+
 [workflows]
 runButton = "Community Center"
 
