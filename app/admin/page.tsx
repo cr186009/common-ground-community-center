@@ -12,6 +12,7 @@ import {
   rejectSubmittedEventAction,
   runScrapersNowAction,
   runSingleScraperAction,
+  deactivateAllSourcesAction,
   toggleSourceActiveAction,
   updateEventAction,
 } from "@/server/hub-actions";
@@ -190,6 +191,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
     volunteerCreated: "Volunteer opportunity created.",
     sourceCreated: "Source added.",
     sourceUpdated: "Source updated.",
+    sourcesDeactivated: `${readSearchParam(params, "sourcesDeactivated") ?? "0"} scraper sources deactivated. Existing calendar items were not changed.`,
     scraped: "Scraper run completed.",
     summaryGenerated: "Meeting summary placeholder generated.",
   };
@@ -210,6 +212,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
             <form action={runScrapersNowAction}>
               <button type="submit" className="btn btn-forest btn-md">
                 Run all scrapers
+              </button>
+            </form>
+            <form action={deactivateAllSourcesAction}>
+              <button type="submit" className="btn btn-ghost btn-md">
+                Deactivate all scrapers
               </button>
             </form>
             <form action={adminLogoutAction}>

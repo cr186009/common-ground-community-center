@@ -710,6 +710,18 @@ export async function toggleSourceActiveAction(formData: FormData) {
   redirect("/admin?sourceUpdated=1");
 }
 
+export async function deactivateAllSourcesAction() {
+  await requireAdmin();
+
+  const result = await prisma.source.updateMany({
+    where: { active: true },
+    data: { active: false },
+  });
+
+  revalidateAll();
+  redirect(`/admin?sourcesDeactivated=${result.count}`);
+}
+
 export async function runScrapersNowAction() {
   await requireAdmin();
   await scrapeAllSupportedSources();
