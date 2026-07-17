@@ -127,7 +127,7 @@ function EventEditor({
         </label>
       </div>
       <div className="md:col-span-2">
-        <button type="submit" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]">
+        <button type="submit" className="btn btn-primary btn-md">
           {submitLabel}
         </button>
       </div>
@@ -163,7 +163,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
             Password
             <input name="password" type="password" className="mt-2 w-full rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
           </label>
-          <button type="submit" className="mt-4 rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]">
+          <button type="submit" className="mt-4 btn btn-primary btn-md">
             Sign in
           </button>
         </form>
@@ -208,12 +208,12 @@ export default async function AdminPage({ searchParams }: PageProps) {
           </div>
           <div className="flex flex-wrap gap-3">
             <form action={runScrapersNowAction}>
-              <button type="submit" className="rounded-full bg-[color:var(--forest)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--forest-dark)]">
+              <button type="submit" className="btn btn-forest btn-md">
                 Run all scrapers
               </button>
             </form>
             <form action={adminLogoutAction}>
-              <button type="submit" className="rounded-full border border-[color:var(--line)] px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
+              <button type="submit" className="btn btn-ghost btn-md">
                 Sign out
               </button>
             </form>
@@ -278,13 +278,13 @@ export default async function AdminPage({ searchParams }: PageProps) {
                     <div className="mt-4 flex flex-wrap gap-3">
                       <form action={approveSubmittedEventAction}>
                         <input type="hidden" name="submittedEventId" value={submission.id} />
-                        <button type="submit" className="rounded-full bg-[color:var(--forest)] px-4 py-2 text-sm font-semibold text-white">
+                        <button type="submit" className="btn btn-forest btn-sm">
                           Approve
                         </button>
                       </form>
                       <form action={rejectSubmittedEventAction}>
                         <input type="hidden" name="submittedEventId" value={submission.id} />
-                        <button type="submit" className="rounded-full border border-[color:var(--line)] px-4 py-2 text-sm font-semibold text-slate-700">
+                        <button type="submit" className="btn btn-ghost btn-sm">
                           Reject
                         </button>
                       </form>
@@ -348,12 +348,12 @@ export default async function AdminPage({ searchParams }: PageProps) {
                       <p className="mt-1 text-sm text-slate-600">{event.city} · {event.category.replaceAll("_", " ")}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <a href={`/admin?edit=${event.id}`} className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-slate-700">
+                      <a href={`/admin?edit=${event.id}`} className="btn btn-ghost btn-xs">
                         Edit
                       </a>
                       <form action={archiveEventAction}>
                         <input type="hidden" name="eventId" value={event.id} />
-                        <button type="submit" className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-slate-700">
+                        <button type="submit" className="btn btn-ghost btn-xs">
                           Archive
                         </button>
                       </form>
@@ -399,7 +399,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <input name="expiresAt" type="datetime-local" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
           <input name="sourceUrl" placeholder="Source URL" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <div className="md:col-span-2">
-            <button type="submit" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">Create alert</button>
+            <button type="submit" className="btn btn-primary btn-md">Create alert</button>
           </div>
         </form>
 
@@ -435,7 +435,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <input name="keyTopics" placeholder="Key topics, separated by commas" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <textarea name="whyResidentsCare" placeholder="Why residents might care" className="min-h-20 rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <div className="md:col-span-2">
-            <button type="submit" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">Create meeting</button>
+            <button type="submit" className="btn btn-primary btn-md">Create meeting</button>
           </div>
         </form>
       </section>
@@ -461,7 +461,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <input name="contactEmail" placeholder="Contact email" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <textarea name="description" placeholder="Description" className="min-h-24 rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <div className="md:col-span-2">
-            <button type="submit" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">Create volunteer entry</button>
+            <button type="submit" className="btn btn-primary btn-md">Create volunteer entry</button>
           </div>
         </form>
 
@@ -499,7 +499,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <input name="scrapeFrequency" placeholder="daily / weekly / manual" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <textarea name="notes" placeholder="Notes" className="min-h-24 rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <div className="md:col-span-2">
-            <button type="submit" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">Add source</button>
+            <button type="submit" className="btn btn-primary btn-md">Add source</button>
           </div>
         </form>
       </section>
@@ -521,14 +521,14 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   <div className="flex flex-wrap gap-2">
                     <form action={runSingleScraperAction}>
                       <input type="hidden" name="sourceId" value={source.id} />
-                      <button type="submit" className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-slate-700">
+                      <button type="submit" className="btn btn-ghost btn-xs">
                         Run one
                       </button>
                     </form>
                     <form action={toggleSourceActiveAction}>
                       <input type="hidden" name="sourceId" value={source.id} />
                       <input type="hidden" name="nextActive" value={String(!source.active)} />
-                      <button type="submit" className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-slate-700">
+                      <button type="submit" className="btn btn-ghost btn-xs">
                         {source.active ? "Deactivate" : "Activate"}
                       </button>
                     </form>
@@ -551,7 +551,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   <p className="mt-1 text-sm text-slate-600">{meeting.governmentBody}</p>
                   <form action={generateMeetingSummaryAction} className="mt-3">
                     <input type="hidden" name="meetingId" value={meeting.id} />
-                    <button type="submit" className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-slate-700">
+                    <button type="submit" className="btn btn-ghost btn-xs">
                       Generate plain-English summary
                     </button>
                   </form>

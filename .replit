@@ -5,12 +5,20 @@ channel = "stable-25_05"
 packages = ["psmisc"]
 
 [[ports]]
+localPort = 3000
+externalPort = 3002
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
 [[ports]]
 localPort = 5555
 externalPort = 3000
+
+[[ports]]
+localPort = 5556
+externalPort = 3001
 
 [workflows]
 runButton = "Community Center"

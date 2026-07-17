@@ -61,3 +61,118 @@ p {
 .font-serif {
   font-family: var(--font-headline), serif;
 }
+
+/* ─── Button system ──────────────────────────────────────────────────────────
+   Shared base + variants used across every page.
+   Written as unlayered CSS so it wins over Tailwind's layers.
+   Layout-only utilities (col-span, justify-self, mt-*) stay in JSX.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Base — shape, typography, transition, focus ring, disabled */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--btn-ring, var(--navy));
+  outline-offset: 3px;
+}
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.btn-md { padding: 0.75rem 1.25rem; }   /* py-3 px-5 */
+.btn-sm { padding: 0.5rem 1rem; }        /* py-2 px-4 */
+.btn-xs { padding: 0.5rem 0.75rem; }     /* py-2 px-3 */
+
+/* Primary — dark-navy bg, white text */
+.btn-primary {
+  --btn-ring: var(--navy);
+  background-color: var(--navy);
+  color: #ffffff;
+  border-color: var(--navy);
+}
+.btn-primary:hover  { background-color: var(--navy-dark); border-color: var(--navy-dark); }
+.btn-primary:active { background-color: var(--navy-dark); border-color: var(--navy-dark); }
+
+/* Forest — dark-green bg, white text */
+.btn-forest {
+  --btn-ring: var(--forest);
+  background-color: var(--forest);
+  color: #ffffff;
+  border-color: var(--forest);
+}
+.btn-forest:hover  { background-color: var(--forest-dark); border-color: var(--forest-dark); }
+.btn-forest:active { background-color: var(--forest-dark); border-color: var(--forest-dark); }
+
+/* Gold — gold bg, navy text (contrast ~6.3 : 1) */
+.btn-gold {
+  --btn-ring: var(--gold-dark);
+  background-color: var(--gold);
+  color: var(--navy);
+  border-color: var(--gold);
+}
+.btn-gold:hover  { background-color: var(--gold-dark); border-color: var(--gold-dark); }
+.btn-gold:active { background-color: var(--gold-dark); border-color: var(--gold-dark); }
+
+/* Ghost — visible border, slate-800 text on white/light bg */
+.btn-ghost {
+  --btn-ring: var(--navy);
+  background-color: transparent;
+  color: #1e293b;                          /* slate-800 */
+  border-color: rgba(22, 59, 89, 0.30);   /* stronger than the 0.12 --line token */
+}
+.btn-ghost:hover {
+  background-color: #f8fafc;
+  border-color: rgba(22, 59, 89, 0.55);
+  color: #0f172a;                          /* slate-900 */
+}
+.btn-ghost:active { background-color: #f1f5f9; }
+
+/* Danger — alert-red bg, white text (contrast ~6.4 : 1) */
+.btn-danger {
+  --btn-ring: var(--alert);
+  background-color: var(--alert);
+  color: #ffffff;
+  border-color: var(--alert);
+}
+.btn-danger:hover  { opacity: 0.88; }
+.btn-danger:active { opacity: 0.78; }
+
+/* Light — white bg, navy text (for placement on dark/hero sections) */
+.btn-light {
+  --btn-ring: #ffffff;
+  background-color: #ffffff;
+  color: var(--navy);
+  border-color: #ffffff;
+}
+.btn-light:hover  { background-color: var(--cream); border-color: var(--cream); }
+.btn-light:active { background-color: var(--cream); }
+
+/* Outline-white — transparent bg, white border + text (for dark/hero sections) */
+.btn-outline-white {
+  --btn-ring: rgba(255, 255, 255, 0.8);
+  background-color: transparent;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.btn-outline-white:hover {
+  background-color: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.75);
+}
+.btn-outline-white:active { background-color: rgba(255, 255, 255, 0.22); }

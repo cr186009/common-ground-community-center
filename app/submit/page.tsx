@@ -87,7 +87,7 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         <div className="md:col-span-2">
           <button
             type="submit"
-            className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]"
+            className="btn btn-primary btn-md"
           >
             Submit for review
           </button>

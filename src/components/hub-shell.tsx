@@ -42,14 +42,14 @@ export function HubShell({ children }: { children: React.ReactNode }) {
                   />
                   <button
                     type="submit"
-                    className="rounded-full bg-[color:var(--forest)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[color:var(--forest-dark)]"
+                    className="btn btn-forest btn-sm"
                   >
                     Search
                   </button>
                 </form>
                 <Link
                   href="/submit"
-                  className="rounded-full bg-[color:var(--gold)] px-5 py-3 text-sm font-semibold text-[color:var(--navy)] transition hover:bg-[color:var(--gold-dark)]"
+                  className="btn btn-gold btn-md"
                 >
                   Submit an item
                 </Link>

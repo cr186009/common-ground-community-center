@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
             <Link
               href="/alerts"
-              className="rounded-full bg-[color:var(--alert)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              className="btn btn-danger btn-md"
             >
               View alerts
             </Link>
@@ -60,19 +60,19 @@ export default async function HomePage({ searchParams }: PageProps) {
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
               href="/events"
-              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-[color:var(--navy)] transition hover:bg-[color:var(--cream)]"
+              className="btn btn-light btn-md"
             >
               Browse events
             </Link>
             <Link
               href="/submit"
-              className="rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="btn btn-outline-white btn-md"
             >
               Submit an item
             </Link>
             <Link
               href="/meetings"
-              className="rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="btn btn-outline-white btn-md"
             >
               See public meetings
             </Link>
@@ -276,7 +276,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
             <button
               type="submit"
-              className="mt-2 rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]"
+              className="mt-2 btn btn-primary btn-md"
             >
               Save digest preferences
             </button>

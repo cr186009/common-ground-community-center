@@ -53,7 +53,7 @@ export default async function AlertsPage({ searchParams }: PageProps) {
         </select>
         <button
           type="submit"
-          className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)] md:col-span-3 md:justify-self-end"
+          className="btn btn-primary btn-md md:col-span-3 md:justify-self-end"
         >
           Apply filters
         </button>

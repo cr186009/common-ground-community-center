@@ -49,7 +49,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             })}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]"
+            className="btn btn-primary btn-md"
           >
             Add to calendar
           </a>
@@ -57,7 +57,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             href={event.originalUrl || event.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-[color:var(--line)] px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[color:var(--forest)] hover:text-[color:var(--forest)]"
+            className="btn btn-ghost btn-md hover:border-[color:var(--forest)] hover:text-[color:var(--forest)]"
           >
             View original source
           </a>

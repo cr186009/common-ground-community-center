@@ -42,7 +42,7 @@ export default async function VolunteerPage({ searchParams }: PageProps) {
         </select>
         <button
           type="submit"
-          className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)] md:justify-self-end"
+          className="btn btn-primary btn-md md:justify-self-end"
         >
           Apply filters
         </button>

@@ -99,7 +99,7 @@ export function HubFilterForm({
       <div className="flex flex-wrap justify-end gap-3">
         <button
           type="submit"
-          className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--navy-dark)]"
+          className="btn btn-primary btn-md"
         >
           Apply filters
         </button>
