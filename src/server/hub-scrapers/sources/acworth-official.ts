@@ -61,7 +61,7 @@ function extractDate(
 }
 
 export const acworthOfficialScraper: SourceScraper = {
-  sourceName: "City of Acworth official site",
+  sourceName: "City of Acworth events",
 
   async scrape(source) {
     const html = await fetchSourceHtml(source.url);

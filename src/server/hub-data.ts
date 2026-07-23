@@ -400,9 +400,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
 
     // ✅ Only show active sources on the admin dashboard
     prisma.source.findMany({
-      where: {
-        active: true,
-      },
+      
       orderBy: [
         { section: "asc" },
         { name: "asc" },
