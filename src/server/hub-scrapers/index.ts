@@ -13,6 +13,7 @@ import { createFacebookManualScraper } from "@/server/hub-scrapers/sources/faceb
 import { hiramOfficialScraper } from "@/server/hub-scrapers/sources/hiram-official";
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
+import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import type {
   NormalizedScrapedAlert,
   NormalizedScrapedEvent,
@@ -84,6 +85,7 @@ type ScrapeLogStatus = "SUCCESS" | "PARTIAL" | "FAILED";
 
 const registeredScrapers: SourceScraper[] = [
   pauldingCalendarScraper,
+  acworthOfficialScraper,
   dallasOfficialScraper,
   hiramOfficialScraper,
   rockmartOfficialScraper,

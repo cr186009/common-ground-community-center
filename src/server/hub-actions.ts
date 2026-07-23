@@ -681,13 +681,30 @@ export async function createSourceAction(formData: FormData) {
     notes: getString(formData, "notes") || undefined,
   });
 
-  await prisma.source.create({
-    data: {
-      ...payload,
-      city: payload.city ?? null,
-      scrapeFrequency: payload.scrapeFrequency ?? "manual",
-      notes: payload.notes ?? null,
+  await prisma.source.upsert({
+    where: {
+      name: payload.name,
+    },
+    update: {
+      url: payload.url,
       active: true,
+      type: payload.type,
+      section: payload.section,
+      county: payload.county,
+      city: payload.city,
+      scrapeFrequency: payload.scrapeFrequency,
+      notes: payload.notes,
+    },
+    create: {
+      name: payload.name,
+      url: payload.url,
+      active: true,
+      type: payload.type,
+      section: payload.section,
+      county: payload.county,
+      city: payload.city,
+      scrapeFrequency: payload.scrapeFrequency,
+      notes: payload.notes,
     },
   });
 

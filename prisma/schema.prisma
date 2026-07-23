@@ -7,6 +7,197 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Event {
+  id              String      @id @default(cuid())
+  title           String
+  description     String?
+  startDateTime   DateTime
+  endDateTime     DateTime?
+  locationName    String?
+  address         String?
+  city            String
+  county          String
+  category        Category    @default(OTHER)
+  tags            String      @default("[]")
+  cost            String?
+  isFree          Boolean     @default(false)
+  isKidFriendly   Boolean     @default(false)
+  isOutdoor       Boolean     @default(false)
+  sourceName      String
+  sourceUrl       String
+  originalUrl     String?
+  imageUrl        String?
+  status          EventStatus @default(APPROVED)
+  confidenceScore Float?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  lastSeenAt      DateTime    @default(now())
+  sourceId        String?
+  source          Source?     @relation(fields: [sourceId], references: [id])
+
+  @@index([status, startDateTime])
+  @@index([city, startDateTime])
+  @@index([county, startDateTime])
+  @@index([sourceName, startDateTime])
+  @@index([category, startDateTime])
+  @@index([isFree, isKidFriendly, isOutdoor])
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  alertType    AlertType     @default(OTHER)
+  severity     AlertSeverity @default(LOW)
+  city         String?
+  county       String
+  locationName String?
+  address      String?
+  sourceName   String
+  sourceUrl    String
+  originalUrl  String?
+  startsAt     DateTime?
+  expiresAt    DateTime?
+  status       AlertStatus   @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastSeenAt   DateTime      @default(now())
+  sourceId     String?
+  source       Source?       @relation(fields: [sourceId], references: [id])
+
+  @@index([status, severity])
+  @@index([county, status])
+  @@index([city, status])
+}
+
+model Meeting {
+  id                  String        @id @default(cuid())
+  title               String
+  governmentBody      String
+  meetingType         MeetingType   @default(OTHER)
+  startDateTime       DateTime
+  endDateTime         DateTime?
+  locationName        String?
+  address             String?
+  city                String?
+  county              String
+  agendaUrl           String?
+  minutesUrl          String?
+  videoUrl            String?
+  sourceName          String
+  sourceUrl           String
+  originalUrl         String?
+  status              MeetingStatus @default(UPCOMING)
+  summary             String?
+  plainEnglishSummary String?
+  keyTopics           String        @default("[]")
+  whyResidentsCare    String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  lastSeenAt          DateTime      @default(now())
+  sourceId            String?
+  source              Source?       @relation(fields: [sourceId], references: [id])
+
+  @@index([status, startDateTime])
+  @@index([county, startDateTime])
+  @@index([governmentBody, startDateTime])
+}
+
+model VolunteerOpportunity {
+  id           String          @id @default(cuid())
+  title        String
+  organization String
+  description  String?
+  dateTime     DateTime?
+  locationName String?
+  address      String?
+  city         String?
+  county       String
+  category     String
+  contactName  String?
+  contactEmail String?
+  sourceName   String
+  sourceUrl    String
+  status       VolunteerStatus @default(OPEN)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  sourceId     String?
+  source       Source?         @relation(fields: [sourceId], references: [id])
+
+  @@index([status, dateTime])
+  @@index([county, status])
+}
+
+model Source {
+  id              String                 @id @default(cuid())
+  name            String                 @unique
+  url             String
+  type            SourceType
+  section         SourceSection
+  city            String?
+  county          String
+  active          Boolean                @default(true)
+  scrapeFrequency String?
+  lastScrapedAt   DateTime?
+  notes           String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  alerts          Alert[]
+  events          Event[]
+  meetings        Meeting[]
+  logs            ScrapeLog[]
+  volunteer       VolunteerOpportunity[]
+}
+
+model SubmittedEvent {
+  id             String               @id @default(cuid())
+  submitterName  String
+  submitterEmail String
+  submissionType SubmissionType       @default(EVENT)
+  title          String
+  description    String?
+  startDateTime  DateTime
+  endDateTime    DateTime?
+  locationName   String?
+  address        String?
+  city           String
+  county         String
+  category       Category             @default(OTHER)
+  cost           String?
+  sourceUrl      String?
+  status         SubmittedEventStatus @default(PENDING)
+  createdAt      DateTime             @default(now())
+
+  @@index([status, startDateTime])
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  city      String?
+  county    String?
+  interests String   @default("[]")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ScrapeLog {
+  id           String       @id @default(cuid())
+  sourceId     String?
+  sourceName   String
+  status       ScrapeStatus @default(SUCCESS)
+  message      String
+  details      String?
+  itemsFound   Int          @default(0)
+  itemsCreated Int          @default(0)
+  itemsUpdated Int          @default(0)
+  createdAt    DateTime     @default(now())
+  source       Source?      @relation(fields: [sourceId], references: [id])
+
+  @@index([createdAt])
+  @@index([sourceName, createdAt])
+}
+
 enum Category {
   FAMILY
   PARKS_RECREATION
@@ -117,195 +308,4 @@ enum ScrapeStatus {
   SUCCESS
   PARTIAL
   FAILED
-}
-
-model Event {
-  id              String      @id @default(cuid())
-  title           String
-  description     String?
-  startDateTime   DateTime
-  endDateTime     DateTime?
-  locationName    String?
-  address         String?
-  city            String
-  county          String
-  category        Category    @default(OTHER)
-  tags            String      @default("[]")
-  cost            String?
-  isFree          Boolean     @default(false)
-  isKidFriendly   Boolean     @default(false)
-  isOutdoor       Boolean     @default(false)
-  sourceName      String
-  sourceUrl       String
-  originalUrl     String?
-  imageUrl        String?
-  status          EventStatus @default(APPROVED)
-  confidenceScore Float?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  lastSeenAt      DateTime    @default(now())
-  sourceId        String?
-  source          Source?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
-  @@index([status, startDateTime])
-  @@index([city, startDateTime])
-  @@index([county, startDateTime])
-  @@index([sourceName, startDateTime])
-  @@index([category, startDateTime])
-  @@index([isFree, isKidFriendly, isOutdoor])
-}
-
-model Alert {
-  id           String        @id @default(cuid())
-  title        String
-  description  String?
-  alertType    AlertType     @default(OTHER)
-  severity     AlertSeverity @default(LOW)
-  city         String?
-  county       String
-  locationName String?
-  address      String?
-  sourceName   String
-  sourceUrl    String
-  originalUrl  String?
-  startsAt     DateTime?
-  expiresAt    DateTime?
-  status       AlertStatus   @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  lastSeenAt   DateTime      @default(now())
-  sourceId     String?
-  source       Source?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
-  @@index([status, severity])
-  @@index([county, status])
-  @@index([city, status])
-}
-
-model Meeting {
-  id                  String        @id @default(cuid())
-  title               String
-  governmentBody      String
-  meetingType         MeetingType   @default(OTHER)
-  startDateTime       DateTime
-  endDateTime         DateTime?
-  locationName        String?
-  address             String?
-  city                String?
-  county              String
-  agendaUrl           String?
-  minutesUrl          String?
-  videoUrl            String?
-  sourceName          String
-  sourceUrl           String
-  originalUrl         String?
-  status              MeetingStatus @default(UPCOMING)
-  summary             String?
-  plainEnglishSummary String?
-  keyTopics           String        @default("[]")
-  whyResidentsCare    String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  lastSeenAt          DateTime      @default(now())
-  sourceId            String?
-  source              Source?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
-  @@index([status, startDateTime])
-  @@index([county, startDateTime])
-  @@index([governmentBody, startDateTime])
-}
-
-model VolunteerOpportunity {
-  id           String          @id @default(cuid())
-  title        String
-  organization String
-  description  String?
-  dateTime     DateTime?
-  locationName String?
-  address      String?
-  city         String?
-  county       String
-  category     String
-  contactName  String?
-  contactEmail String?
-  sourceName   String
-  sourceUrl    String
-  status       VolunteerStatus @default(OPEN)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  sourceId     String?
-  source       Source?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
-  @@index([status, dateTime])
-  @@index([county, status])
-}
-
-model Source {
-  id              String      @id @default(cuid())
-  name            String      @unique
-  url             String
-  type            SourceType
-  section         SourceSection
-  city            String?
-  county          String
-  active          Boolean     @default(true)
-  scrapeFrequency String?
-  lastScrapedAt   DateTime?
-  notes           String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  events          Event[]
-  alerts          Alert[]
-  meetings        Meeting[]
-  volunteer       VolunteerOpportunity[]
-  logs            ScrapeLog[]
-}
-
-model SubmittedEvent {
-  id             String               @id @default(cuid())
-  submitterName  String
-  submitterEmail String
-  submissionType SubmissionType       @default(EVENT)
-  title          String
-  description    String?
-  startDateTime  DateTime
-  endDateTime    DateTime?
-  locationName   String?
-  address        String?
-  city           String
-  county         String
-  category       Category             @default(OTHER)
-  cost           String?
-  sourceUrl      String?
-  status         SubmittedEventStatus @default(PENDING)
-  createdAt      DateTime             @default(now())
-
-  @@index([status, startDateTime])
-}
-
-model Subscriber {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  city      String?
-  county    String?
-  interests String   @default("[]")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-}
-
-model ScrapeLog {
-  id           String       @id @default(cuid())
-  sourceId     String?
-  source       Source?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  sourceName   String
-  status       ScrapeStatus @default(SUCCESS)
-  message      String
-  details      String?
-  itemsFound   Int          @default(0)
-  itemsCreated Int          @default(0)
-  itemsUpdated Int          @default(0)
-  createdAt    DateTime     @default(now())
-
-  @@index([createdAt])
-  @@index([sourceName, createdAt])
 }

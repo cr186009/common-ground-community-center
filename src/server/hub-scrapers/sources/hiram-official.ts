@@ -140,7 +140,15 @@ export const hiramOfficialScraper: SourceScraper = {
         `Unable to parse Hiram calendar JSON: ${message}`,
       );
     }
-
+    
+    console.log(
+      calendarItems.map((i) => ({
+        title: i.title,
+        calendar: i.primary_calendar_name,
+        start: i.start,
+      }))
+    );
+    
     const now = new Date();
     const events: NormalizedScrapedEvent[] = [];
 

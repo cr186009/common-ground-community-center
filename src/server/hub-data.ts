@@ -356,41 +356,69 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
 }
 
 export async function getAdminDashboardData(editEventId?: string | null) {
-  const [pendingSubmissions, recentEvents, alerts, meetings, volunteer, logs, sources, subscribers, editEvent] =
-    await Promise.all([
-      prisma.submittedEvent.findMany({
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-        take: 12,
-      }),
-      prisma.event.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 12,
-      }),
-      prisma.alert.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 8,
-      }),
-      prisma.meeting.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 8,
-      }),
-      prisma.volunteerOpportunity.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 8,
-      }),
-      prisma.scrapeLog.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 16,
-      }),
-      prisma.source.findMany({
-        orderBy: [{ section: "asc" }, { name: "asc" }],
-      }),
-      prisma.subscriber.findMany({
-        orderBy: { createdAt: "desc" },
-      }),
-      editEventId ? prisma.event.findUnique({ where: { id: editEventId } }) : Promise.resolve(null),
-    ]);
+  const [
+    pendingSubmissions,
+    recentEvents,
+    alerts,
+    meetings,
+    volunteer,
+    logs,
+    sources,
+    subscribers,
+    editEvent,
+  ] = await Promise.all([
+    prisma.submittedEvent.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+
+    prisma.event.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 12,
+    }),
+
+    prisma.alert.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+
+    prisma.meeting.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+
+    prisma.volunteerOpportunity.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+
+    prisma.scrapeLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 25,
+    }),
+
+    // ✅ Only show active sources on the admin dashboard
+    prisma.source.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: [
+        { section: "asc" },
+        { name: "asc" },
+      ],
+    }),
+
+    prisma.subscriber.findMany({
+      orderBy: { createdAt: "desc" },
+    }),
+
+    editEventId
+      ? prisma.event.findUnique({
+          where: { id: editEventId },
+        })
+      : Promise.resolve(null),
+  ]);
 
   return {
     pendingSubmissions,
@@ -414,12 +442,41 @@ export async function getAdminOverviewCounts() {
     pendingSubmissions,
     activeSources,
   ] = await Promise.all([
-    prisma.event.count({ where: { status: "APPROVED" } }),
-    prisma.alert.count({ where: { status: "ACTIVE" } }),
-    prisma.meeting.count({ where: { status: "UPCOMING" } }),
-    prisma.volunteerOpportunity.count({ where: { status: "OPEN" } }),
-    prisma.submittedEvent.count({ where: { status: "PENDING" } }),
-    prisma.source.count({ where: { active: true } }),
+    prisma.event.count({
+      where: {
+        status: "APPROVED",
+      },
+    }),
+
+    prisma.alert.count({
+      where: {
+        status: "ACTIVE",
+      },
+    }),
+
+    prisma.meeting.count({
+      where: {
+        status: "UPCOMING",
+      },
+    }),
+
+    prisma.volunteerOpportunity.count({
+      where: {
+        status: "OPEN",
+      },
+    }),
+
+    prisma.submittedEvent.count({
+      where: {
+        status: "PENDING",
+      },
+    }),
+
+    prisma.source.count({
+      where: {
+        active: true,
+      },
+    }),
   ]);
 
   return {
@@ -497,3 +554,56 @@ export async function getDigestPreview(subscriberId?: string | null) {
 
   return buildWeeklyDigestPreview({ subscriber, events, alerts, meetings, volunteer });
 }
+
+export async function getSourceHealthData() {
+  const sources = await prisma.source.findMany({
+    include: {
+      logs: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 10,
+      },
+      _count: {
+        select: {
+          events: true,
+        },
+      },
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  return sources.map((source) => {
+    const logs = source.logs;
+    
+    const lastLog = logs[0];
+
+    const failures = logs.filter(
+      (log) => log.status === "FAILED"
+    ).length;
+
+    const successes = logs.filter(
+      (log) => log.status === "SUCCESS"
+    ).length;
+
+    return {
+      id: source.id,
+      name: source.name,
+      active: source.active,
+      lastScrapedAt: source.lastScrapedAt,
+      lastStatus: lastLog?.status ?? "NEVER_RUN",
+      failures,
+      successes,
+      eventCount: source._count.events,
+    };
+  });
+}
+
+prisma.source.findMany({
+  orderBy: [
+    { section: "asc" },
+    { name: "asc" },
+  ],
+})

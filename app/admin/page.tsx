@@ -1,4 +1,7 @@
 import {
+  getSourceHealthData,
+} from "@/server/hub-data";
+import {
   adminLoginAction,
   adminLogoutAction,
   approveSubmittedEventAction,
@@ -173,11 +176,18 @@ export default async function AdminPage({ searchParams }: PageProps) {
   }
 
   const editEventId = readSearchParam(params, "edit");
-  const [dashboard, counts, statusCounts, digestPreview] = await Promise.all([
+  const [
+    dashboard,
+    counts,
+    statusCounts,
+    digestPreview,
+    sourceHealth,
+  ] = await Promise.all([
     getAdminDashboardData(editEventId),
     getAdminOverviewCounts(),
     getEventStatusCounts(),
     getDigestPreview(readSearchParam(params, "subscriber")),
+    getSourceHealthData(),
   ]);
 
   const flashMap: Record<string, string> = {
