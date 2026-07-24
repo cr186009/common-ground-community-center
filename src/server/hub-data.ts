@@ -110,9 +110,10 @@ export async function getHomepageData() {
     pendingSubmissions,
     activeSubscriberCount,
   ] = await Promise.all([
-    prisma.alert.findFirst({
+    prisma.alert.findMany({
       where: { status: "ACTIVE" },
       orderBy: [{ severity: "desc" }, { startsAt: "desc" }],
+      take: 10,
     }),
     prisma.event.findMany({
       where: buildEventWhere({ sort: "asc" }),
@@ -155,7 +156,7 @@ export async function getHomepageData() {
   ]);
 
   return {
-    topAlert,
+    activeAlerts: topAlert,
     upcomingEvents,
     weekendEvents,
     freeEvents,

@@ -1,0 +1,71 @@
+Add a responsive collapsible alert banner to the top of the website.
+
+Before editing:
+- Locate the existing component or layout code that renders active alerts at the top of the site.
+- Preserve the existing alert data, severity styles, source links, and expiration behavior.
+- Do not modify the NWS scraper or create duplicate alert queries.
+
+Requirements:
+
+1. Make the top alert area collapsible.
+
+2. Add a clearly visible minimize/expand button:
+   - Use a chevron or minus icon.
+   - Include accessible labels:
+     - "Minimize alerts"
+     - "Expand alerts"
+   - Include aria-expanded.
+   - Ensure it can be operated with a keyboard.
+
+3. When minimized, show a compact single-row summary:
+   - alert icon
+   - highest severity
+   - number of active alerts
+   - short text such as "3 active alerts"
+   - expand button
+
+4. Do not completely dismiss or hide active emergency information. Minimize it into the compact row so users can always reopen it.
+
+5. Mobile behavior:
+   - Default to the compact minimized state below the md breakpoint.
+   - Keep the minimized row short enough that it does not dominate the screen.
+   - Prevent long alert titles from increasing its height.
+   - Use line-clamp or text truncation.
+   - Ensure the expand/minimize control remains visible.
+   - When expanded, limit the alert area height and allow its contents to scroll if several alerts exist.
+   - Do not cover the mobile navigation or page content.
+
+6. Desktop behavior:
+   - Default to expanded.
+   - Allow users to minimize it.
+   - Keep the compact state to approximately one short row.
+
+7. Remember the visitor’s preference using localStorage:
+   - Store expanded or minimized state.
+   - Use a versioned key such as community-alert-banner-state-v1.
+   - Avoid hydration mismatch in Next.js.
+   - The page must still render safely if localStorage is unavailable.
+
+8. When a new HIGH or EMERGENCY alert appears:
+   - Treat it as new using the alert ID or updatedAt value.
+   - Expand the banner once so the visitor sees it.
+   - Allow the visitor to minimize it again.
+
+9. If a client component is needed, create a focused component such as:
+   src/components/collapsible-alert-banner.tsx
+
+10. Keep database fetching in the existing server component. Pass only the required alert information into the client component.
+
+11. Do not add a new UI library.
+
+12. Test:
+   - no alerts
+   - one alert
+   - several duplicate-free NWS alerts
+   - minimized mobile
+   - expanded mobile
+   - minimized desktop
+   - keyboard interaction
+   - page reload with saved preference
+
+13. Run pnpm run build and fix every error.

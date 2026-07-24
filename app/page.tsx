@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import {
+  CollapsibleAlertBanner,
+  type AlertBannerItem,
+} from "@/components/collapsible-alert-banner";
 import { HubEventCard } from "@/components/hub-event-card";
 import {
   COUNTY_FILTERS,
@@ -30,27 +34,17 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-8">
-      {data.topAlert ? (
-        <section className="rounded-[1.75rem] border border-[color:var(--alert)]/20 bg-[color:var(--alert-soft)] p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--alert)]">
-                {getAlertSeverityLabel(data.topAlert.severity)} alert · {getAlertTypeLabel(data.topAlert.alertType)}
-              </p>
-              <h2 className="mt-2 font-serif text-2xl text-[color:var(--navy)]">{data.topAlert.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
-                {data.topAlert.description || "See source link for the full notice and any updates."}
-              </p>
-            </div>
-            <Link
-              href="/alerts"
-              className="btn btn-danger btn-md"
-            >
-              View alerts
-            </Link>
-          </div>
-        </section>
-      ) : null}
+      <CollapsibleAlertBanner
+        alerts={data.activeAlerts.map((a): AlertBannerItem => ({
+          id: a.id,
+          title: a.title,
+          severity: a.severity,
+          severityLabel: getAlertSeverityLabel(a.severity),
+          alertTypeLabel: getAlertTypeLabel(a.alertType),
+          sourceUrl: a.sourceUrl,
+          description: a.description,
+        }))}
+      />
 
       <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="rounded-[2rem] bg-[linear-gradient(140deg,_rgba(22,59,89,0.97),_rgba(39,92,67,0.92)_58%,_rgba(216,179,86,0.9))] p-8 text-white shadow-[0_32px_90px_-45px_rgba(20,44,68,0.8)]">
