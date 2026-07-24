@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { EventImage } from "@/components/event-image";
 import {
   createCalendarUrl,
   formatDateTimeRange,
@@ -25,7 +26,14 @@ export default async function EventDetailPage({ params }: PageProps) {
 
   return (
     <article className="space-y-6">
-      <section className="rounded-[2rem] border border-[color:var(--line)] bg-white p-8 shadow-[0_30px_85px_-45px_rgba(20,44,68,0.48)]">
+      <section className="rounded-[2rem] border border-[color:var(--line)] bg-white shadow-[0_30px_85px_-45px_rgba(20,44,68,0.48)]">
+        <EventImage
+          title={event.title}
+          imageUrl={event.imageUrl}
+          category={event.category}
+          className="h-64 rounded-b-none md:h-80"
+        />
+        <div className="p-8">
         <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
           <span className="rounded-full bg-[color:var(--navy-soft)] px-3 py-1 text-[color:var(--navy)]">
             {getCategoryLabel(event.category)}
@@ -61,6 +69,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           >
             View original source
           </a>
+        </div>
         </div>
       </section>
 

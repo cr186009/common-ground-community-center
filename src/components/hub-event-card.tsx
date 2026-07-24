@@ -1,6 +1,7 @@
 import type { Event } from "@prisma/client";
 import Link from "next/link";
 
+import { EventImage } from "@/components/event-image";
 import {
   createCalendarUrl,
   formatDateTimeRange,
@@ -13,7 +14,17 @@ export function HubEventCard({ event }: { event: Event }) {
   const tags = parseStoredList(event.tags);
 
   return (
-    <article className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 shadow-[0_25px_60px_-45px_rgba(24,40,60,0.4)]">
+    <article className="rounded-[1.75rem] border border-[color:var(--line)] bg-white shadow-[0_25px_60px_-45px_rgba(24,40,60,0.4)]">
+      <Link href={`/events/${event.id}`} className="block">
+        <EventImage
+          title={event.title}
+          imageUrl={event.imageUrl}
+          category={event.category}
+          className="h-44 rounded-b-none"
+        />
+      </Link>
+
+      <div className="p-5">
       <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
         <span className="rounded-full bg-[color:var(--navy-soft)] px-3 py-1 text-[color:var(--navy)]">
           {getCategoryLabel(event.category)}
@@ -76,6 +87,7 @@ export function HubEventCard({ event }: { event: Event }) {
             Details
           </Link>
         </div>
+      </div>
       </div>
     </article>
   );

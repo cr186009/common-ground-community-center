@@ -886,6 +886,17 @@ const sources = [
     scrapeFrequency: "manual",
     notes: "Manual review source only.",
   },
+  {
+    name: "National Weather Service alerts",
+    url: "https://api.weather.gov/alerts/active?area=GA",
+    type: SourceType.GOVERNMENT,
+    section: SourceSection.ALERTS,
+    city: null,
+    county: "Georgia",
+    active: true,
+    scrapeFrequency: "hourly",
+    notes: "Official NWS watches, warnings, and advisories filtered to covered counties.",
+  },
 ];
 
 async function main() {

@@ -84,6 +84,17 @@ export default async function AlertsPage({ searchParams }: PageProps) {
                   <span>{[alert.city, alert.county].filter(Boolean).join(" · ")}</span>
                   <span>Updated {formatTimestamp(alert.updatedAt)}</span>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Source:{" "}
+                  <a
+                    href={alert.originalUrl || alert.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline hover:text-[color:var(--navy)]"
+                  >
+                    {alert.sourceName}
+                  </a>
+                </p>
               </article>
             ))}
           </div>
@@ -101,6 +112,17 @@ export default async function AlertsPage({ searchParams }: PageProps) {
               <h3 className="font-semibold text-[color:var(--navy)]">{alert.title}</h3>
               <p className="mt-2 text-sm text-slate-600">
                 {getAlertTypeLabel(alert.alertType)} · {formatTimestamp(alert.expiresAt)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Source:{" "}
+                <a
+                  href={alert.originalUrl || alert.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-[color:var(--navy)]"
+                >
+                  {alert.sourceName}
+                </a>
               </p>
             </article>
           ))}

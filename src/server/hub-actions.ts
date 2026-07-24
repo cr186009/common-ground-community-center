@@ -96,6 +96,7 @@ const eventFormSchema = z.object({
   cost: z.string().optional(),
   tags: z.string().optional(),
   sourceUrl: z.string().optional(),
+  imageUrl: z.string().url().optional(),
 });
 
 const alertFormSchema = z.object({
@@ -206,6 +207,7 @@ function parseEventPayload(formData: FormData) {
     cost: getString(formData, "cost") || undefined,
     tags: getString(formData, "tags") || undefined,
     sourceUrl: getString(formData, "sourceUrl") || undefined,
+    imageUrl: getString(formData, "imageUrl") || undefined,
   });
 
   return {
@@ -526,6 +528,7 @@ export async function createManualEventAction(formData: FormData) {
       sourceName: "Manual admin entry",
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
+      imageUrl: payload.imageUrl ?? null,
       status: "APPROVED",
       confidenceScore: 1,
     },
@@ -559,6 +562,7 @@ export async function updateEventAction(formData: FormData) {
       isOutdoor: payload.isOutdoor,
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
+      imageUrl: payload.imageUrl ?? null,
     },
   });
 

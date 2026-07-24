@@ -84,6 +84,7 @@ function EventEditor({
     isKidFriendly?: boolean;
     isOutdoor?: boolean;
     sourceUrl?: string;
+    imageUrl?: string | null;
   } | null;
 }) {
   return (
@@ -116,6 +117,7 @@ function EventEditor({
       <input name="cost" defaultValue={event?.cost ?? ""} placeholder="Cost" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
       <input name="tags" defaultValue={event?.tags ?? ""} placeholder="Tags, separated by commas" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
       <input name="sourceUrl" defaultValue={event?.sourceUrl ?? ""} placeholder="Source URL" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
+      <input name="imageUrl" type="url" defaultValue={event?.imageUrl ?? ""} placeholder="Image URL (optional)" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
       <div className="flex flex-wrap gap-3 md:col-span-2">
         <label className="inline-flex items-center gap-2 rounded-full border border-[color:var(--line)] px-4 py-2 text-sm text-slate-700">
           <input type="checkbox" name="isFree" defaultChecked={event?.isFree} />

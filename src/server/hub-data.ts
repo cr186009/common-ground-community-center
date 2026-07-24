@@ -72,7 +72,18 @@ function buildMeetingWhere(filters: MeetingFilters): Prisma.MeetingWhereInput {
   };
 }
 
+export async function expireElapsedAlerts() {
+  await prisma.alert.updateMany({
+    where: {
+      status: "ACTIVE",
+      expiresAt: { lt: new Date() },
+    },
+    data: { status: "EXPIRED" },
+  });
+}
+
 export async function getHomepageData() {
+  await expireElapsedAlerts();
   const now = new Date();
   const weekendStart = startOfWeek(now, { weekStartsOn: 5 });
   const weekendEnd = endOfWeek(now, { weekStartsOn: 5 });
@@ -185,6 +196,8 @@ export async function getEventById(id: string) {
 }
 
 export async function getAlerts(filters: AlertFilters) {
+  await expireElapsedAlerts();
+
   const [activeAlerts, expiredAlerts] = await Promise.all([
     prisma.alert.findMany({
       where: buildAlertWhere(filters, "ACTIVE"),

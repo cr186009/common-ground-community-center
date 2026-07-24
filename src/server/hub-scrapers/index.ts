@@ -14,6 +14,7 @@ import { hiramOfficialScraper } from "@/server/hub-scrapers/sources/hiram-offici
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
+import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
 import type {
   NormalizedScrapedAlert,
   NormalizedScrapedEvent,
@@ -90,6 +91,7 @@ const registeredScrapers: SourceScraper[] = [
   hiramOfficialScraper,
   rockmartOfficialScraper,
   cedartownDowntownScraper,
+  nwsAlertsScraper,
   ...manualFacebookSources.map((name) =>
     createFacebookManualScraper(name),
   ),
@@ -477,6 +479,7 @@ async function upsertScrapedAlert(
     where: {
       startsAt: alert.startsAt ?? null,
       city: alert.city ?? null,
+      county: alert.county,
       sourceName: alert.sourceName,
       alertType: alert.alertType,
     },
