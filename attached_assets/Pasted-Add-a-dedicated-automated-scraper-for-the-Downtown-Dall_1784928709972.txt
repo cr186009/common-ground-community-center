@@ -1,0 +1,72 @@
+Add a dedicated automated scraper for the Downtown Dallas / MyDallasGA website.
+
+Source:
+- Exact source name: Downtown Dallas / MyDallasGA
+- Existing source URL may be https://www.mydallasga.com/
+- Events listing: https://www.mydallasga.com/events
+- City: Dallas
+- County: Paulding
+
+Implementation requirements:
+
+1. Create:
+   src/server/hub-scrapers/sources/mydallasga.ts
+
+2. Export:
+   myDallasGaScraper
+
+3. The scraper's exact sourceName must be:
+   Downtown Dallas / MyDallasGA
+
+4. Fetch the /events listing page, regardless of whether the stored source URL is the homepage or /events.
+
+5. Discover each event detail URL from links containing:
+   /event-details-registration/
+
+6. Fetch each unique event detail page and extract:
+   - title
+   - start date and time
+   - end date and time, when available
+   - full description
+   - location name
+   - street address
+   - city: Dallas
+   - county: Paulding
+   - primary event image URL
+   - detail-page URL as originalUrl
+
+7. Prefer structured JSON-LD Event data when available. Fall back to the rendered HTML when structured data is unavailable.
+
+8. Do not use sponsor logos, the site logo, footer images, or navigation images as the event image. Prefer the image associated with the Event structured data or the main image on the event detail page.
+
+9. Set:
+   - sourceName from source.name
+   - sourceUrl from source.url
+   - tags to ["downtown", "dallas"]
+   - category using inferCategory()
+   - isFree based only on explicit free-admission wording
+   - isKidFriendly based on family, children, kids, school, or similar wording
+   - isOutdoor based on downtown, festival, parade, car show, street, square, or outdoor wording
+   - confidenceScore to 0.9 when the detail page provides a valid title, date, and location
+
+10. Skip records without a valid title or start date.
+
+11. Deduplicate records using dedupeNormalizedEvents().
+
+12. Limit concurrent detail-page requests so the site is not flooded. A concurrency of 3 is appropriate.
+
+13. Register myDallasGaScraper in:
+    src/server/hub-scrapers/index.ts
+
+14. Do not replace or modify:
+    - City of Dallas official events page
+    - MyDallasGA Facebook
+    These are separate sources.
+
+15. Update prisma/seed.ts so the existing “Downtown Dallas / MyDallasGA” source uses:
+    https://www.mydallasga.com/events
+    Do not create a second source with the same name.
+
+16. Do not run the seed command and do not modify unrelated files.
+
+17. Run pnpm run build and fix any TypeScript or build errors.
