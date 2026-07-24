@@ -63,7 +63,7 @@ const sources = [
   },
   {
     name: "Downtown Dallas / MyDallasGA",
-    url: "https://www.mydallasga.com/",
+    url: "https://www.mydallasga.com/events",
     type: SourceType.WEBSITE,
     section: SourceSection.ACTIVITIES,
     city: "Dallas",

@@ -14,6 +14,7 @@ import { hiramOfficialScraper } from "@/server/hub-scrapers/sources/hiram-offici
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
+import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
 import type {
   NormalizedScrapedAlert,
@@ -91,6 +92,7 @@ const registeredScrapers: SourceScraper[] = [
   hiramOfficialScraper,
   rockmartOfficialScraper,
   cedartownDowntownScraper,
+  myDallasGaScraper,
   nwsAlertsScraper,
   ...manualFacebookSources.map((name) =>
     createFacebookManualScraper(name),
