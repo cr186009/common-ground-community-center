@@ -1,6 +1,15 @@
+import { Bell, Calendar, Home, Plus, Search } from "lucide-react";
 import Link from "next/link";
 
 import { SITE_NAME } from "@/lib/hub-constants";
+
+const mobileNavLinks = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/search", label: "Search", icon: Search },
+  { href: "/submit", label: "Submit", icon: Plus },
+];
 
 const links = [
   { href: "/events", label: "Events" },
@@ -15,7 +24,7 @@ const links = [
 export function HubShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(20,67,103,0.13),_transparent_40%),linear-gradient(180deg,_#f8f2e6_0%,_#fffdfa_42%,_#f0f5ed_100%)] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--line)] bg-[color:rgba(255,253,248,0.94)] backdrop-blur">
+      <header className="sticky top-0 z-30 hidden border-b border-[color:var(--line)] bg-[color:rgba(255,253,248,0.94)] backdrop-blur lg:block">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -77,7 +86,21 @@ export function HubShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">{children}</main>
+
+      {/* Mobile bottom navigation — hidden on lg and above */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 flex border-t border-[color:var(--line)] bg-[color:rgba(255,253,248,0.97)] backdrop-blur lg:hidden">
+        {mobileNavLinks.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex flex-1 flex-col items-center gap-1 py-3 text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-slate-500 transition hover:text-[color:var(--navy)]"
+          >
+            <Icon className="h-5 w-5" strokeWidth={1.75} />
+            {label}
+          </Link>
+        ))}
+      </nav>
 
       <footer className="border-t border-[color:var(--line)] bg-white/70">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
