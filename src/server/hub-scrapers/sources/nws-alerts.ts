@@ -110,12 +110,13 @@ export const nwsAlertsScraper: SourceScraper = {
       const ugc  = p.geocode?.UGC  ?? [];
       const areaDesc = (p.areaDesc ?? "").toLowerCase();
 
+      // Collect all counties this alert affects
       const matchedCounties = COUNTY_TARGETS.filter(
         (t) =>
           same.includes(t.sameCode) ||
           ugc.includes(t.ugcCode) ||
           areaDesc.includes(t.county.toLowerCase()),
-      );
+      ).map((t) => t.county);
 
       if (matchedCounties.length === 0) continue;
 
@@ -135,24 +136,23 @@ export const nwsAlertsScraper: SourceScraper = {
         p.expires ? new Date(p.expires) :
         null;
 
-      // One normalized alert per affected county so they are stored
-      // independently and don't overwrite each other.
-      for (const matched of matchedCounties) {
-        alerts.push({
-          title,
-          description,
-          alertType: mapAlertType(p.event, p.headline ?? ""),
-          severity:  mapSeverity(p.severity),
-          county:    matched.county,
-          city:      null,
-          sourceName: SOURCE_NAME,
-          sourceUrl:  source.url,
-          originalUrl: feature.id,
-          startsAt,
-          expiresAt,
-          status: "ACTIVE",
-        });
-      }
+      // One normalized alert per NWS feature — county is set to "Georgia"
+      // (statewide primary) and all matched counties go into affectedCounties.
+      alerts.push({
+        title,
+        description,
+        alertType: mapAlertType(p.event, p.headline ?? ""),
+        severity:  mapSeverity(p.severity),
+        county:    "Georgia",
+        city:      null,
+        affectedCounties: matchedCounties,
+        sourceName: SOURCE_NAME,
+        sourceUrl:  source.url,
+        originalUrl: feature.id,
+        startsAt,
+        expiresAt,
+        status: "ACTIVE",
+      });
     }
 
     // Return SUCCESS even when there are zero current alerts

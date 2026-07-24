@@ -413,6 +413,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 {county}
               </option>
             ))}
+            <option value="Georgia">Georgia / Statewide</option>
           </select>
           <input name="startsAt" type="datetime-local" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
           <input name="expiresAt" type="datetime-local" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
@@ -514,6 +515,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 {county}
               </option>
             ))}
+            <option value="Georgia">Georgia / Statewide</option>
           </select>
           <input name="scrapeFrequency" placeholder="daily / weekly / manual" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />
           <textarea name="notes" placeholder="Notes" className="min-h-24 rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm md:col-span-2" />

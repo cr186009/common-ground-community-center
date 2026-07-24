@@ -55,12 +55,20 @@ function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Pri
 }
 
 function buildAlertWhere(filters: AlertFilters, status?: AlertStatus | AlertStatus[]) {
-  return {
+  const where: Prisma.AlertWhereInput = {
     ...(Array.isArray(status) ? { status: { in: status } } : status ? { status } : {}),
     ...(filters.city ? { city: filters.city } : {}),
-    ...(filters.county ? { county: filters.county } : {}),
     ...(filters.alertType ? { alertType: filters.alertType } : {}),
-  } satisfies Prisma.AlertWhereInput;
+  };
+
+  if (filters.county) {
+    where.OR = [
+      { county: filters.county },
+      { affectedCounties: { contains: `"${filters.county}"` } },
+    ];
+  }
+
+  return where;
 }
 
 function buildMeetingWhere(filters: MeetingFilters): Prisma.MeetingWhereInput {

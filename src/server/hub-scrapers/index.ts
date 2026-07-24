@@ -475,6 +475,57 @@ async function upsertScrapedAlert(
 ) {
   validateAlert(alert);
 
+  const affectedCountiesJson = JSON.stringify(alert.affectedCounties ?? []);
+
+  // URL-keyed path: one record per (sourceName, originalUrl)
+  if (alert.originalUrl) {
+    const matches = await prisma.alert.findMany({
+      where: {
+        sourceName: alert.sourceName,
+        originalUrl: alert.originalUrl,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const data = {
+      title: alert.title.trim(),
+      description: alert.description ?? null,
+      alertType: alert.alertType,
+      severity: alert.severity,
+      city: alert.city ?? null,
+      county: alert.county,
+      affectedCounties: affectedCountiesJson,
+      locationName: alert.locationName ?? null,
+      address: alert.address ?? null,
+      sourceName: alert.sourceName,
+      sourceUrl: alert.sourceUrl,
+      originalUrl: alert.originalUrl,
+      startsAt: alert.startsAt ?? null,
+      expiresAt: alert.expiresAt ?? null,
+      status: (alert.status ?? "ACTIVE") as AlertStatus,
+      lastSeenAt: new Date(),
+      sourceId: source.id,
+    } satisfies Parameters<typeof prisma.alert.create>[0]["data"];
+
+    if (matches.length === 0) {
+      await prisma.alert.create({ data });
+      return "created" as const;
+    }
+
+    const [oldest, ...extras] = matches;
+
+    await prisma.alert.update({ where: { id: oldest.id }, data });
+
+    if (extras.length > 0) {
+      await prisma.alert.deleteMany({
+        where: { id: { in: extras.map((e) => e.id) } },
+      });
+    }
+
+    return "updated" as const;
+  }
+
+  // Fallback: title-match behavior for alerts without originalUrl
   const candidates = await prisma.alert.findMany({
     where: {
       startsAt: alert.startsAt ?? null,
@@ -500,6 +551,7 @@ async function upsertScrapedAlert(
     severity: alert.severity,
     city: alert.city ?? existing?.city ?? null,
     county: alert.county,
+    affectedCounties: affectedCountiesJson,
     locationName:
       alert.locationName ?? existing?.locationName ?? null,
     address: alert.address ?? existing?.address ?? null,
@@ -519,11 +571,7 @@ async function upsertScrapedAlert(
   } satisfies Parameters<typeof prisma.alert.create>[0]["data"];
 
   if (existing) {
-    await prisma.alert.update({
-      where: { id: existing.id },
-      data,
-    });
-
+    await prisma.alert.update({ where: { id: existing.id }, data });
     return "updated" as const;
   }
 

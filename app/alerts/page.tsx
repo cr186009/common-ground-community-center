@@ -81,7 +81,13 @@ export default async function AlertsPage({ searchParams }: PageProps) {
                 <h3 className="mt-4 font-serif text-2xl text-[color:var(--navy)]">{alert.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-700">{alert.description}</p>
                 <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-600">
-                  <span>{[alert.city, alert.county].filter(Boolean).join(" · ")}</span>
+                  {(() => {
+                    const affected = JSON.parse(alert.affectedCounties || "[]") as string[];
+                    const location = affected.length > 0
+                      ? affected.join(", ")
+                      : [alert.city, alert.county].filter(Boolean).join(" · ");
+                    return <span>{location}</span>;
+                  })()}
                   <span>Updated {formatTimestamp(alert.updatedAt)}</span>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
@@ -112,6 +118,10 @@ export default async function AlertsPage({ searchParams }: PageProps) {
               <h3 className="font-semibold text-[color:var(--navy)]">{alert.title}</h3>
               <p className="mt-2 text-sm text-slate-600">
                 {getAlertTypeLabel(alert.alertType)} · {formatTimestamp(alert.expiresAt)}
+                {(() => {
+                  const affected = JSON.parse(alert.affectedCounties || "[]") as string[];
+                  return affected.length > 0 ? ` · ${affected.join(", ")}` : null;
+                })()}
               </p>
               <p className="mt-1 text-xs text-slate-400">
                 Source:{" "}

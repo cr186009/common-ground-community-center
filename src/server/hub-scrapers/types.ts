@@ -40,6 +40,7 @@ export type NormalizedScrapedAlert = {
   severity: AlertSeverity;
   city?: string | null;
   county: string;
+  affectedCounties?: string[];
   locationName?: string | null;
   address?: string | null;
   sourceName: string;

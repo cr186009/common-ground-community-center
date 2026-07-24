@@ -44,26 +44,27 @@ model Event {
 }
 
 model Alert {
-  id           String        @id @default(cuid())
-  title        String
-  description  String?
-  alertType    AlertType     @default(OTHER)
-  severity     AlertSeverity @default(LOW)
-  city         String?
-  county       String
-  locationName String?
-  address      String?
-  sourceName   String
-  sourceUrl    String
-  originalUrl  String?
-  startsAt     DateTime?
-  expiresAt    DateTime?
-  status       AlertStatus   @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  lastSeenAt   DateTime      @default(now())
-  sourceId     String?
-  source       Source?       @relation(fields: [sourceId], references: [id])
+  id               String        @id @default(cuid())
+  title            String
+  description      String?
+  alertType        AlertType     @default(OTHER)
+  severity         AlertSeverity @default(LOW)
+  city             String?
+  county           String
+  affectedCounties String        @default("[]")
+  locationName     String?
+  address          String?
+  sourceName       String
+  sourceUrl        String
+  originalUrl      String?
+  startsAt         DateTime?
+  expiresAt        DateTime?
+  status           AlertStatus   @default(ACTIVE)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  lastSeenAt       DateTime      @default(now())
+  sourceId         String?
+  source           Source?       @relation(fields: [sourceId], references: [id])
 
   @@index([status, severity])
   @@index([county, status])
