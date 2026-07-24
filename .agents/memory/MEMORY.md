@@ -1,1 +1,3 @@
 - [Next.js → Vite+Wouter migration](next-to-vite-migration.md) — key patterns for porting SSR Next.js apps to Replit's Vite+React+Wouter stack with OpenAPI backend.
+- [Pexels fallback image system](pexels-image-system.md) — schema fields + service + admin actions for Pexels fallback images; requires prisma db push before runtime use.
+- [Admin tab architecture](admin-tab-architecture.md) — admin page uses ?tab=X query params with 6 section components; section components are async server components in src/components/admin/.

@@ -26,6 +26,10 @@ import {
   scrapeAllSupportedSources,
   scrapeSingleSourceById,
 } from "@/server/hub-scrapers";
+import {
+  assignFallbackImageToEvent,
+  assignFallbackImagesToMissingEvents,
+} from "@/server/pexels";
 import { generateMeetingPlainEnglishSummary } from "@/services/meeting-summary-service";
 
 const CATEGORY_VALUES = [
@@ -776,4 +780,102 @@ export async function generateMeetingSummaryAction(formData: FormData) {
 
   revalidateAll();
   redirect("/admin?summaryGenerated=1");
+}
+
+// -------------------------------------------------------------------------
+// Event status management
+// -------------------------------------------------------------------------
+
+export async function approveEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { status: "APPROVED" },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&approved=1");
+}
+
+// -------------------------------------------------------------------------
+// Pexels image admin actions
+// -------------------------------------------------------------------------
+
+export async function assignFallbackImageAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  await assignFallbackImageToEvent(eventId);
+  revalidateAll();
+  redirect("/admin?tab=images&imageAssigned=1");
+}
+
+export async function replaceFallbackImageAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  await assignFallbackImageToEvent(eventId, { force: true });
+  revalidateAll();
+  redirect("/admin?tab=images&imageReplaced=1");
+}
+
+export async function removeFallbackImageAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      imageUrl: null,
+      imageSource: null,
+      imageCredit: null,
+      imageCreditUrl: null,
+      imageAlt: null,
+      imageIsFallback: false,
+    },
+  });
+  revalidateAll();
+  redirect("/admin?tab=images&imageRemoved=1");
+}
+
+export async function assignBulkFallbackImagesAction() {
+  await requireAdmin();
+  const result = await assignFallbackImagesToMissingEvents({ limit: 25 });
+  revalidateAll();
+  redirect(
+    `/admin?tab=images&bulkAssigned=${result.assigned}&bulkSkipped=${result.skipped}&bulkFailed=${result.failed}`,
+  );
+}
+
+// -------------------------------------------------------------------------
+// Source editing action
+// -------------------------------------------------------------------------
+
+export async function updateSourceAction(formData: FormData) {
+  await requireAdmin();
+  const sourceId = getString(formData, "sourceId");
+  const payload = sourceFormSchema.parse({
+    name: getString(formData, "name"),
+    url: getString(formData, "url"),
+    type: getString(formData, "type") as SourceType,
+    section: getString(formData, "section") as SourceSection,
+    city: getString(formData, "city") || undefined,
+    county: getString(formData, "county"),
+    scrapeFrequency: getString(formData, "scrapeFrequency") || undefined,
+    notes: getString(formData, "notes") || undefined,
+  });
+
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: {
+      name: payload.name,
+      url: payload.url,
+      type: payload.type,
+      section: payload.section,
+      county: payload.county,
+      city: payload.city ?? null,
+      scrapeFrequency: payload.scrapeFrequency ?? null,
+      notes: payload.notes ?? null,
+    },
+  });
+
+  revalidateAll();
+  redirect("/admin?tab=sources&sourceUpdated=1");
 }

@@ -27,6 +27,11 @@ model Event {
   sourceUrl       String
   originalUrl     String?
   imageUrl        String?
+  imageSource     String?
+  imageCredit     String?
+  imageCreditUrl  String?
+  imageAlt        String?
+  imageIsFallback Boolean     @default(false)
   status          EventStatus @default(APPROVED)
   confidenceScore Float?
   createdAt       DateTime    @default(now())

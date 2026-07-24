@@ -2,6 +2,8 @@ import {
   type AlertStatus,
   type Category,
   type EventStatus,
+  type SourceSection,
+  type SourceType,
   Prisma,
 } from "@prisma/client";
 import {
@@ -12,6 +14,7 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
+  subDays,
 } from "date-fns";
 
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
@@ -620,9 +623,487 @@ export async function getSourceHealthData() {
   });
 }
 
-prisma.source.findMany({
-  orderBy: [
-    { section: "asc" },
-    { name: "asc" },
-  ],
-})
+// -------------------------------------------------------------------------
+// Admin extended overview counts
+// -------------------------------------------------------------------------
+
+export async function getAdminExtendedCounts() {
+  const sevenDaysAgo = subDays(new Date(), 7);
+
+  const [scraperFailures7d, inactiveSources] = await Promise.all([
+    prisma.scrapeLog.count({
+      where: { status: "FAILED", createdAt: { gte: sevenDaysAgo } },
+    }),
+    prisma.source.count({ where: { active: false } }),
+  ]);
+
+  // These fields require db push to be available at runtime
+  let missingUpcomingImages = 0;
+  let fallbackImages = 0;
+  let sourceImages = 0;
+
+  try {
+    [missingUpcomingImages, fallbackImages, sourceImages] = await Promise.all([
+      prisma.event.count({
+        where: {
+          status: "APPROVED",
+          startDateTime: { gte: startOfDay(new Date()) },
+          imageUrl: null,
+        },
+      }),
+      prisma.event.count({ where: { imageIsFallback: true } }),
+      prisma.event.count({
+        where: { imageUrl: { not: null }, imageIsFallback: false },
+      }),
+    ]);
+  } catch {
+    // New columns not yet in DB — run prisma db push
+    missingUpcomingImages = await prisma.event
+      .count({
+        where: {
+          status: "APPROVED",
+          startDateTime: { gte: startOfDay(new Date()) },
+          imageUrl: null,
+        },
+      })
+      .catch(() => 0);
+  }
+
+  return {
+    missingUpcomingImages,
+    fallbackImages,
+    sourceImages,
+    scraperFailures7d,
+    inactiveSources,
+  };
+}
+
+// -------------------------------------------------------------------------
+// Enhanced source health for admin
+// -------------------------------------------------------------------------
+
+export type SourceHealthStatus = "HEALTHY" | "WARNING" | "FAILED" | "MANUAL" | "INACTIVE";
+
+export type AdminSourceHealth = {
+  id: string;
+  name: string;
+  active: boolean;
+  url: string;
+  section: SourceSection;
+  type: SourceType;
+  city: string | null;
+  county: string;
+  scrapeFrequency: string | null;
+  notes: string | null;
+  lastScrapedAt: Date | null;
+  health: SourceHealthStatus;
+  consecutiveFailures: number;
+  eventCount: number;
+  hasAutomatedScraper: boolean;
+  lastLog: {
+    status: string;
+    message: string;
+    itemsFound: number;
+    itemsCreated: number;
+    itemsUpdated: number;
+    createdAt: Date;
+  } | null;
+};
+
+function computeSourceHealthStatus(
+  source: { active: boolean; lastScrapedAt: Date | null; scrapeFrequency: string | null },
+  lastLogStatus: string | null,
+  recentLogs: Array<{ status: string; itemsFound: number }>,
+  hasAutomatedScraper: boolean,
+  sourceSection: string,
+): SourceHealthStatus {
+  if (!source.active) return "INACTIVE";
+  if (!hasAutomatedScraper) return "MANUAL";
+  if (!source.lastScrapedAt || !lastLogStatus) return "WARNING";
+  if (lastLogStatus === "FAILED") return "FAILED";
+
+  const ageMs = Date.now() - source.lastScrapedAt.getTime();
+  const freq = (source.scrapeFrequency ?? "").toLowerCase();
+  let staleMs = 10 * 24 * 60 * 60 * 1000;
+  if (freq.includes("hour")) staleMs = 4 * 60 * 60 * 1000;
+  else if (freq.includes("daily") || freq.includes("day")) staleMs = 2 * 24 * 60 * 60 * 1000;
+  else if (freq.includes("week")) staleMs = 10 * 24 * 60 * 60 * 1000;
+  else if (freq.includes("month")) staleMs = 40 * 24 * 60 * 60 * 1000;
+
+  if (ageMs > staleMs) return "WARNING";
+
+  // Repeated zero-results for event sources (alerts legitimately can return zero)
+  if (sourceSection !== "ALERTS" && recentLogs.length >= 3) {
+    const recent = recentLogs.slice(0, 3);
+    if (recent.every((l) => l.itemsFound === 0 && l.status === "SUCCESS")) {
+      return "WARNING";
+    }
+  }
+
+  return "HEALTHY";
+}
+
+export async function getAdminSourceHealth(
+  scraperNames: string[] = [],
+): Promise<AdminSourceHealth[]> {
+  const sources = await prisma.source.findMany({
+    include: {
+      logs: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          status: true,
+          message: true,
+          itemsFound: true,
+          itemsCreated: true,
+          itemsUpdated: true,
+          createdAt: true,
+        },
+      },
+      _count: { select: { events: true } },
+    },
+    orderBy: [{ section: "asc" }, { name: "asc" }],
+  });
+
+  return sources.map((source) => {
+    const lastLog = source.logs[0] ?? null;
+    const hasAutomatedScraper = scraperNames.includes(source.name);
+
+    let consecutiveFailures = 0;
+    for (const log of source.logs) {
+      if (log.status === "FAILED") consecutiveFailures++;
+      else break;
+    }
+
+    const health = computeSourceHealthStatus(
+      source,
+      lastLog?.status ?? null,
+      source.logs,
+      hasAutomatedScraper,
+      source.section,
+    );
+
+    return {
+      id: source.id,
+      name: source.name,
+      active: source.active,
+      url: source.url,
+      section: source.section,
+      type: source.type,
+      city: source.city,
+      county: source.county,
+      scrapeFrequency: source.scrapeFrequency,
+      notes: source.notes,
+      lastScrapedAt: source.lastScrapedAt,
+      health,
+      consecutiveFailures,
+      eventCount: source._count.events,
+      hasAutomatedScraper,
+      lastLog: lastLog
+        ? {
+            status: lastLog.status,
+            message: lastLog.message,
+            itemsFound: lastLog.itemsFound,
+            itemsCreated: lastLog.itemsCreated,
+            itemsUpdated: lastLog.itemsUpdated,
+            createdAt: lastLog.createdAt,
+          }
+        : null,
+    };
+  });
+}
+
+// -------------------------------------------------------------------------
+// Admin event management
+// -------------------------------------------------------------------------
+
+export type AdminEventFilters = {
+  query?: string;
+  sourceName?: string;
+  city?: string;
+  county?: string;
+  category?: string;
+  status?: string;
+  imgStatus?: string;
+  upcoming?: boolean;
+  page?: number;
+};
+
+export type AdminEventRow = {
+  id: string;
+  title: string;
+  startDateTime: Date;
+  city: string;
+  county: string;
+  category: string;
+  status: string;
+  sourceName: string;
+  originalUrl: string | null;
+  imageUrl: string | null;
+  imageIsFallback: boolean;
+  imageCredit: string | null;
+  imageSource: string | null;
+  updatedAt: Date;
+};
+
+export async function getAdminEventManagement(
+  filters: AdminEventFilters = {},
+): Promise<{ events: AdminEventRow[]; total: number; page: number; totalPages: number }> {
+  const PAGE_SIZE = 25;
+  const page = Math.max(1, filters.page ?? 1);
+  const skip = (page - 1) * PAGE_SIZE;
+
+  // Build image status filter (new columns require try/catch at runtime)
+  let imgFilter: Prisma.EventWhereInput = {};
+  if (filters.imgStatus === "missing") {
+    imgFilter = { imageUrl: null };
+  }
+  // fallback/real filters are applied post-query when new columns may not exist in DB
+
+  const where: Prisma.EventWhereInput = {
+    ...(filters.status ? { status: filters.status as EventStatus } : {}),
+    ...(filters.city ? { city: { contains: filters.city } } : {}),
+    ...(filters.county ? { county: { contains: filters.county } } : {}),
+    ...(filters.category ? { category: filters.category as Category } : {}),
+    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
+    ...(filters.upcoming
+      ? { startDateTime: { gte: startOfDay(new Date()) } }
+      : {}),
+    ...(filters.query
+      ? {
+          OR: [
+            { title: { contains: filters.query } },
+            { description: { contains: filters.query } },
+          ],
+        }
+      : {}),
+    ...imgFilter,
+  };
+
+  // Try to add imageIsFallback filters (new column — may not exist in DB yet)
+  let extraWhere: Prisma.EventWhereInput = {};
+  if (filters.imgStatus === "fallback") {
+    try {
+      extraWhere = { imageIsFallback: true };
+    } catch {
+      // column not yet in DB
+    }
+  } else if (filters.imgStatus === "real") {
+    try {
+      extraWhere = { imageUrl: { not: null }, imageIsFallback: false };
+    } catch {
+      extraWhere = { imageUrl: { not: null } };
+    }
+  }
+
+  const combinedWhere = { ...where, ...extraWhere };
+
+  const [events, total] = await Promise.all([
+    prisma.event.findMany({
+      where: combinedWhere,
+      orderBy: { updatedAt: "desc" },
+      take: PAGE_SIZE,
+      skip,
+      select: {
+        id: true,
+        title: true,
+        startDateTime: true,
+        city: true,
+        county: true,
+        category: true,
+        status: true,
+        sourceName: true,
+        originalUrl: true,
+        imageUrl: true,
+        imageIsFallback: true,
+        imageCredit: true,
+        imageSource: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.event.count({ where: combinedWhere }),
+  ]);
+
+  return {
+    events,
+    total,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  };
+}
+
+// -------------------------------------------------------------------------
+// Admin image stats
+// -------------------------------------------------------------------------
+
+export type AdminImageDataResult = {
+  stats: {
+    total: number;
+    missingUpcoming: number;
+    withFallback: number;
+    withSource: number;
+  };
+  missingUpcomingEvents: Array<{
+    id: string;
+    title: string;
+    startDateTime: Date;
+    category: string;
+    city: string;
+  }>;
+  fallbackEvents: Array<{
+    id: string;
+    title: string;
+    startDateTime: Date;
+    category: string;
+    city: string;
+    imageUrl: string | null;
+    imageCredit: string | null;
+    imageCreditUrl: string | null;
+  }>;
+};
+
+export async function getAdminImageData(): Promise<AdminImageDataResult> {
+  const now = startOfDay(new Date());
+
+  const [total, missingUpcoming, missingUpcomingEvents] = await Promise.all([
+    prisma.event.count({ where: { status: "APPROVED" } }),
+    prisma.event.count({
+      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
+    }),
+    prisma.event.findMany({
+      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
+      select: { id: true, title: true, startDateTime: true, category: true, city: true },
+      orderBy: { startDateTime: "asc" },
+      take: 50,
+    }),
+  ]);
+
+  // New column queries — graceful fallback before db push
+  let withFallback = 0;
+  let withSource = 0;
+  let fallbackEvents: AdminImageDataResult["fallbackEvents"] = [];
+
+  try {
+    [withFallback, withSource, fallbackEvents] = await Promise.all([
+      prisma.event.count({ where: { imageIsFallback: true } }),
+      prisma.event.count({ where: { imageUrl: { not: null }, imageIsFallback: false } }),
+      prisma.event.findMany({
+        where: { imageIsFallback: true, status: "APPROVED" },
+        select: {
+          id: true,
+          title: true,
+          startDateTime: true,
+          category: true,
+          city: true,
+          imageUrl: true,
+          imageCredit: true,
+          imageCreditUrl: true,
+        },
+        orderBy: { startDateTime: "asc" },
+        take: 100,
+      }),
+    ]);
+  } catch {
+    withSource = await prisma.event
+      .count({ where: { imageUrl: { not: null } } })
+      .catch(() => 0);
+  }
+
+  return {
+    stats: { total, missingUpcoming, withFallback, withSource },
+    missingUpcomingEvents,
+    fallbackEvents,
+  };
+}
+
+// -------------------------------------------------------------------------
+// Admin scrape logs with filters
+// -------------------------------------------------------------------------
+
+export type AdminLogFilters = {
+  sourceName?: string;
+  status?: string;
+  zeros?: boolean;
+  created?: boolean;
+  page?: number;
+};
+
+export async function getAdminScrapeLogs(filters: AdminLogFilters = {}) {
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, filters.page ?? 1);
+  const skip = (page - 1) * PAGE_SIZE;
+
+  const where: Prisma.ScrapeLogWhereInput = {
+    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
+    ...(filters.status ? { status: filters.status as "SUCCESS" | "PARTIAL" | "FAILED" } : {}),
+    ...(filters.zeros ? { itemsFound: 0 } : {}),
+    ...(filters.created ? { itemsCreated: { gt: 0 } } : {}),
+  };
+
+  const [logs, total] = await Promise.all([
+    prisma.scrapeLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip,
+    }),
+    prisma.scrapeLog.count({ where }),
+  ]);
+
+  return { logs, total, page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+}
+
+// -------------------------------------------------------------------------
+// Possible duplicate events inspector
+// -------------------------------------------------------------------------
+
+export type DuplicateGroup = Array<{
+  id: string;
+  title: string;
+  startDateTime: Date;
+  sourceName: string;
+  originalUrl: string | null;
+  status: string;
+  updatedAt: Date;
+}>;
+
+export async function getAdminPossibleDuplicates(): Promise<DuplicateGroup[]> {
+  const events = await prisma.event.findMany({
+    where: {
+      status: "APPROVED",
+      startDateTime: { gte: startOfDay(new Date()) },
+    },
+    select: {
+      id: true,
+      title: true,
+      startDateTime: true,
+      city: true,
+      sourceName: true,
+      originalUrl: true,
+      status: true,
+      updatedAt: true,
+    },
+    orderBy: { startDateTime: "asc" },
+    take: 500,
+  });
+
+  const groups = new Map<string, typeof events>();
+
+  for (const event of events) {
+    const normalizedTitle = event.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const dateKey = event.startDateTime.toISOString().split("T")[0];
+    const cityKey = event.city.toLowerCase().trim();
+    const key = `${normalizedTitle}::${dateKey}::${cityKey}`;
+
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(event);
+  }
+
+  return Array.from(groups.values())
+    .filter((g) => g.length >= 2)
+    .slice(0, 30);
+}

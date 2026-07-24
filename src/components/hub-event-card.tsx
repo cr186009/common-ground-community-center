@@ -20,6 +20,10 @@ export function HubEventCard({ event }: { event: Event }) {
           title={event.title}
           imageUrl={event.imageUrl}
           category={event.category}
+          imageAlt={event.imageAlt}
+          imageCredit={event.imageCredit}
+          imageCreditUrl={event.imageCreditUrl}
+          imageIsFallback={event.imageIsFallback}
           className="h-44 rounded-b-none"
         />
       </Link>

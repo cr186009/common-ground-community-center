@@ -1,0 +1,510 @@
+Improve the Common Ground Community Center project in one coordinated phase:
+
+A. Add persistent Pexels fallback images for events without images.
+B. Reorganize the Admin panel into a practical operations dashboard.
+C. Improve management of sources, events, scraper logs, and duplicates.
+
+Before editing:
+- Inspect the existing Prisma schema, Admin page, server actions, hub-data queries, event-image component, source management, scraper logs, and existing authentication.
+- Reuse existing components, styles, server actions, and data queries where practical.
+- Do not remove existing functionality.
+- Do not run prisma seed.
+- Do not delete events, alerts, sources, or logs automatically.
+- Preserve the NWS alert deduplication and MyDallasGA scraper.
+- Make incremental changes and run the build after implementation.
+
+==================================================
+1. PEXELS FALLBACK IMAGE DATA
+==================================================
+
+Update prisma/schema.prisma in the Event model.
+
+Add nullable fields:
+
+imageSource       String?
+imageCredit       String?
+imageCreditUrl    String?
+imageAlt          String?
+imageIsFallback   Boolean @default(false)
+
+Keep the existing imageUrl field.
+
+The priority for event images must be:
+
+1. Real image scraped from the event source
+2. Manually assigned image
+3. Persisted Pexels fallback image
+4. Existing local generic placeholder
+
+Never replace a real scraped or manually assigned image automatically.
+
+Do not call Pexels every time a public page renders. Search Pexels only from an explicit Admin action and save the selected result in the database.
+
+==================================================
+2. PEXELS SERVICE
+==================================================
+
+Create:
+
+src/server/pexels.ts
+
+Use the Pexels REST API directly with fetch. Do not add an unnecessary npm package.
+
+Read the API key only from:
+
+process.env.PEXELS_API_KEY
+
+Never expose the key to client-side code.
+
+Implement:
+
+- searchPexelsPhotos(query, options)
+- findFallbackImageForEvent(event)
+- assignFallbackImageToEvent(eventId)
+- assignFallbackImagesToMissingEvents(options)
+
+Use:
+
+GET https://api.pexels.com/v1/search
+
+Send the API key in the Authorization header.
+
+Use landscape orientation and request approximately 15 results.
+
+Choose a result randomly from the returned results, but persist the choice so the image does not change on every page load.
+
+Save:
+
+- photo.src.landscape or photo.src.large as imageUrl
+- "Pexels" as imageSource
+- photographer name as imageCredit
+- photo.url as imageCreditUrl
+- photo.alt as imageAlt
+- true as imageIsFallback
+
+Build a useful search query based on event category and title.
+
+Suggested category queries:
+
+FAMILY:
+"community family festival"
+
+MUSIC:
+"outdoor live music community"
+
+FOOD_DRINK:
+"community food festival"
+
+FESTIVAL:
+"community street festival"
+
+PARKS_RECREATION:
+"community park outdoor recreation"
+
+SPORTS:
+"community sports event"
+
+LIBRARY:
+"community library books"
+
+SCHOOL:
+"school community event"
+
+VOLUNTEER:
+"community volunteers"
+
+GOVERNMENT_MEETING:
+"community town hall meeting"
+
+TRIVIA:
+"friends trivia night"
+
+KARAOKE:
+"community karaoke music"
+
+OTHER:
+"local community gathering"
+
+Do not send private information, database IDs, addresses, or full descriptions to Pexels.
+
+Handle these cases gracefully:
+
+- PEXELS_API_KEY is missing
+- no photographs are returned
+- Pexels returns an error
+- rate limit is reached
+- an event already has a non-fallback image
+
+A failed Pexels request must not break the Admin page or public Events page.
+
+==================================================
+3. IMAGE ADMIN ACTIONS
+==================================================
+
+Update:
+
+src/server/hub-actions.ts
+
+Add secure Admin server actions for:
+
+- Assign a fallback image to one event
+- Replace an existing fallback image with another result
+- Remove a fallback image
+- Assign fallback images to events currently missing images
+
+The bulk operation must:
+
+- affect no more than 25 events per request
+- skip events with real images
+- report assigned, skipped, and failed counts
+- never overwrite imageIsFallback=false images
+- revalidate the relevant Admin, Events, Activities, homepage, and event-detail paths
+
+Follow the project’s existing Admin authorization pattern.
+
+==================================================
+4. IMAGE DISPLAY AND ATTRIBUTION
+==================================================
+
+Update:
+
+src/components/event-image.tsx
+
+Requirements:
+
+- Continue displaying real event images.
+- Display persisted Pexels fallback images when assigned.
+- Use imageAlt when available.
+- Preserve the existing visual placeholder if no image exists.
+- Handle broken remote image URLs gracefully.
+- Do not display an empty or broken image box.
+
+Where practical, display a small, unobtrusive attribution link:
+
+"Photo by [photographer] on Pexels"
+
+The link should use imageCreditUrl, open in a new tab, and include rel="noreferrer".
+
+Also include a visible link somewhere appropriate:
+
+"Photos provided by Pexels"
+
+Link it to:
+
+https://www.pexels.com
+
+Update next.config.ts only if images.pexels.com needs to be added to the Next.js remote image configuration. Preserve every existing hostname.
+
+==================================================
+5. ADMIN PANEL ORGANIZATION
+==================================================
+
+Refactor:
+
+app/admin/page.tsx
+
+Keep the existing visual style but make the page much easier to scan and operate.
+
+Organize the Admin page into these clearly labeled sections:
+
+1. Overview
+2. Sources
+3. Events
+4. Images
+5. Scrape logs
+6. Add content
+
+Use a sticky or easily accessible Admin section navigation at the top. This can use anchor links or query-parameter tabs, whichever fits the existing server-component architecture best.
+
+Do not require a heavy new UI library.
+
+==================================================
+6. ADMIN OVERVIEW
+==================================================
+
+Add concise summary cards for:
+
+- Active sources
+- Inactive sources
+- Healthy sources
+- Sources needing attention
+- Pending events
+- Upcoming approved events
+- Events missing images
+- Events using fallback images
+- Scraper failures in the last seven days
+- Possible duplicate events
+
+Use clear colors:
+
+- green for healthy
+- amber for warnings
+- red for failed
+- gray for inactive or never run
+
+Add a “Needs attention” panel showing the most important operational issues, such as:
+
+- active source never scraped
+- last scrape failed
+- active source not scraped recently
+- source returned zero items repeatedly
+- events missing images
+- pending events
+- possible duplicates
+
+Do not classify a source as failed merely because it legitimately found zero current alerts.
+
+==================================================
+7. SOURCE MANAGEMENT
+==================================================
+
+Improve the Manage Sources section.
+
+Add filtering controls for:
+
+- search by source name
+- section
+- county
+- active/inactive
+- health status
+- scraper availability
+
+For each source display:
+
+- source name
+- website link
+- source type
+- section
+- city and county
+- active/inactive status
+- whether a registered scraper exists
+- scrape frequency
+- last scraped time
+- latest scrape status
+- latest found/created/updated counts
+- latest message
+- consecutive failure indication when available
+
+Add obvious actions:
+
+- Run scraper
+- Activate or deactivate
+- View recent logs for this source
+- Edit source
+
+If source editing does not currently exist, add a compact secure edit form or edit section using the existing server-action pattern.
+
+Clearly label sources that have no registered automated scraper as:
+
+"Manual source"
+
+Do not label manual Facebook sources as broken.
+
+Define health states consistently:
+
+HEALTHY:
+- active
+- registered automated scraper
+- most recent scrape succeeded
+- recently scraped according to its frequency
+
+WARNING:
+- never run
+- stale
+- repeated zero-result runs for an event source
+- partial result
+
+FAILED:
+- latest scrape failed
+
+MANUAL:
+- no automated scraper is expected
+
+INACTIVE:
+- source is deactivated
+
+==================================================
+8. EVENT MANAGEMENT
+==================================================
+
+Add a practical Manage Events section with filters for:
+
+- title search
+- source
+- city
+- county
+- category
+- status
+- upcoming/past
+- missing image
+- fallback image
+- real image
+
+Each event management row or card should show:
+
+- image thumbnail or placeholder
+- title
+- event date
+- city and county
+- category
+- status
+- source
+- image status:
+  - Source image
+  - Manual image
+  - Pexels fallback
+  - Missing
+- updated date
+
+Add actions where supported:
+
+- Edit
+- Approve pending event
+- Assign fallback image
+- Replace fallback image
+- Remove fallback image
+- Open public event page
+- Open original source
+
+Do not permanently delete events as part of this change.
+
+Use pagination or a reasonable result limit so the Admin page does not load every event at once.
+
+==================================================
+9. IMAGE MANAGEMENT SECTION
+==================================================
+
+Add a dedicated Images section.
+
+Display:
+
+- count of events missing images
+- count using source images
+- count using fallback images
+- count using manually assigned images
+
+Provide:
+
+- “Assign fallback images” button
+- maximum 25 events per run
+- result message showing assigned, skipped, and failed
+- list of upcoming events currently missing images
+- per-event Assign button
+- list of events using Pexels fallback images
+- per-event Replace and Remove buttons
+
+If PEXELS_API_KEY is absent, show:
+
+"Pexels integration is not configured. Add PEXELS_API_KEY to Replit Secrets."
+
+Do not crash or hide the rest of Admin.
+
+==================================================
+10. SCRAPE LOGS
+==================================================
+
+Improve Recent Scrape Logs.
+
+Add filters for:
+
+- source
+- success/partial/failed
+- date range
+- runs with zero items
+- runs that created records
+- runs that had failures
+
+Display:
+
+- source
+- started/completed time if available
+- status
+- message
+- found
+- created
+- updated
+- failed item count if available
+- duration if available
+
+Allow log details JSON to be expanded using a native details/summary element.
+
+Make failure messages readable without exposing secrets or environment variables.
+
+Show the latest runs first and use a reasonable limit.
+
+==================================================
+11. DUPLICATE INSPECTOR
+==================================================
+
+Add a read-only Possible Duplicates section or subsection.
+
+Find likely event duplicates using normalized:
+
+- title
+- calendar date
+- city
+
+Display groups with two or more possible duplicates.
+
+For each record show:
+
+- title
+- date
+- source
+- original URL
+- status
+- last updated
+
+Do not automatically merge or delete duplicates.
+
+This is inspection-only for this phase.
+
+==================================================
+12. ADMIN DATA QUERIES
+==================================================
+
+Update:
+
+src/server/hub-data.ts
+
+Extend getAdminDashboardData or add focused Admin query functions.
+
+Avoid one enormous unbounded database query.
+
+Use:
+
+- selected fields
+- counts
+- sensible limits
+- pagination where appropriate
+- batched Promise.all queries where safe
+
+Avoid N+1 queries.
+
+Preserve all existing public data behavior.
+
+==================================================
+13. DATABASE AND BUILD
+==================================================
+
+After implementation:
+
+1. Run:
+   pnpm exec prisma generate
+
+2. Run:
+   pnpm run build
+
+3. Fix every TypeScript and build error.
+
+4. Do not run:
+   pnpm exec prisma db push
+   pnpm run db:seed
+   prisma migrate reset
+
+5. Report:
+   - every file changed
+   - new environment variable required
+   - database command the user must run
+   - build result
+   - any functionality intentionally deferred

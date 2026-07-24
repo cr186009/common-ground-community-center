@@ -31,6 +31,10 @@ export default async function EventDetailPage({ params }: PageProps) {
           title={event.title}
           imageUrl={event.imageUrl}
           category={event.category}
+          imageAlt={event.imageAlt}
+          imageCredit={event.imageCredit}
+          imageCreditUrl={event.imageCreditUrl}
+          imageIsFallback={event.imageIsFallback}
           className="h-64 rounded-b-none md:h-80"
         />
         <div className="p-8">
