@@ -27,6 +27,12 @@ function buildEventsUrl(sourceUrl: string): string {
   return url.toString();
 }
 
+function buildEventCalendarUrl(sourceUrl: string): string {
+  const url = new URL(sourceUrl.replace(/\/$/, ""));
+  url.pathname = "/eventcalendar";
+  return url.toString();
+}
+
 // ---------------------------------------------------------------------------
 // JSON-LD helpers
 // ---------------------------------------------------------------------------
@@ -123,7 +129,7 @@ async function scrapeDetailPage(
   const ld = findJsonLdEvent(html);
 
   // ---- title ----
-  let title =
+  const title =
     (ld?.name ? cleanText(ld.name) : "") ||
     cleanText($("[data-hook='event-title']").first().text()) ||
     cleanText($("h1").first().text()) ||
@@ -170,9 +176,7 @@ async function scrapeDetailPage(
     cleanText($("[class*='location']").first().text()) ||
     "Downtown Dallas";
 
-  const address =
-    locFromLd.street ||
-    null;
+  const address = locFromLd.street || null;
 
   // ---- image ----
   let imageUrl: string | null = null;
@@ -257,6 +261,105 @@ async function runWithConcurrency<T>(
 }
 
 // ---------------------------------------------------------------------------
+// /eventcalendar inspection
+// ---------------------------------------------------------------------------
+
+async function collectEventCalendarUrls(
+  sourceUrl: string,
+): Promise<{ urls: Set<string>; calendarMessage: string | null }> {
+  const calendarUrl = buildEventCalendarUrl(sourceUrl);
+  let html: string;
+
+  try {
+    html = await fetchSourceHtml(calendarUrl);
+  } catch (error) {
+    const msg =
+      error instanceof Error ? error.message : String(error);
+    console.warn(`[MYDALLASGA] Could not fetch /eventcalendar: ${msg}`);
+    return {
+      urls: new Set(),
+      calendarMessage: `Could not fetch /eventcalendar (${calendarUrl}): ${msg}`,
+    };
+  }
+
+  const $ = cheerio.load(html);
+  const urls = new Set<string>();
+
+  // Strategy 1: direct /event-details-registration/ anchor tags
+  $(`a[href*="${DETAIL_PATTERN}"]`).each((_, el) => {
+    const href = $(el).attr("href");
+    if (!href) return;
+    const abs = toAbsoluteUrl(sourceUrl, href);
+    if (abs) urls.add(abs);
+  });
+
+  if (urls.size > 0) {
+    console.log(
+      `[MYDALLASGA] /eventcalendar: found ${urls.size} event-details link(s) via anchor tags`,
+    );
+    return { urls, calendarMessage: null };
+  }
+
+  // Strategy 2: /event-details-registration/ paths embedded in script content
+  // (Wix sometimes serialises route data into a <script> block)
+  $("script").each((_, el) => {
+    if (urls.size > 0) return;
+    const content = $(el).html() ?? "";
+    const matches =
+      content.match(/\/event-details-registration\/[^"'\\<>\s]+/g) ?? [];
+    for (const path of matches) {
+      const abs = toAbsoluteUrl(sourceUrl, path);
+      if (abs) urls.add(abs);
+    }
+  });
+
+  if (urls.size > 0) {
+    console.log(
+      `[MYDALLASGA] /eventcalendar: found ${urls.size} event link(s) via script data`,
+    );
+    return { urls, calendarMessage: null };
+  }
+
+  // Strategy 3: JSON-LD (may contain a single featured event)
+  const ld = findJsonLdEvent(html);
+  if (ld?.name) {
+    console.log(
+      "[MYDALLASGA] /eventcalendar: JSON-LD Event object found but no navigable detail link — skipping",
+    );
+  }
+
+  // Nothing found — report clearly, do not fail the overall scraper
+  const calendarMessage =
+    `/eventcalendar (${calendarUrl}) was fetched but contained zero detectable event records. ` +
+    "The page likely loads its calendar grid dynamically via Wix client-side JavaScript, " +
+    "which is not accessible without a browser runtime.";
+  console.log(`[MYDALLASGA] ${calendarMessage}`);
+  return { urls: new Set(), calendarMessage };
+}
+
+// ---------------------------------------------------------------------------
+// Deduplication across both endpoints
+// ---------------------------------------------------------------------------
+
+function dedupeByNormalizedKey(
+  events: NormalizedScrapedEvent[],
+): NormalizedScrapedEvent[] {
+  // Combine the project's normalised dedupe with URL-based dedupe
+  const byUrl = new Map<string, NormalizedScrapedEvent>();
+  for (const e of events) {
+    if (e.originalUrl) {
+      // Normalise the URL: strip query string and trailing slash
+      const normUrl = e.originalUrl.split("?")[0].replace(/\/$/, "");
+      if (!byUrl.has(normUrl)) byUrl.set(normUrl, e);
+    }
+  }
+  // Any event without a URL gets kept; pass all through the title+date dedupe
+  const withUrls = Array.from(byUrl.values());
+  const withoutUrls = events.filter((e) => !e.originalUrl);
+  return dedupeNormalizedEvents([...withUrls, ...withoutUrls]);
+}
+
+// ---------------------------------------------------------------------------
 // Scraper export
 // ---------------------------------------------------------------------------
 
@@ -264,12 +367,11 @@ export const myDallasGaScraper: SourceScraper = {
   sourceName: SOURCE_NAME,
 
   async scrape(source): Promise<ScrapeOutput> {
-    // Always fetch /events regardless of what the stored source URL is
+    // ---- /events (primary feed) ----
     const eventsUrl = buildEventsUrl(source.url);
     const listingHtml = await fetchSourceHtml(eventsUrl);
     const $ = cheerio.load(listingHtml);
 
-    // Collect unique event detail-page URLs
     const detailUrls = new Set<string>();
     $(`a[href*="${DETAIL_PATTERN}"]`).each((_, el) => {
       const href = $(el).attr("href");
@@ -282,11 +384,24 @@ export const myDallasGaScraper: SourceScraper = {
       `[MYDALLASGA] ${detailUrls.size} detail link(s) found on ${eventsUrl}`,
     );
 
+    // ---- /eventcalendar (secondary feed) ----
+    const { urls: calendarUrls, calendarMessage } =
+      await collectEventCalendarUrls(source.url);
+
+    for (const url of calendarUrls) detailUrls.add(url);
+
+    console.log(
+      `[MYDALLASGA] ${detailUrls.size} unique detail URL(s) after combining both endpoints`,
+    );
+
     if (detailUrls.size === 0) {
       return {
         status: "PARTIAL",
         message:
-          "MyDallasGA events page loaded but no /event-details-registration/ links were found.",
+          "MyDallasGA events page loaded but no /event-details-registration/ links were found. " +
+          (calendarMessage
+            ? `Community calendar: ${calendarMessage}`
+            : ""),
         events: [],
       };
     }
@@ -297,16 +412,22 @@ export const myDallasGaScraper: SourceScraper = {
 
     const raw = await runWithConcurrency(tasks, CONCURRENCY);
 
-    const events = dedupeNormalizedEvents(
+    const events = dedupeByNormalizedKey(
       raw.filter((e): e is NormalizedScrapedEvent => e !== null),
     );
 
+    const baseMessage =
+      events.length > 0
+        ? `Scraped ${events.length} event(s) from MyDallasGA (${detailUrls.size} detail page(s) checked).`
+        : "MyDallasGA detail pages loaded but no valid events were extracted.";
+
+    const fullMessage = calendarMessage
+      ? `${baseMessage} Community calendar: ${calendarMessage}`
+      : baseMessage;
+
     return {
       status: events.length > 0 ? "SUCCESS" : "PARTIAL",
-      message:
-        events.length > 0
-          ? `Scraped ${events.length} event(s) from MyDallasGA.`
-          : "MyDallasGA detail pages loaded but no valid events were extracted.",
+      message: fullMessage,
       events,
     };
   },

@@ -12,6 +12,7 @@ import { dallasOfficialScraper } from "@/server/hub-scrapers/sources/dallas-offi
 import { createFacebookManualScraper } from "@/server/hub-scrapers/sources/facebook-manual";
 import { hiramOfficialScraper } from "@/server/hub-scrapers/sources/hiram-official";
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
+import { pauldingPublicCalendarScraper } from "@/server/hub-scrapers/sources/paulding-public-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
@@ -87,6 +88,7 @@ type ScrapeLogStatus = "SUCCESS" | "PARTIAL" | "FAILED";
 
 const registeredScrapers: SourceScraper[] = [
   pauldingCalendarScraper,
+  pauldingPublicCalendarScraper,
   acworthOfficialScraper,
   dallasOfficialScraper,
   hiramOfficialScraper,

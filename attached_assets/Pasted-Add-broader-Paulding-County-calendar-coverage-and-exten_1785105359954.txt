@@ -1,0 +1,272 @@
+Add broader Paulding County calendar coverage and extend the existing MyDallasGA scraper to inspect the community event calendar.
+
+Important:
+- Preserve the existing “Paulding County Parks calendar” scraper and source.
+- Preserve the working “Downtown Dallas / MyDallasGA” scraper.
+- Do not create duplicate events or duplicate source records.
+- Do not run the seed command.
+- Do not modify the Admin/Pexels work except where source registration requires it.
+
+==================================================
+1. PAULDING COUNTY PUBLIC CALENDAR
+==================================================
+
+Source:
+
+Name:
+Paulding County public calendar
+
+URL:
+https://www.paulding.gov/calendar.aspx
+
+City:
+Dallas
+
+County:
+Paulding
+
+Frequency:
+daily
+
+Create:
+
+src/server/hub-scrapers/sources/paulding-public-calendar.ts
+
+Export:
+
+pauldingPublicCalendarScraper
+
+Its exact sourceName must be:
+
+Paulding County public calendar
+
+Register it in:
+
+src/server/hub-scrapers/index.ts
+
+Add the source definition to:
+
+prisma/seed.ts
+
+Do not alter or replace the existing:
+
+Paulding County Parks calendar
+
+==================================================
+2. CALENDAR COVERAGE
+==================================================
+
+The CivicPlus calendar supports multiple calendars, including:
+
+- Main County Calendar
+- Planning & Zoning
+- Library
+- Parks & Recreation
+- Senior Center
+- Sheriff
+- Fire
+- Keep Paulding Beautiful & Recycling
+- Board and commission activity
+- Other public departments
+
+Fetch the current month and the next five months using list view.
+
+Preserve the relevant URL parameters required by CivicPlus.
+
+Discover event links using Calendar.aspx?EID= links instead of fragile CSS classes.
+
+Deduplicate repeated links and repeated event entries.
+
+Fetch each unique detail page with concurrency limited to 3.
+
+==================================================
+3. PAULDING DETAIL-PAGE DATA
+==================================================
+
+Extract:
+
+- title
+- start date and time
+- end date and time
+- full description
+- location name
+- address
+- calendar/category name
+- original detail URL
+- event image when a legitimate event image exists
+
+Use:
+
+- city: Dallas unless the page provides another valid Paulding County city
+- county: Paulding
+- sourceName: source.name
+- sourceUrl: source.url
+- originalUrl: CivicPlus detail-page URL
+- confidenceScore: 0.9 when title, date, and original URL are valid
+
+Do not use the county logo, navigation graphics, icons, or footer images as event images.
+
+==================================================
+4. ROUTE MEETINGS CORRECTLY
+==================================================
+
+Return government meetings through ScrapeOutput.meetings instead of displaying them as recreational events.
+
+Treat entries as meetings when the title or calendar indicates:
+
+- Board of Commissioners
+- Work Session
+- Planning Commission
+- Planning & Zoning
+- Public Hearing
+- Zoning hearing
+- County board
+- County commission
+- Authority meeting
+- Committee meeting
+
+For meetings populate:
+
+- title
+- governmentBody
+- meetingType
+- startDateTime
+- endDateTime
+- locationName
+- address
+- city
+- county
+- agendaUrl when available
+- sourceName
+- sourceUrl
+- originalUrl
+- status: UPCOMING
+- keyTopics when identifiable
+
+Use the project’s existing MeetingType values. Do not invent enum values.
+
+All remaining public activities should be returned as events.
+
+Do not import administrative deadlines, generic notices, job postings, or pages without a real scheduled public event.
+
+==================================================
+5. PAULDING EVENT CLASSIFICATION
+==================================================
+
+Use inferCategory() and improve classification using the calendar name.
+
+Examples:
+
+- Library → LIBRARY
+- Parks & Recreation → PARKS_RECREATION
+- family, children, puppet, youth → FAMILY
+- festival, parade, celebration → FESTIVAL
+- recycling cleanup or volunteer activity → VOLUNTEER
+- concert or performance → MUSIC
+
+Use useful tags such as:
+
+- "paulding county"
+- normalized calendar name
+- "county calendar"
+
+Determine isFree, isKidFriendly, and isOutdoor only from relevant wording.
+
+==================================================
+6. MYDALLASGA EVENT CALENDAR
+==================================================
+
+Update the existing file:
+
+src/server/hub-scrapers/sources/mydallasga.ts
+
+Keep its exact sourceName:
+
+Downtown Dallas / MyDallasGA
+
+Continue scraping:
+
+https://www.mydallasga.com/events
+
+Also inspect:
+
+https://www.mydallasga.com/eventcalendar
+
+Do not create another MyDallasGA source unless the second page is proven to contain a truly separate event feed that requires its own source.
+
+The /eventcalendar page appears to use Wix and may load content dynamically.
+
+Inspect:
+
+- JSON-LD
+- Wix embedded initial-state JSON
+- script data
+- iframe URLs
+- documented or publicly called Wix event endpoints
+- links containing /event-details-registration/
+
+Do not add Playwright, Puppeteer, Selenium, or a browser dependency unless no structured data or public endpoint exists.
+
+Do not scrape the “Submit Your Event” form as an event.
+
+If /eventcalendar currently contains no event records:
+
+- Keep the working /events results.
+- Do not fail the entire scraper.
+- Return a clear message explaining that the community calendar endpoint contained zero detectable events.
+- Do not create fake or empty records.
+
+Combine and deduplicate results from both MyDallasGA endpoints using:
+
+- normalized title
+- calendar date/time
+- city
+- original URL where available
+
+Preserve image extraction from event detail pages.
+
+==================================================
+7. SOURCE AND DATABASE SAFETY
+==================================================
+
+Update prisma/seed.ts with the new Paulding source definition, but do not run seed.
+
+Before creating the new source in application code or Admin, check whether a source named:
+
+Paulding County public calendar
+
+already exists.
+
+Do not create a second record if it exists.
+
+Do not change these existing source names:
+
+- Paulding County Parks calendar
+- Downtown Dallas / MyDallasGA
+- MyDallasGA Facebook
+
+==================================================
+8. VALIDATION
+==================================================
+
+Run:
+
+pnpm exec prisma generate
+pnpm run build
+
+Fix all TypeScript and build errors.
+
+Report:
+
+- files changed
+- exact source names
+- number of events found during parser tests
+- number of meetings found during parser tests
+- whether /eventcalendar exposed an event feed
+- any calendar categories that could not be parsed
+
+Do not run:
+
+- prisma db push
+- prisma migrate reset
+- pnpm run db:seed

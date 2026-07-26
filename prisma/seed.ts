@@ -205,6 +205,17 @@ const sources = [
     notes: "Working scraper target for parks calendar items.",
   },
   {
+    name: "Paulding County public calendar",
+    url: "https://www.paulding.gov/calendar.aspx",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: "Dallas",
+    county: "Paulding",
+    active: true,
+    scrapeFrequency: "daily",
+    notes: "Main Paulding County CivicPlus calendar covering all county departments: library, parks, senior center, planning & zoning, board of commissioners, and more.",
+  },
+  {
     name: "Paulding County recreation registration/events",
     url: "https://recreation.paulding.gov/",
     type: SourceType.RECREATION,
