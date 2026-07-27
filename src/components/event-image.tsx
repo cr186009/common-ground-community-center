@@ -1,3 +1,5 @@
+"use client";
+
 import type { Category } from "@prisma/client";
 
 import { getCategoryLabel } from "@/lib/hub-format";
@@ -53,32 +55,54 @@ export function EventImage({
         {getCategoryLabel(category)}
       </span>
 
-      {/* Pexels attribution — only shown when imageIsFallback is true */}
+      {/* Pexels attribution — only shown when imageIsFallback is true.
+          Uses <span role="link"> instead of <a> to avoid nested-anchor
+          invalid HTML when EventImage is rendered inside a card <Link>. */}
       {showAttribution && (
         <span
           className="absolute bottom-3 right-3 rounded-full bg-black/30 px-2 py-1 text-[10px] text-white/75 backdrop-blur-sm"
           aria-hidden="true"
         >
           Photo by{" "}
-          <a
-            href={imageCreditUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-white"
-            onClick={(e) => e.stopPropagation()}
+          <span
+            role="link"
+            tabIndex={0}
+            className="cursor-pointer underline hover:text-white"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(imageCreditUrl!, "_blank", "noreferrer");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(imageCreditUrl!, "_blank", "noreferrer");
+              }
+            }}
           >
             {imageCredit}
-          </a>{" "}
+          </span>{" "}
           on{" "}
-          <a
-            href="https://www.pexels.com"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-white"
-            onClick={(e) => e.stopPropagation()}
+          <span
+            role="link"
+            tabIndex={0}
+            className="cursor-pointer underline hover:text-white"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open("https://www.pexels.com", "_blank", "noreferrer");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open("https://www.pexels.com", "_blank", "noreferrer");
+              }
+            }}
           >
             Pexels
-          </a>
+          </span>
         </span>
       )}
     </div>
