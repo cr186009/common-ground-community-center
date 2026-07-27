@@ -12,24 +12,30 @@ import {
 /**
  * Assign a Pexels fallback image to a single event.
  *
- * @param eventId  - Prisma Event.id
- * @param options.force - When true, replaces an existing fallback image.
- *                        When false (default), skips events that already have
- *                        any imageUrl set.
+ * @param eventId - Prisma Event.id
+ * @param options.force - When true, replaces the existing event image.
+ *                        When false, skips an event that already has an image.
  */
 export async function assignFallbackImageToEvent(
   eventId: string,
   options?: { force?: boolean },
 ): Promise<{ success: boolean; reason?: string }> {
-  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  });
 
   if (!event) {
-    return { success: false, reason: "Event not found" };
+    return {
+      success: false,
+      reason: "Event not found",
+    };
   }
 
-  // Skip if already has an image and we're not forcing a replacement
   if (event.imageUrl && !options?.force) {
-    return { success: false, reason: "Event already has an image" };
+    return {
+      success: false,
+      reason: "Event already has an image",
+    };
   }
 
   const query = buildPexelsSearchQuery({
@@ -38,10 +44,25 @@ export async function assignFallbackImageToEvent(
     description: event.description ?? null,
   });
 
-  const result = await searchPexelsImage(query);
+  /*
+   * Initial assignment uses the event ID as the selection seed.
+   * This prevents every event with the same query from getting the same image.
+   *
+   * Replacement adds the current time and excludes the current URL.
+   * This makes the Replace button return a different image.
+   */
+  const selectionSeed = options?.force ? `${event.id}:${Date.now()}` : event.id;
+
+  const result = await searchPexelsImage(query, {
+    excludeImageUrl: options?.force ? event.imageUrl : null,
+    selectionSeed,
+  });
 
   if (!result) {
-    return { success: false, reason: "No Pexels image found for query" };
+    return {
+      success: false,
+      reason: "No Pexels image found for query",
+    };
   }
 
   await prisma.event.update({
@@ -56,23 +77,30 @@ export async function assignFallbackImageToEvent(
     },
   });
 
-  return { success: true };
+  return {
+    success: true,
+  };
 }
 
 /**
  * Bulk-assign Pexels fallback images to events that have no imageUrl.
- *
- * @param options.limit - Maximum number of events to process (default 25).
- * @returns Counts of assigned, skipped, and failed events.
  */
 export async function assignFallbackImagesToMissingEvents(options?: {
   limit?: number;
-}): Promise<{ assigned: number; skipped: number; failed: number }> {
+}): Promise<{
+  assigned: number;
+  skipped: number;
+  failed: number;
+}> {
   const limit = options?.limit ?? 25;
 
   const events = await prisma.event.findMany({
-    where: { imageUrl: null },
-    orderBy: { startDateTime: "asc" },
+    where: {
+      imageUrl: null,
+    },
+    orderBy: {
+      startDateTime: "asc",
+    },
     take: limit,
     select: {
       id: true,
@@ -93,7 +121,13 @@ export async function assignFallbackImagesToMissingEvents(options?: {
       description: event.description ?? null,
     });
 
-    const result = await searchPexelsImage(query);
+    /*
+     * Use the event ID as the seed so events with the same search query
+     * receive different photos from the returned result pool.
+     */
+    const result = await searchPexelsImage(query, {
+      selectionSeed: event.id,
+    });
 
     if (!result) {
       failed++;
@@ -101,8 +135,11 @@ export async function assignFallbackImagesToMissingEvents(options?: {
     }
 
     try {
-      await prisma.event.update({
-        where: { id: event.id },
+      const updateResult = await prisma.event.updateMany({
+        where: {
+          id: event.id,
+          imageUrl: null,
+        },
         data: {
           imageUrl: result.imageUrl,
           imageSource: result.imageSource,
@@ -112,11 +149,24 @@ export async function assignFallbackImagesToMissingEvents(options?: {
           imageIsFallback: true,
         },
       });
-      assigned++;
-    } catch {
+
+      if (updateResult.count === 0) {
+        skipped++;
+      } else {
+        assigned++;
+      }
+    } catch (error) {
+      console.error(
+        `Failed to assign Pexels image to event ${event.id}:`,
+        error,
+      );
       failed++;
     }
   }
 
-  return { assigned, skipped, failed };
+  return {
+    assigned,
+    skipped,
+    failed,
+  };
 }
