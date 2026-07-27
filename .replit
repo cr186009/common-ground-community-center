@@ -20,6 +20,14 @@ externalPort = 3000
 localPort = 5556
 externalPort = 3001
 
+[[ports]]
+localPort = 5557
+externalPort = 3003
+
+[[ports]]
+localPort = 5558
+externalPort = 4200
+
 [workflows]
 runButton = "Community Center"
 
