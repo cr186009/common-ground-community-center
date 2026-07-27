@@ -829,6 +829,107 @@ export function getSupportedScraperNames() {
   return Object.keys(SCRAPER_REGISTRY).sort();
 }
 
+async function processScrapedItems({
+  source,
+  events,
+  alerts,
+  meetings,
+  volunteer,
+}: {
+  source: Source;
+  events: NormalizedScrapedEvent[];
+  alerts: NormalizedScrapedAlert[];
+  meetings: NormalizedScrapedMeeting[];
+  volunteer: NormalizedVolunteerOpportunity[];
+}): Promise<{
+  itemResults: ScrapedItemSummary[];
+  created: number;
+  updated: number;
+  failed: number;
+}> {
+  const itemResults: ScrapedItemSummary[] = [];
+
+  for (const event of events) {
+    itemResults.push(
+      await processItem({
+        type: "event",
+        item: event,
+        title: event.title,
+        date: event.startDateTime,
+        city: event.city,
+        county: event.county,
+        sourceUrl: event.originalUrl ?? event.sourceUrl,
+        save: (value) => upsertScrapedEvent(source, value),
+      }),
+    );
+  }
+
+  for (const alert of alerts) {
+    itemResults.push(
+      await processItem({
+        type: "alert",
+        item: alert,
+        title: alert.title,
+        date: alert.startsAt,
+        city: alert.city,
+        county: alert.county,
+        sourceUrl: alert.originalUrl ?? alert.sourceUrl,
+        save: (value) => upsertScrapedAlert(source, value),
+      }),
+    );
+  }
+
+  for (const meeting of meetings) {
+    itemResults.push(
+      await processItem({
+        type: "meeting",
+        item: meeting,
+        title: meeting.title,
+        date: meeting.startDateTime,
+        city: meeting.city,
+        county: meeting.county,
+        sourceUrl: meeting.originalUrl ?? meeting.sourceUrl,
+        save: (value) => upsertScrapedMeeting(source, value),
+      }),
+    );
+  }
+
+  for (const opportunity of volunteer) {
+    itemResults.push(
+      await processItem({
+        type: "volunteer",
+        item: opportunity,
+        title: opportunity.title,
+        date: opportunity.dateTime,
+        city: opportunity.city,
+        county: opportunity.county,
+        sourceUrl: opportunity.sourceUrl,
+        save: (value) =>
+          upsertVolunteerOpportunity(source, value),
+      }),
+    );
+  }
+
+  const created = itemResults.filter(
+    (item) => item.action === "created",
+  ).length;
+
+  const updated = itemResults.filter(
+    (item) => item.action === "updated",
+  ).length;
+
+  const failed = itemResults.filter(
+    (item) => item.action === "failed",
+  ).length;
+
+  return {
+    itemResults,
+    created,
+    updated,
+    failed,
+  };
+}
+
 export async function scrapeSource(source: Source) {
   const scraper = SCRAPER_REGISTRY[source.name];
 
@@ -863,81 +964,18 @@ export async function scrapeSource(source: Source) {
       meetings.length +
       volunteer.length;
 
-    const itemResults: ScrapedItemSummary[] = [];
-
-    for (const event of events) {
-      itemResults.push(
-        await processItem({
-          type: "event",
-          item: event,
-          title: event.title,
-          date: event.startDateTime,
-          city: event.city,
-          county: event.county,
-          sourceUrl: event.originalUrl ?? event.sourceUrl,
-          save: (value) => upsertScrapedEvent(source, value),
-        }),
-      );
-    }
-
-    for (const alert of alerts) {
-      itemResults.push(
-        await processItem({
-          type: "alert",
-          item: alert,
-          title: alert.title,
-          date: alert.startsAt,
-          city: alert.city,
-          county: alert.county,
-          sourceUrl: alert.originalUrl ?? alert.sourceUrl,
-          save: (value) => upsertScrapedAlert(source, value),
-        }),
-      );
-    }
-
-    for (const meeting of meetings) {
-      itemResults.push(
-        await processItem({
-          type: "meeting",
-          item: meeting,
-          title: meeting.title,
-          date: meeting.startDateTime,
-          city: meeting.city,
-          county: meeting.county,
-          sourceUrl:
-            meeting.originalUrl ?? meeting.sourceUrl,
-          save: (value) => upsertScrapedMeeting(source, value),
-        }),
-      );
-    }
-
-    for (const opportunity of volunteer) {
-      itemResults.push(
-        await processItem({
-          type: "volunteer",
-          item: opportunity,
-          title: opportunity.title,
-          date: opportunity.dateTime,
-          city: opportunity.city,
-          county: opportunity.county,
-          sourceUrl: opportunity.sourceUrl,
-          save: (value) =>
-            upsertVolunteerOpportunity(source, value),
-        }),
-      );
-    }
-
-    const created = itemResults.filter(
-      (item) => item.action === "created",
-    ).length;
-
-    const updated = itemResults.filter(
-      (item) => item.action === "updated",
-    ).length;
-
-    const failed = itemResults.filter(
-      (item) => item.action === "failed",
-    ).length;
+    const {
+      itemResults,
+      created,
+      updated,
+      failed,
+    } = await processScrapedItems({
+      source,
+      events,
+      alerts,
+      meetings,
+      volunteer,
+    });
 
     const durationMs = Date.now() - startedAtMs;
     const completedAt = new Date();
