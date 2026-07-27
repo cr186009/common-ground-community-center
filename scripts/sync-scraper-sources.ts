@@ -1,6 +1,5 @@
 import { SourceSection, SourceType } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
-
 const managedSources = [
   {
     name: "Paulding County Public Calendar",
@@ -41,6 +40,17 @@ const managedSources = [
     county: "Paulding",
     scrapeFrequency: "DAILY",
     notes: "Dedicated MyDallasGA events scraper",
+  },
+  {
+    name: "City of Kennesaw events",
+    url: "https://www.kennesaw-ga.gov/events/",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: "Kennesaw",
+    county: "Cobb",
+    scrapeFrequency: "DAILY",
+    notes:
+      "Tier 1 official City of Kennesaw calendar. Platform: WordPress with The Events Calendar / Tribe Events REST API.",
   },
 ];
 

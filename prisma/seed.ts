@@ -766,15 +766,16 @@ const sources = [
     notes: "Community calendar source.",
   },
   {
-    name: "City of Kennesaw official site",
-    url: "https://www.kennesaw-ga.gov/",
-    type: SourceType.GOVERNMENT,
-    section: SourceSection.MEETINGS,
+    name: "City of Kennesaw events",
+    url: "https://www.kennesaw-ga.gov/events/",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
     city: "Kennesaw",
     county: "Cobb",
     active: true,
-    scrapeFrequency: "manual",
-    notes: "Official site for city notices and meeting support.",
+    scrapeFrequency: "daily",
+    notes:
+      "Tier 1 official City of Kennesaw calendar. Platform: WordPress with The Events Calendar / Tribe Events REST API.",
   },
   {
     name: "Kennesaw Parks and Recreation special events",

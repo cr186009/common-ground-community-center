@@ -16,6 +16,7 @@ import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
+import { kennesawOfficialScraper } from "@/server/hub-scrapers/sources/kennesaw-official";
 import type {
   NormalizedScrapedAlert,
   NormalizedScrapedEvent,
@@ -88,6 +89,7 @@ type ScrapeLogStatus = "SUCCESS" | "PARTIAL" | "FAILED";
 const registeredScrapers: SourceScraper[] = [
   pauldingCalendarScraper,
   acworthOfficialScraper,
+  kennesawOfficialScraper,
   dallasOfficialScraper,
   hiramOfficialScraper,
   rockmartOfficialScraper,
