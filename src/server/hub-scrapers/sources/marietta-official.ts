@@ -1,0 +1,519 @@
+import * as cheerio from "cheerio";
+import * as ical from "node-ical";
+
+import {
+  cleanText,
+  dedupeNormalizedEvents,
+  inferCategory,
+  toAbsoluteUrl,
+} from "@/server/hub-scrapers/helpers";
+
+import type {
+  NormalizedScrapedEvent,
+  SourceScraper,
+} from "@/server/hub-scrapers/types";
+
+const MARIETTA_BASE_URL = "https://www.mariettaga.gov";
+
+const MARIETTA_ICAL_INDEX_URL = `${MARIETTA_BASE_URL}/iCalendar.aspx`;
+
+const MAX_CALENDAR_FEEDS = 100;
+
+type CalendarFeed = {
+  categoryId: string;
+  categoryName: string;
+  url: string;
+};
+
+type ParsedICalEvent = {
+  type?: string;
+  uid?: string | number;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: Date;
+  end?: Date;
+  url?: string;
+  categories?: string[] | string;
+  status?: string;
+};
+
+function htmlToPlainText(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const $ = cheerio.load(`<div>${value}</div>`);
+
+  return cleanText($("div").text());
+}
+
+function isValidDate(value: unknown): value is Date {
+  return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
+function isUpcoming(startDateTime: Date, endDateTime?: Date | null) {
+  const now = new Date();
+
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (endDateTime && endDateTime >= cutoff) {
+    return true;
+  }
+
+  return startDateTime >= cutoff;
+}
+
+function getEasternTimeParts(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+function isPlaceholderEndTime(endDateTime?: Date | null) {
+  if (!endDateTime) {
+    return false;
+  }
+
+  const parts = getEasternTimeParts(endDateTime);
+
+  return parts.hour === 23 && parts.minute === 59;
+}
+
+function cleanLocation(value?: string | null) {
+  const cleaned = htmlToPlainText(value);
+
+  if (!cleaned) {
+    return {
+      locationName: "City of Marietta",
+      address: null,
+    };
+  }
+
+  /*
+   * CivicPlus locations often look like:
+   *
+   * City Hall - City Council Chambers -
+   * Lobby Level - 205 Lawrence Street -
+   * Marietta GA 30060
+   *
+   * Keep the complete text as the address so no
+   * room or building information is lost.
+   */
+  const parts = cleaned
+    .split(/\s+-\s+/)
+    .map((part) => cleanText(part))
+    .filter(Boolean);
+
+  const locationName = parts[0] || "City of Marietta";
+
+  return {
+    locationName,
+    address: cleaned,
+  };
+}
+
+function extractEventUrl(description?: string | null) {
+  if (!description) {
+    return null;
+  }
+
+  const match = description.match(
+    /https?:\/\/(?:www\.)?mariettaga\.gov\/calendar\.aspx\?EID=\d+/i,
+  );
+
+  return match?.[0] ?? null;
+}
+
+function cleanDescription(description?: string | null) {
+  if (!description) {
+    return null;
+  }
+
+  const withoutEventUrl = description.replace(
+    /https?:\/\/(?:www\.)?mariettaga\.gov\/calendar\.aspx\?EID=\d+/gi,
+    " ",
+  );
+
+  const cleaned = htmlToPlainText(withoutEventUrl);
+
+  return cleaned || null;
+}
+
+function getCalendarTags(categories?: string[] | string) {
+  const values = Array.isArray(categories)
+    ? categories
+    : categories
+      ? [categories]
+      : [];
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => value.split(","))
+        .map((value) => cleanText(value))
+        .filter(Boolean),
+    ),
+  );
+}
+
+async function fetchText(url: string, accept: string) {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      accept,
+      "accept-language": "en-US,en;q=0.9",
+      referer: MARIETTA_ICAL_INDEX_URL,
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+
+    throw new Error(
+      [
+        `Marietta request failed: ${response.status} ${response.statusText}`,
+        `URL: ${url}`,
+        responseText ? `Response: ${responseText.slice(0, 300)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    );
+  }
+
+  return response.text();
+}
+
+async function discoverCalendarFeeds() {
+  console.log("[MARIETTA] Discovering CivicPlus iCalendar feeds.");
+
+  const html = await fetchText(
+    MARIETTA_ICAL_INDEX_URL,
+    "text/html,application/xhtml+xml",
+  );
+
+  const $ = cheerio.load(html);
+
+  const feedsByCategoryId = new Map<string, CalendarFeed>();
+
+  $("a[href]").each((_, element) => {
+    const href = $(element).attr("href");
+
+    if (!href) {
+      return;
+    }
+
+    const absoluteUrl = toAbsoluteUrl(MARIETTA_BASE_URL, href);
+
+    if (!absoluteUrl) {
+      return;
+    }
+
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(absoluteUrl);
+    } catch {
+      return;
+    }
+
+    if (
+      !parsedUrl.pathname
+        .toLowerCase()
+        .includes("/common/modules/icalendar/icalendar.aspx")
+    ) {
+      return;
+    }
+
+    if (parsedUrl.searchParams.get("feed")?.toLowerCase() !== "calendar") {
+      return;
+    }
+
+    const categoryId = parsedUrl.searchParams.get("catID");
+
+    if (!categoryId) {
+      return;
+    }
+
+    const categoryName =
+      cleanText($(element).text()) || `Calendar ${categoryId}`;
+
+    feedsByCategoryId.set(categoryId, {
+      categoryId,
+      categoryName,
+      url: absoluteUrl,
+    });
+  });
+
+  const feeds = Array.from(feedsByCategoryId.values()).slice(
+    0,
+    MAX_CALENDAR_FEEDS,
+  );
+
+  console.log(
+    `[MARIETTA] Discovered ${feeds.length} CivicPlus calendar feeds.`,
+  );
+
+  return feeds;
+}
+
+async function fetchCalendarFeed(feed: CalendarFeed) {
+  console.log(
+    `[MARIETTA] Fetching "${feed.categoryName}" calendar feed (${feed.categoryId}).`,
+  );
+
+  const icsText = await fetchText(feed.url, "text/calendar,text/plain,*/*");
+
+  if (!icsText.includes("BEGIN:VCALENDAR")) {
+    throw new Error(
+      `Marietta calendar ${feed.categoryId} did not return a valid iCalendar document.`,
+    );
+  }
+
+  const parsed = ical.sync.parseICS(icsText);
+
+  const events: ParsedICalEvent[] = [];
+
+  for (const item of Object.values(parsed)) {
+    const event = item as ParsedICalEvent;
+
+    if (event.type !== "VEVENT") {
+      continue;
+    }
+
+    events.push(event);
+  }
+
+  console.log(
+    `[MARIETTA] Feed "${feed.categoryName}" returned ${events.length} calendar events.`,
+  );
+
+  return events;
+}
+
+export const mariettaOfficialScraper: SourceScraper = {
+  sourceName: "City of Marietta calendar",
+
+  async scrape(source) {
+    const feeds = await discoverCalendarFeeds();
+
+    if (feeds.length === 0) {
+      return {
+        events: [],
+        status: "PARTIAL",
+        message:
+          "The Marietta iCalendar page loaded, but no calendar feeds were discovered.",
+      };
+    }
+
+    const feedResults = await Promise.allSettled(
+      feeds.map(async (feed) => ({
+        feed,
+        events: await fetchCalendarFeed(feed),
+      })),
+    );
+
+    const events: NormalizedScrapedEvent[] = [];
+
+    let successfulFeeds = 0;
+    let failedFeeds = 0;
+    let skippedPastEvents = 0;
+    let skippedInvalidEvents = 0;
+
+    /*
+     * CivicPlus may publish the same event in
+     * multiple category feeds. Track the UID/EID
+     * before applying the project's general
+     * deduplication helper.
+     */
+    const seenEventIds = new Set<string>();
+
+    for (const result of feedResults) {
+      if (result.status === "rejected") {
+        failedFeeds += 1;
+
+        console.warn("[MARIETTA] Calendar feed failed:", result.reason);
+
+        continue;
+      }
+
+      successfulFeeds += 1;
+
+      const { feed, events: calendarEvents } = result.value;
+
+      for (const calendarEvent of calendarEvents) {
+        const title = cleanText(calendarEvent.summary);
+
+        if (!title) {
+          skippedInvalidEvents += 1;
+          continue;
+        }
+
+        if (!isValidDate(calendarEvent.start)) {
+          skippedInvalidEvents += 1;
+          continue;
+        }
+
+        const startDateTime = calendarEvent.start;
+
+        const rawEndDateTime = isValidDate(calendarEvent.end)
+          ? calendarEvent.end
+          : null;
+
+        if (!isUpcoming(startDateTime, rawEndDateTime)) {
+          skippedPastEvents += 1;
+          continue;
+        }
+
+        const originalUrl =
+          extractEventUrl(calendarEvent.description) ??
+          toAbsoluteUrl(MARIETTA_BASE_URL, calendarEvent.url) ??
+          source.url;
+
+        const eventIdFromUrl = originalUrl.match(/[?&]EID=(\d+)/i)?.[1];
+
+        const uid = cleanText(String(calendarEvent.uid ?? ""));
+
+        const dedupeId =
+          eventIdFromUrl ||
+          uid ||
+          [title, startDateTime.toISOString(), feed.categoryId].join("|");
+
+        if (seenEventIds.has(dedupeId)) {
+          continue;
+        }
+
+        seenEventIds.add(dedupeId);
+
+        const description = cleanDescription(calendarEvent.description);
+
+        const { locationName, address } = cleanLocation(calendarEvent.location);
+
+        const platformTags = getCalendarTags(calendarEvent.categories);
+
+        const combinedText = [
+          title,
+          description,
+          locationName,
+          address,
+          feed.categoryName,
+          ...platformTags,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const endDateTime =
+          rawEndDateTime &&
+          rawEndDateTime >= startDateTime &&
+          !isPlaceholderEndTime(rawEndDateTime)
+            ? rawEndDateTime
+            : null;
+
+        events.push({
+          title,
+          description,
+          startDateTime,
+          endDateTime,
+
+          locationName,
+          address,
+
+          city: source.city || "Marietta",
+
+          county: source.county || "Cobb",
+
+          category: inferCategory(combinedText),
+
+          tags: Array.from(
+            new Set([
+              "city event",
+              "official calendar",
+              "City of Marietta",
+              "CivicPlus",
+              "iCalendar",
+              feed.categoryName,
+              ...platformTags,
+            ]),
+          ),
+
+          cost: /\bfree\b/i.test(combinedText) ? "Free" : null,
+
+          isFree: /\bfree\b/i.test(combinedText),
+
+          isKidFriendly:
+            /kids|children|child|family|youth|teen|school|storytime/i.test(
+              combinedText,
+            ),
+
+          isOutdoor:
+            /park|outdoor|festival|concert|market|trail|garden|square|plaza/i.test(
+              combinedText,
+            ),
+
+          sourceName: source.name,
+
+          sourceUrl: source.url,
+
+          originalUrl,
+
+          imageUrl: null,
+
+          confidenceScore: 0.96,
+        });
+      }
+    }
+
+    const dedupedEvents = dedupeNormalizedEvents(events);
+
+    console.log(
+      [
+        `[MARIETTA] Parsed ${dedupedEvents.length} upcoming events.`,
+        `${successfulFeeds} feeds succeeded.`,
+        `${failedFeeds} feeds failed.`,
+        `${skippedPastEvents} past events skipped.`,
+        `${skippedInvalidEvents} invalid events skipped.`,
+      ].join(" "),
+    );
+
+    return {
+      events: dedupedEvents,
+
+      status:
+        dedupedEvents.length > 0
+          ? failedFeeds > 0
+            ? "PARTIAL"
+            : "SUCCESS"
+          : "PARTIAL",
+
+      message:
+        dedupedEvents.length > 0
+          ? `Parsed ${dedupedEvents.length} upcoming City of Marietta events from ${successfulFeeds} official CivicPlus iCalendar feeds${
+              failedFeeds > 0 ? `; ${failedFeeds} feeds failed` : ""
+            }.`
+          : `The Marietta calendar loaded, but no upcoming events were detected. ${successfulFeeds} feeds succeeded and ${failedFeeds} failed.`,
+    };
+  },
+};

@@ -41,6 +41,7 @@ const managedSources = [
     scrapeFrequency: "DAILY",
     notes: "Dedicated MyDallasGA events scraper",
   },
+
   {
     name: "City of Kennesaw events",
     url: "https://www.kennesaw-ga.gov/events/",
@@ -51,6 +52,17 @@ const managedSources = [
     scrapeFrequency: "DAILY",
     notes:
       "Tier 1 official City of Kennesaw calendar. Platform: WordPress with The Events Calendar / Tribe Events REST API.",
+  },
+  {
+    name: "City of Marietta calendar",
+    url: "https://www.mariettaga.gov/calendar.aspx",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: "Marietta",
+    county: "Cobb",
+    scrapeFrequency: "DAILY",
+    notes:
+      "Tier 1 official City of Marietta calendar. Platform: CivicPlus / CivicEngage using category-specific iCalendar feeds.",
   },
 ];
 

@@ -17,6 +17,7 @@ import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-of
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
 import { kennesawOfficialScraper } from "@/server/hub-scrapers/sources/kennesaw-official";
+import { mariettaOfficialScraper } from "@/server/hub-scrapers/sources/marietta-official";
 import type {
   NormalizedScrapedAlert,
   NormalizedScrapedEvent,
@@ -90,15 +91,14 @@ const registeredScrapers: SourceScraper[] = [
   pauldingCalendarScraper,
   acworthOfficialScraper,
   kennesawOfficialScraper,
+  mariettaOfficialScraper,
   dallasOfficialScraper,
   hiramOfficialScraper,
   rockmartOfficialScraper,
   cedartownDowntownScraper,
   myDallasGaScraper,
   nwsAlertsScraper,
-  ...manualFacebookSources.map((name) =>
-    createFacebookManualScraper(name),
-  ),
+  ...manualFacebookSources.map((name) => createFacebookManualScraper(name)),
 ];
 
 function buildScraperRegistry(scrapers: SourceScraper[]) {
@@ -188,9 +188,7 @@ async function withTimeout<T>(
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(
-        new Error(
-          `Scraper timed out after ${milliseconds}ms: ${sourceName}`,
-        ),
+        new Error(`Scraper timed out after ${milliseconds}ms: ${sourceName}`),
       );
     }, milliseconds);
   });
@@ -210,11 +208,7 @@ async function runScraperWithRetry(
 ): Promise<ScrapeOutput> {
   let lastError: unknown;
 
-  for (
-    let attempt = 1;
-    attempt <= SCRAPER_MAX_ATTEMPTS;
-    attempt += 1
-  ) {
+  for (let attempt = 1; attempt <= SCRAPER_MAX_ATTEMPTS; attempt += 1) {
     try {
       logScraper("info", "Scraper attempt started", {
         source: source.name,
@@ -242,9 +236,7 @@ async function runScraperWithRetry(
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(String(lastError));
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function eventStatusForConfidence(
@@ -272,12 +264,9 @@ function validateEvent(event: NormalizedScrapedEvent) {
 
   if (
     event.endDateTime &&
-    (!isValidDate(event.endDateTime) ||
-      event.endDateTime < event.startDateTime)
+    (!isValidDate(event.endDateTime) || event.endDateTime < event.startDateTime)
   ) {
-    throw new Error(
-      `Event "${event.title}" has an invalid end date.`,
-    );
+    throw new Error(`Event "${event.title}" has an invalid end date.`);
   }
 
   if (!event.city?.trim()) {
@@ -311,9 +300,7 @@ function validateAlert(alert: NormalizedScrapedAlert) {
   }
 
   if (alert.expiresAt && !isValidDate(alert.expiresAt)) {
-    throw new Error(
-      `Alert "${alert.title}" has an invalid expiration date.`,
-    );
+    throw new Error(`Alert "${alert.title}" has an invalid expiration date.`);
   }
 }
 
@@ -323,15 +310,11 @@ function validateMeeting(meeting: NormalizedScrapedMeeting) {
   }
 
   if (!meeting.governmentBody?.trim()) {
-    throw new Error(
-      `Meeting "${meeting.title}" is missing a government body.`,
-    );
+    throw new Error(`Meeting "${meeting.title}" is missing a government body.`);
   }
 
   if (!isValidDate(meeting.startDateTime)) {
-    throw new Error(
-      `Meeting "${meeting.title}" has an invalid start date.`,
-    );
+    throw new Error(`Meeting "${meeting.title}" has an invalid start date.`);
   }
 
   if (
@@ -339,9 +322,7 @@ function validateMeeting(meeting: NormalizedScrapedMeeting) {
     (!isValidDate(meeting.endDateTime) ||
       meeting.endDateTime < meeting.startDateTime)
   ) {
-    throw new Error(
-      `Meeting "${meeting.title}" has an invalid end date.`,
-    );
+    throw new Error(`Meeting "${meeting.title}" has an invalid end date.`);
   }
 
   if (!meeting.county?.trim()) {
@@ -349,15 +330,11 @@ function validateMeeting(meeting: NormalizedScrapedMeeting) {
   }
 
   if (!meeting.sourceUrl?.trim()) {
-    throw new Error(
-      `Meeting "${meeting.title}" is missing a source URL.`,
-    );
+    throw new Error(`Meeting "${meeting.title}" is missing a source URL.`);
   }
 }
 
-function validateVolunteer(
-  volunteer: NormalizedVolunteerOpportunity,
-) {
+function validateVolunteer(volunteer: NormalizedVolunteerOpportunity) {
   if (!volunteer.title?.trim()) {
     throw new Error("Volunteer opportunity is missing a title.");
   }
@@ -405,8 +382,7 @@ async function upsertScrapedEvent(
 
   const normalizedIncomingTitle = normalizeTitle(event.title);
   const existing = candidates.find(
-    (candidate) =>
-      normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
 
   /*
@@ -416,20 +392,14 @@ async function upsertScrapedEvent(
   const status =
     existing && existing.status !== "PENDING"
       ? existing.status
-      : eventStatusForConfidence(
-          event.confidenceScore,
-          event.status,
-        );
+      : eventStatusForConfidence(event.confidenceScore, event.status);
 
   const data = {
     title: event.title.trim(),
-    description:
-      event.description ?? existing?.description ?? null,
+    description: event.description ?? existing?.description ?? null,
     startDateTime: event.startDateTime,
-    endDateTime:
-      event.endDateTime ?? existing?.endDateTime ?? null,
-    locationName:
-      event.locationName ?? existing?.locationName ?? null,
+    endDateTime: event.endDateTime ?? existing?.endDateTime ?? null,
+    locationName: event.locationName ?? existing?.locationName ?? null,
     address: event.address ?? existing?.address ?? null,
     city: event.city,
     county: event.county,
@@ -437,25 +407,17 @@ async function upsertScrapedEvent(
     tags:
       event.tags !== undefined
         ? JSON.stringify(event.tags)
-        : existing?.tags ?? "[]",
+        : (existing?.tags ?? "[]"),
     cost: event.cost ?? existing?.cost ?? null,
     isFree: event.isFree ?? existing?.isFree ?? false,
-    isKidFriendly:
-      event.isKidFriendly ?? existing?.isKidFriendly ?? false,
-    isOutdoor:
-      event.isOutdoor ?? existing?.isOutdoor ?? false,
+    isKidFriendly: event.isKidFriendly ?? existing?.isKidFriendly ?? false,
+    isOutdoor: event.isOutdoor ?? existing?.isOutdoor ?? false,
     sourceName: event.sourceName,
     sourceUrl: event.sourceUrl,
-    originalUrl:
-      event.originalUrl ??
-      existing?.originalUrl ??
-      event.sourceUrl,
+    originalUrl: event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
     imageUrl: event.imageUrl ?? existing?.imageUrl ?? null,
     status,
-    confidenceScore:
-      event.confidenceScore ??
-      existing?.confidenceScore ??
-      null,
+    confidenceScore: event.confidenceScore ?? existing?.confidenceScore ?? null,
     lastSeenAt: new Date(),
     sourceId: source.id,
   } satisfies Parameters<typeof prisma.event.create>[0]["data"];
@@ -543,33 +505,25 @@ async function upsertScrapedAlert(
 
   const normalizedIncomingTitle = normalizeTitle(alert.title);
   const existing = candidates.find(
-    (candidate) =>
-      normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
 
   const data = {
     title: alert.title.trim(),
-    description:
-      alert.description ?? existing?.description ?? null,
+    description: alert.description ?? existing?.description ?? null,
     alertType: alert.alertType,
     severity: alert.severity,
     city: alert.city ?? existing?.city ?? null,
     county: alert.county,
     affectedCounties: affectedCountiesJson,
-    locationName:
-      alert.locationName ?? existing?.locationName ?? null,
+    locationName: alert.locationName ?? existing?.locationName ?? null,
     address: alert.address ?? existing?.address ?? null,
     sourceName: alert.sourceName,
     sourceUrl: alert.sourceUrl,
-    originalUrl:
-      alert.originalUrl ??
-      existing?.originalUrl ??
-      alert.sourceUrl,
+    originalUrl: alert.originalUrl ?? existing?.originalUrl ?? alert.sourceUrl,
     startsAt: alert.startsAt ?? existing?.startsAt ?? null,
     expiresAt: alert.expiresAt ?? existing?.expiresAt ?? null,
-    status: (alert.status ??
-      existing?.status ??
-      "ACTIVE") as AlertStatus,
+    status: (alert.status ?? existing?.status ?? "ACTIVE") as AlertStatus,
     lastSeenAt: new Date(),
     sourceId: source.id,
   } satisfies Parameters<typeof prisma.alert.create>[0]["data"];
@@ -601,8 +555,7 @@ async function upsertScrapedMeeting(
 
   const normalizedIncomingTitle = normalizeTitle(meeting.title);
   const existing = candidates.find(
-    (candidate) =>
-      normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
 
   const data = {
@@ -610,40 +563,28 @@ async function upsertScrapedMeeting(
     governmentBody: meeting.governmentBody,
     meetingType: meeting.meetingType,
     startDateTime: meeting.startDateTime,
-    endDateTime:
-      meeting.endDateTime ?? existing?.endDateTime ?? null,
-    locationName:
-      meeting.locationName ?? existing?.locationName ?? null,
+    endDateTime: meeting.endDateTime ?? existing?.endDateTime ?? null,
+    locationName: meeting.locationName ?? existing?.locationName ?? null,
     address: meeting.address ?? existing?.address ?? null,
     city: meeting.city ?? existing?.city ?? null,
     county: meeting.county,
-    agendaUrl:
-      meeting.agendaUrl ?? existing?.agendaUrl ?? null,
-    minutesUrl:
-      meeting.minutesUrl ?? existing?.minutesUrl ?? null,
+    agendaUrl: meeting.agendaUrl ?? existing?.agendaUrl ?? null,
+    minutesUrl: meeting.minutesUrl ?? existing?.minutesUrl ?? null,
     videoUrl: meeting.videoUrl ?? existing?.videoUrl ?? null,
     sourceName: meeting.sourceName,
     sourceUrl: meeting.sourceUrl,
     originalUrl:
-      meeting.originalUrl ??
-      existing?.originalUrl ??
-      meeting.sourceUrl,
-    status: (meeting.status ??
-      existing?.status ??
-      "UPCOMING") as MeetingStatus,
+      meeting.originalUrl ?? existing?.originalUrl ?? meeting.sourceUrl,
+    status: (meeting.status ?? existing?.status ?? "UPCOMING") as MeetingStatus,
     summary: meeting.summary ?? existing?.summary ?? null,
     plainEnglishSummary:
-      meeting.plainEnglishSummary ??
-      existing?.plainEnglishSummary ??
-      null,
+      meeting.plainEnglishSummary ?? existing?.plainEnglishSummary ?? null,
     keyTopics:
       meeting.keyTopics !== undefined
         ? JSON.stringify(meeting.keyTopics)
-        : existing?.keyTopics ?? "[]",
+        : (existing?.keyTopics ?? "[]"),
     whyResidentsCare:
-      meeting.whyResidentsCare ??
-      existing?.whyResidentsCare ??
-      null,
+      meeting.whyResidentsCare ?? existing?.whyResidentsCare ?? null,
     lastSeenAt: new Date(),
     sourceId: source.id,
   } satisfies Parameters<typeof prisma.meeting.create>[0]["data"];
@@ -667,49 +608,38 @@ async function upsertVolunteerOpportunity(
 ) {
   validateVolunteer(volunteer);
 
-  const candidates =
-    await prisma.volunteerOpportunity.findMany({
-      where: {
-        dateTime: volunteer.dateTime ?? null,
-        city: volunteer.city ?? null,
-        sourceName: volunteer.sourceName,
-        category: volunteer.category,
-      },
-      take: 25,
-    });
+  const candidates = await prisma.volunteerOpportunity.findMany({
+    where: {
+      dateTime: volunteer.dateTime ?? null,
+      city: volunteer.city ?? null,
+      sourceName: volunteer.sourceName,
+      category: volunteer.category,
+    },
+    take: 25,
+  });
 
   const normalizedIncomingTitle = normalizeTitle(volunteer.title);
   const existing = candidates.find(
-    (candidate) =>
-      normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
 
   const data = {
     title: volunteer.title.trim(),
     organization: volunteer.organization,
-    description:
-      volunteer.description ?? existing?.description ?? null,
-    dateTime:
-      volunteer.dateTime ?? existing?.dateTime ?? null,
-    locationName:
-      volunteer.locationName ?? existing?.locationName ?? null,
+    description: volunteer.description ?? existing?.description ?? null,
+    dateTime: volunteer.dateTime ?? existing?.dateTime ?? null,
+    locationName: volunteer.locationName ?? existing?.locationName ?? null,
     address: volunteer.address ?? existing?.address ?? null,
     city: volunteer.city ?? existing?.city ?? null,
     county: volunteer.county,
     category: volunteer.category,
-    contactName:
-      volunteer.contactName ?? existing?.contactName ?? null,
-    contactEmail:
-      volunteer.contactEmail ?? existing?.contactEmail ?? null,
+    contactName: volunteer.contactName ?? existing?.contactName ?? null,
+    contactEmail: volunteer.contactEmail ?? existing?.contactEmail ?? null,
     sourceName: volunteer.sourceName,
     sourceUrl: volunteer.sourceUrl,
-    status: (volunteer.status ??
-      existing?.status ??
-      "OPEN") as VolunteerStatus,
+    status: (volunteer.status ?? existing?.status ?? "OPEN") as VolunteerStatus,
     sourceId: source.id,
-  } satisfies Parameters<
-    typeof prisma.volunteerOpportunity.create
-  >[0]["data"];
+  } satisfies Parameters<typeof prisma.volunteerOpportunity.create>[0]["data"];
 
   if (existing) {
     await prisma.volunteerOpportunity.update({
@@ -753,13 +683,7 @@ async function safelyRecordScrapeLog(
   details: Record<string, unknown>,
 ) {
   try {
-    await recordScrapeLog(
-      source,
-      status,
-      message,
-      counts,
-      details,
-    );
+    await recordScrapeLog(source, status, message, counts, details);
   } catch (error) {
     logScraper("error", "Unable to save scrape log", {
       source: source.name,
@@ -906,8 +830,7 @@ async function processScrapedItems({
         city: opportunity.city,
         county: opportunity.county,
         sourceUrl: opportunity.sourceUrl,
-        save: (value) =>
-          upsertVolunteerOpportunity(source, value),
+        save: (value) => upsertVolunteerOpportunity(source, value),
       }),
     );
   }
@@ -920,9 +843,7 @@ async function processScrapedItems({
     (item) => item.action === "updated",
   ).length;
 
-  const failed = itemResults.filter(
-    (item) => item.action === "failed",
-  ).length;
+  const failed = itemResults.filter((item) => item.action === "failed").length;
 
   return {
     itemResults,
@@ -961,23 +882,17 @@ export async function scrapeSource(source: Source) {
     const volunteer = output.volunteer ?? [];
 
     const totalFound =
-      events.length +
-      alerts.length +
-      meetings.length +
-      volunteer.length;
+      events.length + alerts.length + meetings.length + volunteer.length;
 
-    const {
-      itemResults,
-      created,
-      updated,
-      failed,
-    } = await processScrapedItems({
-      source,
-      events,
-      alerts,
-      meetings,
-      volunteer,
-    });
+    const { itemResults, created, updated, failed } = await processScrapedItems(
+      {
+        source,
+        events,
+        alerts,
+        meetings,
+        volunteer,
+      },
+    );
 
     const durationMs = Date.now() - startedAtMs;
     const completedAt = new Date();
@@ -990,13 +905,9 @@ export async function scrapeSource(source: Source) {
     }
 
     const zeroItemsWarning =
-      totalFound === 0
-        ? " Scraper completed but found no items."
-        : "";
+      totalFound === 0 ? " Scraper completed but found no items." : "";
 
-    const message =
-      output.message ??
-      `Scrape completed.${zeroItemsWarning}`;
+    const message = output.message ?? `Scrape completed.${zeroItemsWarning}`;
 
     const counts: ProcessingCounts = {
       found: totalFound,
@@ -1021,8 +932,7 @@ export async function scrapeSource(source: Source) {
         failed,
       },
       items: itemResults.slice(0, MAX_LOGGED_ITEMS),
-      itemsTruncated:
-        itemResults.length > MAX_LOGGED_ITEMS,
+      itemsTruncated: itemResults.length > MAX_LOGGED_ITEMS,
     };
 
     await prisma.source.update({
@@ -1030,27 +940,17 @@ export async function scrapeSource(source: Source) {
       data: { lastScrapedAt: completedAt },
     });
 
-    await safelyRecordScrapeLog(
-      source,
-      status,
-      message,
-      counts,
-      details,
-    );
+    await safelyRecordScrapeLog(source, status, message, counts, details);
 
-    logScraper(
-      status === "SUCCESS" ? "info" : "warn",
-      "Scrape completed",
-      {
-        source: source.name,
-        status,
-        found: totalFound,
-        created,
-        updated,
-        failed,
-        durationMs,
-      },
-    );
+    logScraper(status === "SUCCESS" ? "info" : "warn", "Scrape completed", {
+      source: source.name,
+      status,
+      found: totalFound,
+      created,
+      updated,
+      failed,
+      durationMs,
+    });
 
     return {
       source: source.name,
@@ -1078,18 +978,12 @@ export async function scrapeSource(source: Source) {
       failed: 0,
     };
 
-    await safelyRecordScrapeLog(
-      source,
-      "FAILED",
-      "Scrape failed.",
-      counts,
-      {
-        startedAt: startedAt.toISOString(),
-        completedAt: completedAt.toISOString(),
-        durationMs,
-        error: details,
-      },
-    );
+    await safelyRecordScrapeLog(source, "FAILED", "Scrape failed.", counts, {
+      startedAt: startedAt.toISOString(),
+      completedAt: completedAt.toISOString(),
+      durationMs,
+      error: details,
+    });
 
     logScraper("error", "Scrape failed", {
       source: source.name,
@@ -1129,23 +1023,15 @@ export async function scrapeAllSupportedSources() {
     concurrency: SCRAPER_CONCURRENCY,
   });
 
-  const results: Array<
-    NonNullable<Awaited<ReturnType<typeof scrapeSource>>>
-  > = [];
+  const results: Array<NonNullable<Awaited<ReturnType<typeof scrapeSource>>>> =
+    [];
 
   /*
    * Process sources in small concurrent batches so scraping is faster
    * without sending every request simultaneously.
    */
-  for (
-    let index = 0;
-    index < sources.length;
-    index += SCRAPER_CONCURRENCY
-  ) {
-    const batch = sources.slice(
-      index,
-      index + SCRAPER_CONCURRENCY,
-    );
+  for (let index = 0; index < sources.length; index += SCRAPER_CONCURRENCY) {
+    const batch = sources.slice(index, index + SCRAPER_CONCURRENCY);
 
     const batchResults = await Promise.all(
       batch.map((source) => scrapeSource(source)),
@@ -1160,27 +1046,12 @@ export async function scrapeAllSupportedSources() {
 
   const summary = {
     sourcesAttempted: sources.length,
-    successful: results.filter(
-      (result) => result.status === "SUCCESS",
-    ).length,
-    partial: results.filter(
-      (result) => result.status === "PARTIAL",
-    ).length,
-    failed: results.filter(
-      (result) => result.status === "FAILED",
-    ).length,
-    itemsParsed: results.reduce(
-      (total, result) => total + result.parsed,
-      0,
-    ),
-    itemsCreated: results.reduce(
-      (total, result) => total + result.created,
-      0,
-    ),
-    itemsUpdated: results.reduce(
-      (total, result) => total + result.updated,
-      0,
-    ),
+    successful: results.filter((result) => result.status === "SUCCESS").length,
+    partial: results.filter((result) => result.status === "PARTIAL").length,
+    failed: results.filter((result) => result.status === "FAILED").length,
+    itemsParsed: results.reduce((total, result) => total + result.parsed, 0),
+    itemsCreated: results.reduce((total, result) => total + result.created, 0),
+    itemsUpdated: results.reduce((total, result) => total + result.updated, 0),
   };
 
   logScraper("info", "All supported scrapers completed", summary);
@@ -1200,9 +1071,7 @@ export async function scrapeSingleSourceById(sourceId: string) {
   const result = await scrapeSource(source);
 
   if (!result) {
-    throw new Error(
-      `No scraper is registered for source "${source.name}".`,
-    );
+    throw new Error(`No scraper is registered for source "${source.name}".`);
   }
 
   return result;
