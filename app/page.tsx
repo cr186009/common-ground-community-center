@@ -20,7 +20,7 @@ import {
 } from "@/lib/hub-format";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
 import { subscribeDigestAction } from "@/server/hub-actions";
-import { getHomepageData, getLastUpdatedTimestamp } from "@/server/hub-data";
+import { getHomepageData } from "@/server/hub-data";
 
 type PageProps = {
   searchParams: Promise<SearchParamsRecord>;
@@ -29,7 +29,6 @@ type PageProps = {
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const data = await getHomepageData();
-  const lastUpdatedAt = await getLastUpdatedTimestamp();
   const subscribed = readSearchParam(params, "subscribed");
 
   return (
@@ -75,19 +74,47 @@ export default async function HomePage({ searchParams }: PageProps) {
 
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Upcoming events</p>
-            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">{data.upcomingEvents.length}</p>
-            <p className="mt-2 text-sm text-slate-600">Fresh listings from official sources and moderated submissions.</p>
+            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
+              Last updated
+            </p>
+
+            <p className="mt-3 font-serif text-2xl text-[color:var(--navy)]">
+              {data.lastUpdatedAt
+                ? formatTimestamp(data.lastUpdatedAt)
+                : "Update pending"}
+            </p>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Based on the latest successful source refresh.
+            </p>
           </div>
+
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Pending submissions</p>
-            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">{data.pendingSubmissions}</p>
-            <p className="mt-2 text-sm text-slate-600">Community contributions waiting for review.</p>
+            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
+              Upcoming events
+            </p>
+
+            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">
+              {data.upcomingEventCount}
+            </p>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Approved local listings happening from today forward.
+            </p>
           </div>
+
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 sm:col-span-3 lg:col-span-1">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Digest subscribers</p>
-            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">{data.activeSubscriberCount}</p>
-            <p className="mt-2 text-sm text-slate-600">Local residents signed up for the weekly digest preview.</p>
+            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
+              Communities covered
+            </p>
+
+            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">
+              {data.communitiesCovered}
+            </p>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Cities represented across upcoming local listings.
+            </p>
           </div>
         </div>
       </section>
@@ -289,7 +316,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
             <div className="rounded-2xl bg-stone-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Last scraper refresh</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{formatTimestamp(lastUpdatedAt)}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{formatTimestamp(data.lastUpdatedAt)}</p>
             </div>
             <div className="rounded-2xl bg-stone-50 p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Design approach</p>

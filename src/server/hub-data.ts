@@ -95,6 +95,7 @@ export async function expireElapsedAlerts() {
 
 export async function getHomepageData() {
   await expireElapsedAlerts();
+
   const now = new Date();
   const weekendStart = startOfWeek(now, { weekStartsOn: 5 });
   const weekendEnd = endOfWeek(now, { weekStartsOn: 5 });
@@ -102,69 +103,114 @@ export async function getHomepageData() {
   const [
     topAlert,
     upcomingEvents,
+    upcomingEventCount,
+    coveredCommunities,
+    lastSuccessfulScrape,
     weekendEvents,
     freeEvents,
     kidFriendlyEvents,
     upcomingMeetings,
     volunteerOpportunities,
-    pendingSubmissions,
-    activeSubscriberCount,
   ] = await Promise.all([
     prisma.alert.findMany({
       where: { status: "ACTIVE" },
       orderBy: [{ severity: "desc" }, { startsAt: "desc" }],
       take: 10,
     }),
+
     prisma.event.findMany({
       where: buildEventWhere({ sort: "asc" }),
       orderBy: { startDateTime: "asc" },
       take: 6,
     }),
+
+    prisma.event.count({
+      where: buildEventWhere({ sort: "asc" }),
+    }),
+
+    prisma.event.findMany({
+      where: buildEventWhere({ sort: "asc" }),
+      select: {
+        city: true,
+      },
+      distinct: ["city"],
+    }),
+
+    prisma.scrapeLog.findFirst({
+      where: {
+        status: "SUCCESS",
+      },
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+
     prisma.event.findMany({
       where: {
         ...buildEventWhere({ sort: "asc" }),
-        startDateTime: { gte: weekendStart, lte: weekendEnd },
+        startDateTime: {
+          gte: now > weekendStart ? now : weekendStart,
+          lte: weekendEnd,
+        },
       },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.event.findMany({
       where: {
         ...buildEventWhere({ sort: "asc" }),
-        OR: [{ isFree: true }, { cost: { contains: "cheap" } }, { cost: { contains: "$5" } }],
+        OR: [
+          { isFree: true },
+          { cost: { contains: "cheap" } },
+          { cost: { contains: "$5" } },
+        ],
       },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.event.findMany({
-      where: { ...buildEventWhere({ sort: "asc" }), isKidFriendly: true },
+      where: {
+        ...buildEventWhere({ sort: "asc" }),
+        isKidFriendly: true,
+      },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.meeting.findMany({
-      where: { status: "UPCOMING", startDateTime: { gte: now } },
+      where: {
+        status: "UPCOMING",
+        startDateTime: { gte: now },
+      },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.volunteerOpportunity.findMany({
       where: { status: "OPEN" },
       orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
       take: 4,
     }),
-    prisma.submittedEvent.count({ where: { status: "PENDING" } }),
-    prisma.subscriber.count({ where: { active: true } }),
   ]);
 
   return {
     activeAlerts: topAlert,
     upcomingEvents,
+    upcomingEventCount,
+    communitiesCovered: coveredCommunities.filter(
+      (community) => community.city.trim().length > 0,
+    ).length,
+    lastUpdatedAt: lastSuccessfulScrape?.createdAt ?? null,
     weekendEvents,
     freeEvents,
     kidFriendlyEvents,
     upcomingMeetings,
     volunteerOpportunities,
-    pendingSubmissions,
-    activeSubscriberCount,
   };
 }
 

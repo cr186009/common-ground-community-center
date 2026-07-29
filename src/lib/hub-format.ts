@@ -1,5 +1,13 @@
-import type { AlertSeverity, AlertType, Category, MeetingType, SourceSection, SourceType } from "@prisma/client";
-import { format, isToday, isTomorrow } from "date-fns";
+import type {
+  AlertSeverity,
+  AlertType,
+  Category,
+  MeetingType,
+  SourceSection,
+  SourceType,
+} from "@prisma/client";
+import { isToday, isTomorrow } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 import {
   ALERT_SEVERITY_OPTIONS,
@@ -10,20 +18,38 @@ import {
   SOURCE_TYPE_LABELS,
 } from "@/lib/hub-constants";
 
+const COMMUNITY_TIME_ZONE = "America/New_York";
+
+function formatEastern(value: Date, pattern: string) {
+  return formatInTimeZone(value, COMMUNITY_TIME_ZONE, pattern);
+}
+
 export function getCategoryLabel(category: Category) {
-  return CATEGORY_OPTIONS.find((option) => option.value === category)?.label ?? "Other";
+  return (
+    CATEGORY_OPTIONS.find((option) => option.value === category)?.label ??
+    "Other"
+  );
 }
 
 export function getAlertTypeLabel(type: AlertType) {
-  return ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other";
+  return (
+    ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ??
+    "Other"
+  );
 }
 
 export function getAlertSeverityLabel(severity: AlertSeverity) {
-  return ALERT_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ?? "Low";
+  return (
+    ALERT_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ??
+    "Low"
+  );
 }
 
 export function getMeetingTypeLabel(type: MeetingType) {
-  return MEETING_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other";
+  return (
+    MEETING_TYPE_OPTIONS.find((option) => option.value === type)?.label ??
+    "Other"
+  );
 }
 
 export function getSourceTypeLabel(type: SourceType) {
@@ -35,40 +61,52 @@ export function getSourceSectionLabel(section: SourceSection) {
 }
 
 export function formatDateTimeRange(start: Date, end?: Date | null) {
-  const startDate = format(start, "EEE, MMM d");
-  const startTime = format(start, "h:mm a");
+  const startDate = formatEastern(start, "EEE, MMM d");
+  const startTime = formatEastern(start, "h:mm a");
 
   if (!end) {
     return `${startDate} at ${startTime}`;
   }
 
-  const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+  const sameDay =
+    formatEastern(start, "yyyy-MM-dd") ===
+    formatEastern(end, "yyyy-MM-dd");
 
   if (sameDay) {
-    return `${startDate}, ${startTime} - ${format(end, "h:mm a")}`;
+    return `${startDate}, ${startTime} - ${formatEastern(end, "h:mm a")}`;
   }
 
-  return `${startDate}, ${startTime} - ${format(end, "EEE, MMM d, h:mm a")}`;
+  return `${startDate}, ${startTime} - ${formatEastern(
+    end,
+    "EEE, MMM d, h:mm a",
+  )}`;
 }
 
 export function formatFriendlyDate(value: Date) {
-  if (isToday(value)) {
-    return `Today, ${format(value, "h:mm a")}`;
+  const easternDateString = formatEastern(value, "yyyy-MM-dd");
+  const todayEasternString = formatEastern(new Date(), "yyyy-MM-dd");
+  const tomorrowEasternString = formatEastern(
+    new Date(Date.now() + 24 * 60 * 60 * 1000),
+    "yyyy-MM-dd",
+  );
+
+  if (easternDateString === todayEasternString) {
+    return `Today, ${formatEastern(value, "h:mm a")}`;
   }
 
-  if (isTomorrow(value)) {
-    return `Tomorrow, ${format(value, "h:mm a")}`;
+  if (easternDateString === tomorrowEasternString) {
+    return `Tomorrow, ${formatEastern(value, "h:mm a")}`;
   }
 
-  return format(value, "EEEE, MMM d");
+  return formatEastern(value, "EEEE, MMM d");
 }
 
 export function formatTimestamp(value: Date | null | undefined) {
   if (!value) {
-    return "Not yet updated";
+    return "Update pending";
   }
 
-  return format(value, "MMM d, yyyy 'at' h:mm a");
+  return formatEastern(value, "MMM d, yyyy 'at' h:mm a");
 }
 
 export function parseStoredList(value: string | null | undefined) {
@@ -78,7 +116,10 @@ export function parseStoredList(value: string | null | undefined) {
 
   try {
     const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? parsed.map((entry) => String(entry)) : [];
+
+    return Array.isArray(parsed)
+      ? parsed.map((entry) => String(entry))
+      : [];
   } catch {
     return value
       .split(",")
@@ -87,7 +128,10 @@ export function parseStoredList(value: string | null | undefined) {
   }
 }
 
-export function formatMoneyText(value: string | null | undefined, isFree?: boolean) {
+export function formatMoneyText(
+  value: string | null | undefined,
+  isFree?: boolean,
+) {
   if (isFree) {
     return "Free";
   }
@@ -102,14 +146,19 @@ export function createCalendarUrl(input: {
   start: Date;
   end?: Date | null;
 }) {
-  const start = format(input.start, "yyyyMMdd'T'HHmmss");
-  const end = format(input.end ?? input.start, "yyyyMMdd'T'HHmmss");
+  const start = formatEastern(input.start, "yyyyMMdd'T'HHmmss");
+  const end = formatEastern(
+    input.end ?? input.start,
+    "yyyyMMdd'T'HHmmss",
+  );
+
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: input.title,
     details: input.description || "",
     location: input.location || "",
     dates: `${start}/${end}`,
+    ctz: COMMUNITY_TIME_ZONE,
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
