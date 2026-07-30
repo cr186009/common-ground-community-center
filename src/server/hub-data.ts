@@ -27,7 +27,10 @@ import type {
 import { prisma } from "@/lib/prisma";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 
-function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Prisma.EventWhereInput {
+function buildEventWhere(
+  filters: PublicEventFilters,
+  activityOnly = false,
+): Prisma.EventWhereInput {
   const query = filters.query?.trim();
   const dateFrom = filters.dateFrom ?? startOfDay(new Date());
 
@@ -57,9 +60,16 @@ function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Pri
   };
 }
 
-function buildAlertWhere(filters: AlertFilters, status?: AlertStatus | AlertStatus[]) {
+function buildAlertWhere(
+  filters: AlertFilters,
+  status?: AlertStatus | AlertStatus[],
+) {
   const where: Prisma.AlertWhereInput = {
-    ...(Array.isArray(status) ? { status: { in: status } } : status ? { status } : {}),
+    ...(Array.isArray(status)
+      ? { status: { in: status } }
+      : status
+        ? { status }
+        : {}),
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.alertType ? { alertType: filters.alertType } : {}),
   };
@@ -78,7 +88,9 @@ function buildMeetingWhere(filters: MeetingFilters): Prisma.MeetingWhereInput {
   return {
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.county ? { county: filters.county } : {}),
-    ...(filters.governmentBody ? { governmentBody: filters.governmentBody } : {}),
+    ...(filters.governmentBody
+      ? { governmentBody: filters.governmentBody }
+      : {}),
     ...(filters.meetingType ? { meetingType: filters.meetingType } : {}),
   };
 }
@@ -233,7 +245,9 @@ export async function getEventsForCalendar(
   monthValue?: string,
   activityOnly = false,
 ) {
-  const baseDate = monthValue ? new Date(`${monthValue}-01T00:00:00`) : new Date();
+  const baseDate = monthValue
+    ? new Date(`${monthValue}-01T00:00:00`)
+    : new Date();
   const monthStart = startOfMonth(baseDate);
   const monthEnd = endOfMonth(baseDate);
 
@@ -297,14 +311,21 @@ export async function getMeetings(filters: MeetingFilters) {
     orderBy: { governmentBody: "asc" },
   });
 
-  return { upcomingMeetings, completedMeetings, governmentBodies: governmentBodies.map((item) => item.governmentBody) };
+  return {
+    upcomingMeetings,
+    completedMeetings,
+    governmentBodies: governmentBodies.map((item) => item.governmentBody),
+  };
 }
 
 export async function getMeetingById(id: string) {
   return prisma.meeting.findUnique({ where: { id } });
 }
 
-export async function getVolunteerOpportunities(filters?: { city?: string; county?: string }) {
+export async function getVolunteerOpportunities(filters?: {
+  city?: string;
+  county?: string;
+}) {
   return prisma.volunteerOpportunity.findMany({
     where: {
       status: "OPEN",
@@ -317,7 +338,12 @@ export async function getVolunteerOpportunities(filters?: { city?: string; count
 
 export async function getPublicSources() {
   return prisma.source.findMany({
-    orderBy: [{ section: "asc" }, { county: "asc" }, { city: "asc" }, { name: "asc" }],
+    orderBy: [
+      { section: "asc" },
+      { county: "asc" },
+      { city: "asc" },
+      { name: "asc" },
+    ],
     include: {
       _count: {
         select: {
@@ -342,7 +368,9 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
         }
       : undefined;
 
-  const sourceFilter = filters.sourceType ? { source: { is: { type: filters.sourceType } } } : {};
+  const sourceFilter = filters.sourceType
+    ? { source: { is: { type: filters.sourceType } } }
+    : {};
 
   const [events, alerts, meetings, volunteer] = await Promise.all([
     prisma.event.findMany({
@@ -353,7 +381,9 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
         ...(filters.category ? { category: filters.category } : {}),
         ...(filters.isFree ? { isFree: true } : {}),
         ...(filters.isKidFriendly ? { isKidFriendly: true } : {}),
-        ...(dateClause ? { startDateTime: dateClause } : { startDateTime: { gte: startOfDay(new Date()) } }),
+        ...(dateClause
+          ? { startDateTime: dateClause }
+          : { startDateTime: { gte: startOfDay(new Date()) } }),
         ...sourceFilter,
         ...(query
           ? {
@@ -375,7 +405,10 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
         ...sourceFilter,
         ...(query
           ? {
-              OR: [{ title: { contains: query } }, { description: { contains: query } }],
+              OR: [
+                { title: { contains: query } },
+                { description: { contains: query } },
+              ],
             }
           : {}),
       },
@@ -471,11 +504,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
 
     // ✅ Only show active sources on the admin dashboard
     prisma.source.findMany({
-      
-      orderBy: [
-        { section: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ section: "asc" }, { name: "asc" }],
     }),
 
     prisma.subscriber.findMany({
@@ -598,9 +627,15 @@ export async function getDigestPreview(subscriberId?: string | null) {
   const [subscriber, events, alerts, meetings, volunteer] = await Promise.all([
     subscriberId
       ? prisma.subscriber.findUnique({ where: { id: subscriberId } })
-      : prisma.subscriber.findFirst({ where: { active: true }, orderBy: { createdAt: "asc" } }),
+      : prisma.subscriber.findFirst({
+          where: { active: true },
+          orderBy: { createdAt: "asc" },
+        }),
     prisma.event.findMany({
-      where: { status: "APPROVED", startDateTime: { gte: startOfDay(new Date()) } },
+      where: {
+        status: "APPROVED",
+        startDateTime: { gte: startOfDay(new Date()) },
+      },
       orderBy: { startDateTime: "asc" },
       take: 8,
     }),
@@ -610,7 +645,10 @@ export async function getDigestPreview(subscriberId?: string | null) {
       take: 5,
     }),
     prisma.meeting.findMany({
-      where: { status: "UPCOMING", startDateTime: { gte: startOfDay(new Date()) } },
+      where: {
+        status: "UPCOMING",
+        startDateTime: { gte: startOfDay(new Date()) },
+      },
       orderBy: { startDateTime: "asc" },
       take: 6,
     }),
@@ -621,7 +659,13 @@ export async function getDigestPreview(subscriberId?: string | null) {
     }),
   ]);
 
-  return buildWeeklyDigestPreview({ subscriber, events, alerts, meetings, volunteer });
+  return buildWeeklyDigestPreview({
+    subscriber,
+    events,
+    alerts,
+    meetings,
+    volunteer,
+  });
 }
 
 export async function getSourceHealthData() {
@@ -646,16 +690,12 @@ export async function getSourceHealthData() {
 
   return sources.map((source) => {
     const logs = source.logs;
-    
+
     const lastLog = logs[0];
 
-    const failures = logs.filter(
-      (log) => log.status === "FAILED"
-    ).length;
+    const failures = logs.filter((log) => log.status === "FAILED").length;
 
-    const successes = logs.filter(
-      (log) => log.status === "SUCCESS"
-    ).length;
+    const successes = logs.filter((log) => log.status === "SUCCESS").length;
 
     return {
       id: source.id,
@@ -729,7 +769,12 @@ export async function getAdminExtendedCounts() {
 // Enhanced source health for admin
 // -------------------------------------------------------------------------
 
-export type SourceHealthStatus = "HEALTHY" | "WARNING" | "FAILED" | "MANUAL" | "INACTIVE";
+export type SourceHealthStatus =
+  | "HEALTHY"
+  | "WARNING"
+  | "FAILED"
+  | "MANUAL"
+  | "INACTIVE";
 
 export type AdminSourceHealth = {
   id: string;
@@ -758,7 +803,11 @@ export type AdminSourceHealth = {
 };
 
 function computeSourceHealthStatus(
-  source: { active: boolean; lastScrapedAt: Date | null; scrapeFrequency: string | null },
+  source: {
+    active: boolean;
+    lastScrapedAt: Date | null;
+    scrapeFrequency: string | null;
+  },
   lastLogStatus: string | null,
   recentLogs: Array<{ status: string; itemsFound: number }>,
   hasAutomatedScraper: boolean,
@@ -773,7 +822,8 @@ function computeSourceHealthStatus(
   const freq = (source.scrapeFrequency ?? "").toLowerCase();
   let staleMs = 10 * 24 * 60 * 60 * 1000;
   if (freq.includes("hour")) staleMs = 4 * 60 * 60 * 1000;
-  else if (freq.includes("daily") || freq.includes("day")) staleMs = 2 * 24 * 60 * 60 * 1000;
+  else if (freq.includes("daily") || freq.includes("day"))
+    staleMs = 2 * 24 * 60 * 60 * 1000;
   else if (freq.includes("week")) staleMs = 10 * 24 * 60 * 60 * 1000;
   else if (freq.includes("month")) staleMs = 40 * 24 * 60 * 60 * 1000;
 
@@ -880,6 +930,7 @@ export type AdminEventRow = {
   id: string;
   title: string;
   startDateTime: Date;
+  isAllDay: boolean;
   city: string;
   county: string;
   category: string;
@@ -895,7 +946,12 @@ export type AdminEventRow = {
 
 export async function getAdminEventManagement(
   filters: AdminEventFilters = {},
-): Promise<{ events: AdminEventRow[]; total: number; page: number; totalPages: number }> {
+): Promise<{
+  events: AdminEventRow[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> {
   const PAGE_SIZE = 25;
   const page = Math.max(1, filters.page ?? 1);
   const skip = (page - 1) * PAGE_SIZE;
@@ -912,7 +968,9 @@ export async function getAdminEventManagement(
     ...(filters.city ? { city: { contains: filters.city } } : {}),
     ...(filters.county ? { county: { contains: filters.county } } : {}),
     ...(filters.category ? { category: filters.category as Category } : {}),
-    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
+    ...(filters.sourceName
+      ? { sourceName: { contains: filters.sourceName } }
+      : {}),
     ...(filters.upcoming
       ? { startDateTime: { gte: startOfDay(new Date()) } }
       : {}),
@@ -955,6 +1013,7 @@ export async function getAdminEventManagement(
         id: true,
         title: true,
         startDateTime: true,
+        isAllDay: true,
         city: true,
         county: true,
         category: true,
@@ -1015,11 +1074,25 @@ export async function getAdminImageData(): Promise<AdminImageDataResult> {
   const [total, missingUpcoming, missingUpcomingEvents] = await Promise.all([
     prisma.event.count({ where: { status: "APPROVED" } }),
     prisma.event.count({
-      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
+      where: {
+        status: "APPROVED",
+        startDateTime: { gte: now },
+        imageUrl: null,
+      },
     }),
     prisma.event.findMany({
-      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
-      select: { id: true, title: true, startDateTime: true, category: true, city: true },
+      where: {
+        status: "APPROVED",
+        startDateTime: { gte: now },
+        imageUrl: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        startDateTime: true,
+        category: true,
+        city: true,
+      },
       orderBy: { startDateTime: "asc" },
       take: 50,
     }),
@@ -1033,7 +1106,9 @@ export async function getAdminImageData(): Promise<AdminImageDataResult> {
   try {
     [withFallback, withSource, fallbackEvents] = await Promise.all([
       prisma.event.count({ where: { imageIsFallback: true } }),
-      prisma.event.count({ where: { imageUrl: { not: null }, imageIsFallback: false } }),
+      prisma.event.count({
+        where: { imageUrl: { not: null }, imageIsFallback: false },
+      }),
       prisma.event.findMany({
         where: { imageIsFallback: true, status: "APPROVED" },
         select: {
@@ -1081,8 +1156,12 @@ export async function getAdminScrapeLogs(filters: AdminLogFilters = {}) {
   const skip = (page - 1) * PAGE_SIZE;
 
   const where: Prisma.ScrapeLogWhereInput = {
-    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
-    ...(filters.status ? { status: filters.status as "SUCCESS" | "PARTIAL" | "FAILED" } : {}),
+    ...(filters.sourceName
+      ? { sourceName: { contains: filters.sourceName } }
+      : {}),
+    ...(filters.status
+      ? { status: filters.status as "SUCCESS" | "PARTIAL" | "FAILED" }
+      : {}),
     ...(filters.zeros ? { itemsFound: 0 } : {}),
     ...(filters.created ? { itemsCreated: { gt: 0 } } : {}),
   };
@@ -1097,7 +1176,12 @@ export async function getAdminScrapeLogs(filters: AdminLogFilters = {}) {
     prisma.scrapeLog.count({ where }),
   ]);
 
-  return { logs, total, page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+  return {
+    logs,
+    total,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  };
 }
 
 // -------------------------------------------------------------------------

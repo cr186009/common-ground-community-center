@@ -20,8 +20,7 @@ export function HubEventCard({
   additionalOccurrences = [],
 }: HubEventCardProps) {
   const tags = parseStoredList(event.tags);
-  const hasAdditionalOccurrences =
-    additionalOccurrences.length > 0;
+  const hasAdditionalOccurrences = additionalOccurrences.length > 0;
 
   return (
     <article className="rounded-[1.75rem] border border-[color:var(--line)] bg-white shadow-[0_25px_60px_-45px_rgba(24,40,60,0.4)]">
@@ -76,6 +75,7 @@ export function HubEventCard({
           {formatDateTimeRange(
             event.startDateTime,
             event.endDateTime,
+            event.isAllDay,
           )}
         </p>
 
@@ -93,47 +93,44 @@ export function HubEventCard({
 
             <div className="border-t border-[color:var(--line)] px-4 py-2">
               <ul className="divide-y divide-[color:var(--line)]">
-                {additionalOccurrences.map(
-                  (occurrence) => (
-                    <li
-                      key={occurrence.id}
-                      className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                {additionalOccurrences.map((occurrence) => (
+                  <li
+                    key={occurrence.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <Link
+                      href={`/events/${occurrence.id}`}
+                      className="text-sm font-medium text-slate-700 hover:text-[color:var(--forest)]"
                     >
-                      <Link
-                        href={`/events/${occurrence.id}`}
-                        className="text-sm font-medium text-slate-700 hover:text-[color:var(--forest)]"
-                      >
-                        {formatDateTimeRange(
-                          occurrence.startDateTime,
-                          occurrence.endDateTime,
-                        )}
-                      </Link>
+                      {formatDateTimeRange(
+                        occurrence.startDateTime,
+                        occurrence.endDateTime,
+                        occurrence.isAllDay,
+                      )}
+                    </Link>
 
-                      <a
-                        href={createCalendarUrl({
-                          title: occurrence.title,
-                          description:
-                            occurrence.description,
-                          location: [
-                            occurrence.locationName,
-                            occurrence.address,
-                            occurrence.city,
-                          ]
-                            .filter(Boolean)
-                            .join(", "),
-                          start:
-                            occurrence.startDateTime,
-                          end: occurrence.endDateTime,
-                        })}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-semibold text-[color:var(--forest)] hover:underline"
-                      >
-                        Add date
-                      </a>
-                    </li>
-                  ),
-                )}
+                    <a
+                      href={createCalendarUrl({
+                        title: occurrence.title,
+                        description: occurrence.description,
+                        location: [
+                          occurrence.locationName,
+                          occurrence.address,
+                          occurrence.city,
+                        ]
+                          .filter(Boolean)
+                          .join(", "),
+                        start: occurrence.startDateTime,
+                        end: occurrence.endDateTime,
+                      })}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-[color:var(--forest)] hover:underline"
+                    >
+                      Add date
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
           </details>
@@ -164,10 +161,7 @@ export function HubEventCard({
             </p>
 
             <p className="mt-1 text-sm font-semibold text-slate-800">
-              {formatMoneyText(
-                event.cost,
-                event.isFree,
-              )}
+              {formatMoneyText(event.cost, event.isFree)}
             </p>
           </div>
 
@@ -176,11 +170,7 @@ export function HubEventCard({
               href={createCalendarUrl({
                 title: event.title,
                 description: event.description,
-                location: [
-                  event.locationName,
-                  event.address,
-                  event.city,
-                ]
+                location: [event.locationName, event.address, event.city]
                   .filter(Boolean)
                   .join(", "),
                 start: event.startDateTime,

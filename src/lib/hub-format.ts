@@ -33,8 +33,7 @@ export function getCategoryLabel(category: Category) {
 
 export function getAlertTypeLabel(type: AlertType) {
   return (
-    ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ??
-    "Other"
+    ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other"
   );
 }
 
@@ -60,8 +59,28 @@ export function getSourceSectionLabel(section: SourceSection) {
   return SOURCE_SECTION_LABELS[section];
 }
 
-export function formatDateTimeRange(start: Date, end?: Date | null) {
+export function formatDateTimeRange(
+  start: Date,
+  end?: Date | null,
+  isAllDay = false,
+) {
   const startDate = formatEastern(start, "EEE, MMM d");
+
+  if (isAllDay) {
+    if (!end) {
+      return `${startDate} · All day`;
+    }
+
+    const sameDay =
+      formatEastern(start, "yyyy-MM-dd") === formatEastern(end, "yyyy-MM-dd");
+
+    if (sameDay) {
+      return `${startDate} · All day`;
+    }
+
+    return `${startDate} - ${formatEastern(end, "EEE, MMM d")} · All day`;
+  }
+
   const startTime = formatEastern(start, "h:mm a");
 
   if (!end) {
@@ -69,8 +88,7 @@ export function formatDateTimeRange(start: Date, end?: Date | null) {
   }
 
   const sameDay =
-    formatEastern(start, "yyyy-MM-dd") ===
-    formatEastern(end, "yyyy-MM-dd");
+    formatEastern(start, "yyyy-MM-dd") === formatEastern(end, "yyyy-MM-dd");
 
   if (sameDay) {
     return `${startDate}, ${startTime} - ${formatEastern(end, "h:mm a")}`;
@@ -82,7 +100,7 @@ export function formatDateTimeRange(start: Date, end?: Date | null) {
   )}`;
 }
 
-export function formatFriendlyDate(value: Date) {
+export function formatFriendlyDate(value: Date, isAllDay = false) {
   const easternDateString = formatEastern(value, "yyyy-MM-dd");
   const todayEasternString = formatEastern(new Date(), "yyyy-MM-dd");
   const tomorrowEasternString = formatEastern(
@@ -91,14 +109,20 @@ export function formatFriendlyDate(value: Date) {
   );
 
   if (easternDateString === todayEasternString) {
-    return `Today, ${formatEastern(value, "h:mm a")}`;
+    return isAllDay
+      ? "Today · All day"
+      : `Today, ${formatEastern(value, "h:mm a")}`;
   }
 
   if (easternDateString === tomorrowEasternString) {
-    return `Tomorrow, ${formatEastern(value, "h:mm a")}`;
+    return isAllDay
+      ? "Tomorrow · All day"
+      : `Tomorrow, ${formatEastern(value, "h:mm a")}`;
   }
 
-  return formatEastern(value, "EEEE, MMM d");
+  const formattedDate = formatEastern(value, "EEEE, MMM d");
+
+  return isAllDay ? `${formattedDate} · All day` : formattedDate;
 }
 
 export function formatTimestamp(value: Date | null | undefined) {
@@ -117,9 +141,7 @@ export function parseStoredList(value: string | null | undefined) {
   try {
     const parsed = JSON.parse(value) as unknown;
 
-    return Array.isArray(parsed)
-      ? parsed.map((entry) => String(entry))
-      : [];
+    return Array.isArray(parsed) ? parsed.map((entry) => String(entry)) : [];
   } catch {
     return value
       .split(",")
@@ -147,10 +169,7 @@ export function createCalendarUrl(input: {
   end?: Date | null;
 }) {
   const start = formatEastern(input.start, "yyyyMMdd'T'HHmmss");
-  const end = formatEastern(
-    input.end ?? input.start,
-    "yyyyMMdd'T'HHmmss",
-  );
+  const end = formatEastern(input.end ?? input.start, "yyyyMMdd'T'HHmmss");
 
   const params = new URLSearchParams({
     action: "TEMPLATE",
