@@ -7,6 +7,7 @@ import type {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { cedartownDowntownScraper } from "@/server/hub-scrapers/sources/cedartown-downtown";
 import { dallasOfficialScraper } from "@/server/hub-scrapers/sources/dallas-official";
 import { createFacebookManualScraper } from "@/server/hub-scrapers/sources/facebook-manual";
@@ -17,6 +18,11 @@ import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
+import {
+  classifyEventContent,
+  eventToMeeting,
+  getMeetingStatus,
+} from "@/server/hub-scrapers/content-classifier";
 import type {
   NormalizedScrapedAlert,
   NormalizedScrapedEvent,
@@ -628,9 +634,12 @@ async function upsertScrapedMeeting(
       meeting.originalUrl ??
       existing?.originalUrl ??
       meeting.sourceUrl,
-    status: (meeting.status ??
-      existing?.status ??
-      "UPCOMING") as MeetingStatus,
+    status: (meeting.status === "ARCHIVED"
+      ? "ARCHIVED"
+      : getMeetingStatus(
+          meeting.startDateTime,
+          meeting.endDateTime,
+        )) as MeetingStatus,
     summary: meeting.summary ?? existing?.summary ?? null,
     plainEnglishSummary:
       meeting.plainEnglishSummary ??
@@ -868,16 +877,29 @@ export async function scrapeSource(source: Source) {
     const itemResults: ScrapedItemSummary[] = [];
 
     for (const event of events) {
+      const contentType = classifyEventContent(event);
+      const routedMeeting =
+        contentType === "meeting" ? eventToMeeting(event) : null;
       itemResults.push(
         await processItem({
-          type: "event",
-          item: event,
+          type: routedMeeting ? "meeting" : "event",
+          item: routedMeeting ?? event,
           title: event.title,
           date: event.startDateTime,
           city: event.city,
           county: event.county,
           sourceUrl: event.originalUrl ?? event.sourceUrl,
-          save: (value) => upsertScrapedEvent(source, value),
+          save: routedMeeting
+            ? (value) =>
+                upsertScrapedMeeting(
+                  source,
+                  value as NormalizedScrapedMeeting,
+                )
+            : (value) =>
+                upsertScrapedEvent(
+                  source,
+                  value as NormalizedScrapedEvent,
+                ),
         }),
       );
     }
@@ -1078,6 +1100,7 @@ export async function scrapeSource(source: Source) {
 }
 
 export async function scrapeAllSupportedSources() {
+  await completeElapsedMeetings();
   const sources = await prisma.source.findMany({
     where: {
       active: true,
@@ -1151,6 +1174,7 @@ export async function scrapeAllSupportedSources() {
 }
 
 export async function scrapeSingleSourceById(sourceId: string) {
+  await completeElapsedMeetings();
   const source = await prisma.source.findUnique({
     where: { id: sourceId },
   });

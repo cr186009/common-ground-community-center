@@ -28,6 +28,7 @@ import type {
   PublicEventFilters,
 } from "@/lib/hub-search";
 import { prisma } from "@/lib/prisma";
+import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 
 function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Prisma.EventWhereInput {
@@ -234,6 +235,7 @@ export async function getAlerts(filters: AlertFilters) {
 }
 
 export async function getMeetings(filters: MeetingFilters) {
+  await completeElapsedMeetings();
   const now = new Date();
   const [upcomingMeetings, completedMeetings] = await Promise.all([
     prisma.meeting.findMany({

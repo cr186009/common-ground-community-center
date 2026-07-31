@@ -31,6 +31,13 @@ export type NormalizedScrapedEvent = {
   imageUrl?: string | null;
   status?: EventStatus;
   confidenceScore?: number | null;
+  meetingDetails?: {
+    governmentBody?: string;
+    meetingType?: MeetingType;
+    agendaUrl?: string | null;
+    minutesUrl?: string | null;
+    videoUrl?: string | null;
+  };
 };
 
 export type NormalizedScrapedAlert = {
