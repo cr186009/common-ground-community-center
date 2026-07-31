@@ -75,12 +75,6 @@ export function HubShell({ children }: { children: React.ReactNode }) {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/admin"
-                className="rounded-full border border-dashed border-[color:var(--line)] bg-transparent px-4 py-2 text-sm font-medium text-slate-600 transition hover:text-[color:var(--navy)]"
-              >
-                Admin
-              </Link>
             </nav>
           </div>
         </div>

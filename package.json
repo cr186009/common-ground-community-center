@@ -8,9 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --import tsx --test tests/**/*.test.ts",
     "db:push": "prisma db push",
     "db:seed": "node --import tsx prisma/seed.ts",
     "scrape": "node --import tsx scripts/scrape.ts",
+    "cleanup:mvp": "node --import tsx scripts/cleanup-mvp-data.ts",
     "postinstall": "prisma generate"
   },
   "keywords": [

@@ -1,5 +1,10 @@
 import type { AlertSeverity, AlertType, Category, MeetingType, SourceSection, SourceType } from "@prisma/client";
-import { format, isToday, isTomorrow } from "date-fns";
+import {
+  compactUtcDateTime,
+  formatCommunityDate,
+  getCommunityDateKey,
+  getTomorrowCommunityDateKey,
+} from "@/lib/hub-date";
 
 import {
   ALERT_SEVERITY_OPTIONS,
@@ -35,32 +40,32 @@ export function getSourceSectionLabel(section: SourceSection) {
 }
 
 export function formatDateTimeRange(start: Date, end?: Date | null) {
-  const startDate = format(start, "EEE, MMM d");
-  const startTime = format(start, "h:mm a");
+  const startDate = formatCommunityDate(start, { weekday: "short", month: "short", day: "numeric" });
+  const startTime = formatCommunityDate(start, { hour: "numeric", minute: "2-digit" });
 
   if (!end) {
     return `${startDate} at ${startTime}`;
   }
 
-  const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+  const sameDay = getCommunityDateKey(start) === getCommunityDateKey(end);
 
   if (sameDay) {
-    return `${startDate}, ${startTime} - ${format(end, "h:mm a")}`;
+    return `${startDate}, ${startTime} - ${formatCommunityDate(end, { hour: "numeric", minute: "2-digit" })}`;
   }
 
-  return `${startDate}, ${startTime} - ${format(end, "EEE, MMM d, h:mm a")}`;
+  return `${startDate}, ${startTime} - ${formatCommunityDate(end, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
 }
 
-export function formatFriendlyDate(value: Date) {
-  if (isToday(value)) {
-    return `Today, ${format(value, "h:mm a")}`;
+export function formatFriendlyDate(value: Date, now = new Date()) {
+  if (getCommunityDateKey(value) === getCommunityDateKey(now)) {
+    return `Today, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
   }
 
-  if (isTomorrow(value)) {
-    return `Tomorrow, ${format(value, "h:mm a")}`;
+  if (getCommunityDateKey(value) === getTomorrowCommunityDateKey(now)) {
+    return `Tomorrow, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
   }
 
-  return format(value, "EEEE, MMM d");
+  return formatCommunityDate(value, { weekday: "long", month: "short", day: "numeric" });
 }
 
 export function formatTimestamp(value: Date | null | undefined) {
@@ -68,7 +73,9 @@ export function formatTimestamp(value: Date | null | undefined) {
     return "Not yet updated";
   }
 
-  return format(value, "MMM d, yyyy 'at' h:mm a");
+  const date = formatCommunityDate(value, { month: "short", day: "numeric", year: "numeric" });
+  const time = formatCommunityDate(value, { hour: "numeric", minute: "2-digit" });
+  return `${date} at ${time}`;
 }
 
 export function parseStoredList(value: string | null | undefined) {
@@ -102,8 +109,8 @@ export function createCalendarUrl(input: {
   start: Date;
   end?: Date | null;
 }) {
-  const start = format(input.start, "yyyyMMdd'T'HHmmss");
-  const end = format(input.end ?? input.start, "yyyyMMdd'T'HHmmss");
+  const start = compactUtcDateTime(input.start);
+  const end = compactUtcDateTime(input.end ?? input.start);
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: input.title,

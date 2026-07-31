@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { parseCommunityDateTime } from "@/lib/hub-date";
 import {
   clearAdminSession,
   createAdminSession,
@@ -182,7 +183,9 @@ function parseDate(value?: string) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)
+    ? parseCommunityDateTime(value)
+    : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     throw new Error(`Invalid date: ${value}`);
   }

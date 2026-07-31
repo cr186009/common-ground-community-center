@@ -9,15 +9,18 @@ import {
 import {
   addMonths,
   endOfDay,
-  endOfMonth,
-  endOfWeek,
   startOfDay,
-  startOfMonth,
-  startOfWeek,
   subDays,
 } from "date-fns";
 
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
+import {
+  endOfCommunityDay,
+  getCommunityDateKey,
+  getCommunityWeekendRange,
+  parseCommunityDateTime,
+  startOfCommunityDay,
+} from "@/lib/hub-date";
 import type {
   AlertFilters,
   GlobalSearchFilters,
@@ -29,13 +32,13 @@ import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 
 function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Prisma.EventWhereInput {
   const query = filters.query?.trim();
-  const dateFrom = filters.dateFrom ?? startOfDay(new Date());
+  const dateFrom = filters.dateFrom ?? startOfCommunityDay();
 
   return {
     status: "APPROVED",
     startDateTime: {
       gte: dateFrom,
-      ...(filters.dateTo ? { lte: endOfDay(filters.dateTo) } : {}),
+      ...(filters.dateTo ? { lte: endOfCommunityDay(filters.dateTo) } : {}),
     },
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.county ? { county: filters.county } : {}),
@@ -96,8 +99,7 @@ export async function expireElapsedAlerts() {
 export async function getHomepageData() {
   await expireElapsedAlerts();
   const now = new Date();
-  const weekendStart = startOfWeek(now, { weekStartsOn: 5 });
-  const weekendEnd = endOfWeek(now, { weekStartsOn: 5 });
+  const { start: weekendStart, end: weekendEnd } = getCommunityWeekendRange(now);
 
   const [
     topAlert,
@@ -147,7 +149,10 @@ export async function getHomepageData() {
       take: 4,
     }),
     prisma.volunteerOpportunity.findMany({
-      where: { status: "OPEN" },
+      where: {
+        status: "OPEN",
+        OR: [{ dateTime: null }, { dateTime: { gte: startOfCommunityDay(now) } }],
+      },
       orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
       take: 4,
     }),
@@ -187,9 +192,13 @@ export async function getEventsForCalendar(
   monthValue?: string,
   activityOnly = false,
 ) {
-  const baseDate = monthValue ? new Date(`${monthValue}-01T00:00:00`) : new Date();
-  const monthStart = startOfMonth(baseDate);
-  const monthEnd = endOfMonth(baseDate);
+  const baseDate = monthValue ? new Date(`${monthValue}-01T12:00:00Z`) : new Date();
+  const monthStartKey = monthValue ?? getCommunityDateKey(baseDate).slice(0, 7);
+  const [year, month] = monthStartKey.split("-").map(Number);
+  const nextMonth = new Date(Date.UTC(year, month, 1, 12));
+  const nextMonthKey = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthStart = parseCommunityDateTime(`${monthStartKey}-01T00:00`);
+  const monthEnd = new Date(parseCommunityDateTime(`${nextMonthKey}-01T00:00`).getTime() - 1);
 
   return prisma.event.findMany({
     where: {
@@ -259,14 +268,32 @@ export async function getMeetingById(id: string) {
 }
 
 export async function getVolunteerOpportunities(filters?: { city?: string; county?: string }) {
-  return prisma.volunteerOpportunity.findMany({
-    where: {
-      status: "OPEN",
-      ...(filters?.city ? { city: filters.city } : {}),
-      ...(filters?.county ? { county: filters.county } : {}),
-    },
-    orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
-  });
+  const today = startOfCommunityDay();
+  const locationFilters = {
+    ...(filters?.city ? { city: filters.city } : {}),
+    ...(filters?.county ? { county: filters.county } : {}),
+  };
+  const [current, past] = await Promise.all([
+    prisma.volunteerOpportunity.findMany({
+      where: {
+        status: "OPEN",
+        ...locationFilters,
+        OR: [{ dateTime: null }, { dateTime: { gte: today } }],
+      },
+      orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.volunteerOpportunity.findMany({
+      where: {
+        status: { in: ["OPEN", "ARCHIVED"] },
+        ...locationFilters,
+        dateTime: { lt: today },
+      },
+      orderBy: { dateTime: "desc" },
+      take: 24,
+    }),
+  ]);
+
+  return { current, past };
 }
 
 export async function getPublicSources() {

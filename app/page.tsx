@@ -225,9 +225,9 @@ export default async function HomePage({ searchParams }: PageProps) {
       <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
           <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Weekly digest</p>
-          <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Subscribe for a weekly preview</h2>
+          <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Join the digest early-access list</h2>
           <p className="mt-3 text-sm leading-6 text-slate-700">
-            Choose a county, optional city, and a few interests. Email sending is stubbed for now, but subscriptions are stored and previewed in admin.
+            Choose your county and interests to help shape a personalized weekly preview of what is happening nearby. We will let early-access members know when delivery begins.
           </p>
 
           {subscribed ? (
@@ -287,10 +287,12 @@ export default async function HomePage({ searchParams }: PageProps) {
                 Each listing points back to its original source so residents can verify details fast.
               </p>
             </div>
-            <div className="rounded-2xl bg-stone-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Last scraper refresh</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{formatTimestamp(lastUpdatedAt)}</p>
-            </div>
+            {lastUpdatedAt ? (
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Last scraper refresh</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{formatTimestamp(lastUpdatedAt)}</p>
+              </div>
+            ) : null}
             <div className="rounded-2xl bg-stone-50 p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Design approach</p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
