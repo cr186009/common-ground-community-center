@@ -437,6 +437,10 @@ export const mariettaOfficialScraper: SourceScraper = {
           description,
           startDateTime,
           endDateTime,
+          isAllDay:
+            getEasternTimeParts(startDateTime).hour === 0 &&
+            getEasternTimeParts(startDateTime).minute === 0,
+          timeZone: "America/New_York",
 
           locationName,
           address,

@@ -386,6 +386,8 @@ export const kennesawOfficialScraper: SourceScraper = {
         title,
         description,
         startDateTime,
+        isAllDay: apiEvent.all_day === true,
+        timeZone: "America/New_York",
         endDateTime:
           endDateTime &&
           endDateTime >= startDateTime

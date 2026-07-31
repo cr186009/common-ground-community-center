@@ -170,7 +170,12 @@ export const hiramOfficialScraper: SourceScraper = {
     for (const item of calendarItems) {
       const title = cleanText(item.title);
       const startDateTime = parseDate(item.start);
-      const isAllDay = isDateOnlyValue(item.start);
+      const isAllDay =
+        isDateOnlyValue(item.start) ||
+        (Boolean(startDateTime) &&
+          /^Office Closed\b/i.test(title) &&
+          Boolean(item.end) &&
+          new Date(item.end!).getTime() - startDateTime!.getTime() > 24 * 60 * 60 * 1000);
 
       /*
        * Only import public City Events. City Meetings and

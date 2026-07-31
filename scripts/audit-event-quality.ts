@@ -9,7 +9,7 @@ function titleProblems(title: string) {
   if (cleanPublicText(title) !== title) problems.push("encoded markup or boilerplate");
   if (/\s{2,}|[|•·–—:-]\s*$/.test(title)) problems.push("malformed spacing or trailing separator");
   if (/https?:\/\/|www\./i.test(title)) problems.push("URL embedded in title");
-  if (/^(calendar|event|events|details|untitled|click here)$/i.test(title.trim())) problems.push("generic title");
+  if (/^(calendar|event|events|details|untitled|click here|new event test)$/i.test(title.trim())) problems.push("generic or test title");
   if (title.length < 3 || title.length > 140) problems.push("implausible title length");
   return problems;
 }
@@ -42,10 +42,18 @@ async function main() {
   console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", totalEvents: events.length, titleIssueCount: titleIssues.length, dateIssueCount: dateIssues.length, titleIssues, dateIssues }, null, 2));
 
   if (apply) {
+    const testRecords = titleIssues.filter((issue) => issue.title.trim().toLowerCase() === "new event test");
+    if (testRecords.length) await prisma.event.deleteMany({ where: { id: { in: testRecords.map((record) => record.id) } } });
     for (const issue of titleIssues) {
+      if (testRecords.some((record) => record.id === issue.id)) continue;
       if (issue.cleanedTitle.length >= 3) await prisma.event.update({ where: { id: issue.id }, data: { title: issue.cleanedTitle } });
     }
-    console.log(`Normalized ${titleIssues.length} malformed event title(s). Date/time issues were report-only.`);
+    const multiDayRecords = dateIssues.filter((issue) =>
+      issue.durationHours !== null && issue.durationHours > 24 &&
+      /^(Recreation Center Closed|Art in the Park|Office Closed for (Thanksgiving|Christmas))$/i.test(issue.title),
+    );
+    for (const issue of multiDayRecords) await prisma.event.update({ where: { id: issue.id }, data: { isAllDay: true, timeZone: "America/New_York" } });
+    console.log(`Deleted ${testRecords.length} test event(s), normalized ${titleIssues.length - testRecords.length} malformed title(s), and corrected ${multiDayRecords.length} verified multi-day event(s).`);
   }
 }
 
