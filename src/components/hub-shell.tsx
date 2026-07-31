@@ -19,6 +19,7 @@ const links = [
   { href: "/volunteer", label: "Volunteer" },
   { href: "/submit", label: "Submit" },
   { href: "/about", label: "About" },
+  { href: "/release-notes", label: "Updates" },
 ];
 
 export function HubShell({ children }: { children: React.ReactNode }) {
@@ -115,6 +116,9 @@ export function HubShell({ children }: { children: React.ReactNode }) {
             <p className="mt-2 leading-6">
               Facebook pages are tracked as manual-review sources so the app does not depend on aggressive scraping.
             </p>
+            <Link href="/release-notes" className="mt-3 inline-flex font-semibold text-[color:var(--forest)] hover:underline">
+              Read the latest site updates
+            </Link>
           </div>
         </div>
       </footer>

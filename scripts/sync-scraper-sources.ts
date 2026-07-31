@@ -64,6 +64,36 @@ const managedSources = [
     notes:
       "Tier 1 official City of Marietta calendar. Platform: CivicPlus / CivicEngage using category-specific iCalendar feeds.",
   },
+  {
+    name: "City of Rockmart official site",
+    url: "https://www.rockmart-ga.gov/CityCalendar.aspx",
+    type: SourceType.GOVERNMENT,
+    section: SourceSection.EVENTS,
+    city: "Rockmart",
+    county: "Polk",
+    scrapeFrequency: "DAILY",
+    notes: "Official Rockmart Mimsware calendar scraper.",
+  },
+  {
+    name: "Visit Woodstock events",
+    url: "https://visitwoodstockga.com/events/",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: "Woodstock",
+    county: "Cherokee",
+    scrapeFrequency: "DAILY",
+    notes: "Official Visit Woodstock calendar API scraper.",
+  },
+  {
+    name: "Explore Canton events",
+    url: "https://explorecantonga.com/events/",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: "Canton",
+    county: "Cherokee",
+    scrapeFrequency: "DAILY",
+    notes: "Official Explore Canton tourism calendar scraper.",
+  },
 ];
 
 async function main() {

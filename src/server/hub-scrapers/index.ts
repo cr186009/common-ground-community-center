@@ -17,6 +17,8 @@ import { kennesawOfficialScraper } from "@/server/hub-scrapers/sources/kennesaw-
 import { mariettaOfficialScraper } from "@/server/hub-scrapers/sources/marietta-official";
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
+import { woodstockOfficialScraper } from "@/server/hub-scrapers/sources/woodstock-official";
+import { cantonOfficialScraper } from "@/server/hub-scrapers/sources/canton-official";
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
@@ -108,6 +110,8 @@ const registeredScrapers: SourceScraper[] = [
   dallasOfficialScraper,
   hiramOfficialScraper,
   rockmartOfficialScraper,
+  woodstockOfficialScraper,
+  cantonOfficialScraper,
   cedartownDowntownScraper,
   myDallasGaScraper,
   nwsAlertsScraper,
