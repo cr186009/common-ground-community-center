@@ -8,7 +8,7 @@ export default function AboutPage() {
           Common Ground Digital Community Center is a friendly, nonpartisan local hub for events, public alerts, volunteer needs, and plain-English civic information. The goal is simple: help residents find what matters nearby without needing to hunt across dozens of pages.
         </p>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-700">
-          Common Ground was created and is maintained by Alec Miller, with Christopher Robertson serving as Co-developer and Web Experience Designer. The project exists to give residents one dependable place to find activities, public meetings, alerts, and opportunities to help across our area.
+          Common Ground began with Alec Miller&apos;s idea and vision for a dependable digital gathering place that helps neighbors stay connected to their community. Alec founded the concept and continues to shape its purpose, while Christopher Robertson serves as Co-developer and Web Experience Designer and maintains the site&apos;s technical experience. Together, their contributions help residents find activities, public meetings, alerts, and opportunities to help across our area.
         </p>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-700">
           Although the site is hosted on the Miller for Georgia domain, listings are included without regard to political party or viewpoint. Official sources are prioritized, resident submissions follow the same moderation standards, and every listing links back to its source whenever possible.
