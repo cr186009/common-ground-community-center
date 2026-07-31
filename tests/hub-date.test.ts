@@ -40,7 +40,7 @@ test("friendly dates compare calendar days in Eastern time", () => {
   const now = new Date("2026-07-31T03:30:00Z");
   assert.equal(getCommunityDateKey(now), "2026-07-30");
   assert.equal(
-    formatFriendlyDate(new Date("2026-07-31T13:00:00Z"), now),
+    formatFriendlyDate(new Date("2026-07-31T13:00:00Z"), false, now),
     "Tomorrow, 9:00 AM",
   );
 });

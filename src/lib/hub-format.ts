@@ -15,20 +15,33 @@ import {
   SOURCE_TYPE_LABELS,
 } from "@/lib/hub-constants";
 
+const COMMUNITY_TIME_ZONE = "America/New_York";
+
 export function getCategoryLabel(category: Category) {
-  return CATEGORY_OPTIONS.find((option) => option.value === category)?.label ?? "Other";
+  return (
+    CATEGORY_OPTIONS.find((option) => option.value === category)?.label ??
+    "Other"
+  );
 }
 
 export function getAlertTypeLabel(type: AlertType) {
-  return ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other";
+  return (
+    ALERT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other"
+  );
 }
 
 export function getAlertSeverityLabel(severity: AlertSeverity) {
-  return ALERT_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ?? "Low";
+  return (
+    ALERT_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ??
+    "Low"
+  );
 }
 
 export function getMeetingTypeLabel(type: MeetingType) {
-  return MEETING_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Other";
+  return (
+    MEETING_TYPE_OPTIONS.find((option) => option.value === type)?.label ??
+    "Other"
+  );
 }
 
 export function getSourceTypeLabel(type: SourceType) {
@@ -39,8 +52,12 @@ export function getSourceSectionLabel(section: SourceSection) {
   return SOURCE_SECTION_LABELS[section];
 }
 
-export function formatDateTimeRange(start: Date, end?: Date | null) {
+export function formatDateTimeRange(start: Date, end?: Date | null, isAllDay = false) {
   const startDate = formatCommunityDate(start, { weekday: "short", month: "short", day: "numeric" });
+  if (isAllDay) {
+    if (!end || getCommunityDateKey(start) === getCommunityDateKey(end)) return `${startDate} · All day`;
+    return `${startDate} - ${formatCommunityDate(end, { weekday: "short", month: "short", day: "numeric" })} · All day`;
+  }
   const startTime = formatCommunityDate(start, { hour: "numeric", minute: "2-digit" });
 
   if (!end) {
@@ -56,21 +73,22 @@ export function formatDateTimeRange(start: Date, end?: Date | null) {
   return `${startDate}, ${startTime} - ${formatCommunityDate(end, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
 }
 
-export function formatFriendlyDate(value: Date, now = new Date()) {
+export function formatFriendlyDate(value: Date, isAllDay = false, now = new Date()) {
   if (getCommunityDateKey(value) === getCommunityDateKey(now)) {
-    return `Today, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
+    return isAllDay ? "Today · All day" : `Today, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
   }
 
   if (getCommunityDateKey(value) === getTomorrowCommunityDateKey(now)) {
-    return `Tomorrow, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
+    return isAllDay ? "Tomorrow · All day" : `Tomorrow, ${formatCommunityDate(value, { hour: "numeric", minute: "2-digit" })}`;
   }
 
-  return formatCommunityDate(value, { weekday: "long", month: "short", day: "numeric" });
+  const date = formatCommunityDate(value, { weekday: "long", month: "short", day: "numeric" });
+  return isAllDay ? `${date} · All day` : date;
 }
 
 export function formatTimestamp(value: Date | null | undefined) {
   if (!value) {
-    return "Not yet updated";
+    return "Update pending";
   }
 
   const date = formatCommunityDate(value, { month: "short", day: "numeric", year: "numeric" });
@@ -85,6 +103,7 @@ export function parseStoredList(value: string | null | undefined) {
 
   try {
     const parsed = JSON.parse(value) as unknown;
+
     return Array.isArray(parsed) ? parsed.map((entry) => String(entry)) : [];
   } catch {
     return value
@@ -94,7 +113,10 @@ export function parseStoredList(value: string | null | undefined) {
   }
 }
 
-export function formatMoneyText(value: string | null | undefined, isFree?: boolean) {
+export function formatMoneyText(
+  value: string | null | undefined,
+  isFree?: boolean,
+) {
   if (isFree) {
     return "Free";
   }
@@ -117,6 +139,7 @@ export function createCalendarUrl(input: {
     details: input.description || "",
     location: input.location || "",
     dates: `${start}/${end}`,
+    ctz: COMMUNITY_TIME_ZONE,
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;

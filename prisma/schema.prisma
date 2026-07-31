@@ -40,6 +40,8 @@ model Event {
   sourceId        String?
   source          Source?     @relation(fields: [sourceId], references: [id])
 
+isAllDay Boolean @default(false)
+timeZone String  @default("America/New_York")
   @@index([status, startDateTime])
   @@index([city, startDateTime])
   @@index([county, startDateTime])

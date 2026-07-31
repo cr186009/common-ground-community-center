@@ -69,41 +69,55 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
   const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
-    // Compute the sorted IDs of all HIGH/EMERGENCY alerts for "new alert" detection
-    const urgentIds = alerts
-      .filter((a) => a.severity === "HIGH" || a.severity === "EMERGENCY")
-      .map((a) => a.id)
-      .sort()
-      .join(",");
+    const frameId = window.requestAnimationFrame(() => {
+      const urgentIds = alerts
+        .filter(
+          (alert) =>
+            alert.severity === "HIGH" ||
+            alert.severity === "EMERGENCY",
+        )
+        .map((alert) => alert.id)
+        .sort()
+        .join(",");
 
-    let nextExpanded: boolean;
+      let nextExpanded: boolean;
 
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const lastSeenUrgent = localStorage.getItem(SEEN_HIGH_KEY) ?? "";
-    const hasNewUrgent = urgentIds !== "" && urgentIds !== lastSeenUrgent;
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        const lastSeenUrgent =
+          window.localStorage.getItem(SEEN_HIGH_KEY) ?? "";
 
-    if (hasNewUrgent) {
-      // A new HIGH or EMERGENCY alert arrived — force expand once
-      nextExpanded = true;
-      localStorage.setItem(STORAGE_KEY, "expanded");
-    } else if (stored === "minimized") {
-      nextExpanded = false;
-    } else if (stored === "expanded") {
-      nextExpanded = true;
-    } else {
-      // No saved preference — expanded on md+, minimized on mobile
-      nextExpanded = window.innerWidth >= 768;
-    }
+        const hasNewUrgent =
+          urgentIds !== "" && urgentIds !== lastSeenUrgent;
 
-    // Always keep the seen-high record current so the next page load won't re-expand
-    if (urgentIds) {
-      localStorage.setItem(SEEN_HIGH_KEY, urgentIds);
-    }
+        if (hasNewUrgent) {
+          nextExpanded = true;
+          window.localStorage.setItem(STORAGE_KEY, "expanded");
+        } else if (stored === "minimized") {
+          nextExpanded = false;
+        } else if (stored === "expanded") {
+          nextExpanded = true;
+        } else {
+          nextExpanded = window.innerWidth >= 768;
+        }
 
-    setIsExpanded(nextExpanded);
-    setMounted(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        if (urgentIds) {
+          window.localStorage.setItem(SEEN_HIGH_KEY, urgentIds);
+        }
+      } catch {
+        nextExpanded = window.innerWidth >= 768;
+      }
 
+      setIsExpanded(nextExpanded);
+      setMounted(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [alerts]);
+
+  
   function toggle() {
     const next = !isExpanded;
     setIsExpanded(next);

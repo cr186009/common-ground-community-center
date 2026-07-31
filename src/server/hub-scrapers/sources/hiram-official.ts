@@ -88,16 +88,39 @@ function extractImageUrl(
   return toAbsoluteUrl(sourceUrl, src) ?? null;
 }
 
+function isDateOnlyValue(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
 function parseDate(value?: string) {
   if (!value) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const normalized = value.trim();
 
-  return Number.isNaN(parsed.getTime())
-    ? null
-    : parsed;
+  /*
+   * A date-only value is a calendar date rather than a specific
+   * moment. Store it at UTC noon so converting it to Eastern time
+   * cannot move it onto the previous calendar day.
+   */
+  if (isDateOnlyValue(normalized)) {
+    const [year, month, day] = normalized.split("-").map(Number);
+
+    const parsed = new Date(
+      Date.UTC(year, month - 1, day, 12, 0, 0),
+    );
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(normalized);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function isUpcoming(date: Date, now: Date) {
@@ -140,21 +163,14 @@ export const hiramOfficialScraper: SourceScraper = {
         `Unable to parse Hiram calendar JSON: ${message}`,
       );
     }
-    
-    console.log(
-      calendarItems.map((i) => ({
-        title: i.title,
-        calendar: i.primary_calendar_name,
-        start: i.start,
-      }))
-    );
-    
+
     const now = new Date();
     const events: NormalizedScrapedEvent[] = [];
 
     for (const item of calendarItems) {
       const title = cleanText(item.title);
       const startDateTime = parseDate(item.start);
+      const isAllDay = isDateOnlyValue(item.start);
 
       /*
        * Only import public City Events. City Meetings and
@@ -188,6 +204,8 @@ export const hiramOfficialScraper: SourceScraper = {
         description,
         startDateTime,
         endDateTime,
+        isAllDay,
+        timeZone: "America/New_York",
         locationName,
         address: null,
         city: "Hiram",

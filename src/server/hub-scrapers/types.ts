@@ -31,6 +31,8 @@ export type NormalizedScrapedEvent = {
   imageUrl?: string | null;
   status?: EventStatus;
   confidenceScore?: number | null;
+  isAllDay?: boolean;
+  timeZone?: string | null;
   meetingDetails?: {
     governmentBody?: string;
     meetingType?: MeetingType;

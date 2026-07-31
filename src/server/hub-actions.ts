@@ -338,6 +338,7 @@ export async function submitCommunityItemAction(formData: FormData) {
 
   await prisma.submittedEvent.create({
     data: {
+      
       submitterName,
       submitterEmail,
       submissionType: submissionType as SubmissionType,
