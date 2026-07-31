@@ -37,6 +37,86 @@ export function cleanText(value: string | null | undefined) {
   return value?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  hellip: "…",
+  ldquo: "“",
+  lsquo: "‘",
+  lt: "<",
+  nbsp: " ",
+  quot: '"',
+  rdquo: "”",
+  rsquo: "’",
+};
+
+function decodeHtmlEntities(value: string) {
+  const decodeCodePoint = (point: number, fallback: string) =>
+    Number.isInteger(point) && point >= 0 && point <= 0x10ffff
+      ? String.fromCodePoint(point)
+      : fallback;
+
+  return value.replace(
+    /&(#(?:x[0-9a-f]+|\d+)|[a-z]+);/gi,
+    (entity, code: string) => {
+      if (code.startsWith("#x") || code.startsWith("#X")) {
+        const point = Number.parseInt(code.slice(2), 16);
+        return decodeCodePoint(point, entity);
+      }
+
+      if (code.startsWith("#")) {
+        const point = Number.parseInt(code.slice(1), 10);
+        return decodeCodePoint(point, entity);
+      }
+
+      return HTML_ENTITIES[code.toLowerCase()] ?? entity;
+    },
+  );
+}
+
+/** Clean source copy while retaining paragraph boundaries for detail pages. */
+export function cleanPublicText(value: string | null | undefined) {
+  if (!value) return "";
+
+  const paragraphs = decodeHtmlEntities(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{1,}/)
+    .map((paragraph) =>
+      paragraph
+        .replace(/\bREAD\s+MORE\b\s*(?:[.·|»›>\-–—]+)?\s*$/i, "")
+        .replace(/[ \t]+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  return paragraphs
+    .filter((paragraph) => {
+      const key = paragraph.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("\n\n");
+}
+
+/** Plain, bounded copy suitable for event cards and metadata. */
+export function summarizePublicText(
+  value: string | null | undefined,
+  maxLength = 220,
+) {
+  const cleaned = cleanPublicText(value).replace(/\s+/g, " ");
+  if (cleaned.length <= maxLength) return cleaned;
+
+  const boundary = cleaned.lastIndexOf(" ", Math.max(0, maxLength - 1));
+  const end = boundary > maxLength * 0.6 ? boundary : maxLength - 1;
+  return `${cleaned.slice(0, end).replace(/[\s,;:.!?-]+$/g, "")}…`;
+}
+
 export function toAbsoluteUrl(baseUrl: string, input: string | null | undefined) {
   if (!input) {
     return undefined;

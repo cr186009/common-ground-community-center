@@ -53,6 +53,8 @@ export type NormalizedScrapedAlert = {
   sourceName: string;
   sourceUrl: string;
   originalUrl?: string | null;
+  /** Stable identifier supplied by the source (for example, an NWS feature URL). */
+  externalId?: string | null;
   startsAt?: Date | null;
   expiresAt?: Date | null;
   status?: AlertStatus;

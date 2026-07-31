@@ -8,6 +8,7 @@ import type {
 
 import { prisma } from "@/lib/prisma";
 import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
+import { resolveAlertStatus } from "@/server/alert-lifecycle";
 import { cedartownDowntownScraper } from "@/server/hub-scrapers/sources/cedartown-downtown";
 import { dallasOfficialScraper } from "@/server/hub-scrapers/sources/dallas-official";
 import { createFacebookManualScraper } from "@/server/hub-scrapers/sources/facebook-manual";
@@ -31,6 +32,12 @@ import type {
   ScrapeOutput,
   SourceScraper,
 } from "@/server/hub-scrapers/types";
+import { cleanPublicText } from "@/server/hub-scrapers/helpers";
+import {
+  isValidScrapedDate,
+  validateScrapedAlert,
+  validateScrapedEvent,
+} from "@/server/hub-scrapers/quality";
 
 /*
  * Scraper configuration
@@ -171,7 +178,7 @@ function normalizeTitle(title: string) {
 }
 
 function isValidDate(value: Date | null | undefined) {
-  return value instanceof Date && !Number.isNaN(value.getTime());
+  return isValidScrapedDate(value);
 }
 
 function toIsoString(value: Date | null | undefined) {
@@ -268,59 +275,11 @@ function eventStatusForConfidence(
 }
 
 function validateEvent(event: NormalizedScrapedEvent) {
-  if (!event.title?.trim()) {
-    throw new Error("Event is missing a title.");
-  }
-
-  if (!isValidDate(event.startDateTime)) {
-    throw new Error(`Event "${event.title}" has an invalid start date.`);
-  }
-
-  if (
-    event.endDateTime &&
-    (!isValidDate(event.endDateTime) ||
-      event.endDateTime < event.startDateTime)
-  ) {
-    throw new Error(
-      `Event "${event.title}" has an invalid end date.`,
-    );
-  }
-
-  if (!event.city?.trim()) {
-    throw new Error(`Event "${event.title}" is missing a city.`);
-  }
-
-  if (!event.county?.trim()) {
-    throw new Error(`Event "${event.title}" is missing a county.`);
-  }
-
-  if (!event.sourceUrl?.trim()) {
-    throw new Error(`Event "${event.title}" is missing a source URL.`);
-  }
+  validateScrapedEvent(event);
 }
 
 function validateAlert(alert: NormalizedScrapedAlert) {
-  if (!alert.title?.trim()) {
-    throw new Error("Alert is missing a title.");
-  }
-
-  if (!alert.county?.trim()) {
-    throw new Error(`Alert "${alert.title}" is missing a county.`);
-  }
-
-  if (!alert.sourceUrl?.trim()) {
-    throw new Error(`Alert "${alert.title}" is missing a source URL.`);
-  }
-
-  if (alert.startsAt && !isValidDate(alert.startsAt)) {
-    throw new Error(`Alert "${alert.title}" has an invalid start date.`);
-  }
-
-  if (alert.expiresAt && !isValidDate(alert.expiresAt)) {
-    throw new Error(
-      `Alert "${alert.title}" has an invalid expiration date.`,
-    );
-  }
+  validateScrapedAlert(alert);
 }
 
 function validateMeeting(meeting: NormalizedScrapedMeeting) {
@@ -428,9 +387,10 @@ async function upsertScrapedEvent(
         );
 
   const data = {
-    title: event.title.trim(),
-    description:
-      event.description ?? existing?.description ?? null,
+    title: cleanPublicText(event.title),
+    description: event.description !== undefined
+      ? cleanPublicText(event.description) || null
+      : existing?.description ?? null,
     startDateTime: event.startDateTime,
     endDateTime:
       event.endDateTime ?? existing?.endDateTime ?? null,
@@ -487,19 +447,11 @@ async function upsertScrapedAlert(
 
   const affectedCountiesJson = JSON.stringify(alert.affectedCounties ?? []);
 
-  // URL-keyed path: one record per (sourceName, originalUrl)
-  if (alert.originalUrl) {
-    const matches = await prisma.alert.findMany({
-      where: {
-        sourceName: alert.sourceName,
-        originalUrl: alert.originalUrl,
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
+  // Stable source identity path: database uniqueness also protects concurrent runs.
+  if (alert.externalId) {
     const data = {
-      title: alert.title.trim(),
-      description: alert.description ?? null,
+      title: cleanPublicText(alert.title),
+      description: cleanPublicText(alert.description) || null,
       alertType: alert.alertType,
       severity: alert.severity,
       city: alert.city ?? null,
@@ -510,32 +462,38 @@ async function upsertScrapedAlert(
       sourceName: alert.sourceName,
       sourceUrl: alert.sourceUrl,
       originalUrl: alert.originalUrl,
+      externalId: alert.externalId,
       startsAt: alert.startsAt ?? null,
       expiresAt: alert.expiresAt ?? null,
-      status: (alert.status ?? "ACTIVE") as AlertStatus,
+      status: resolveAlertStatus(alert.status, alert.expiresAt) as AlertStatus,
       lastSeenAt: new Date(),
       sourceId: source.id,
     } satisfies Parameters<typeof prisma.alert.create>[0]["data"];
 
-    if (matches.length === 0) {
-      await prisma.alert.create({ data });
-      return "created" as const;
-    }
+    const existing = await prisma.alert.findUnique({
+      where: {
+        sourceName_externalId: {
+          sourceName: alert.sourceName,
+          externalId: alert.externalId,
+        },
+      },
+      select: { id: true },
+    });
 
-    const [oldest, ...extras] = matches;
-
-    await prisma.alert.update({ where: { id: oldest.id }, data });
-
-    if (extras.length > 0) {
-      await prisma.alert.deleteMany({
-        where: { id: { in: extras.map((e) => e.id) } },
-      });
-    }
-
-    return "updated" as const;
+    await prisma.alert.upsert({
+      where: {
+        sourceName_externalId: {
+          sourceName: alert.sourceName,
+          externalId: alert.externalId,
+        },
+      },
+      create: data,
+      update: data,
+    });
+    return existing ? "updated" as const : "created" as const;
   }
 
-  // Fallback: title-match behavior for alerts without originalUrl
+  // Fallback: title-match behavior for alerts without a stable external ID.
   const candidates = await prisma.alert.findMany({
     where: {
       startsAt: alert.startsAt ?? null,
@@ -554,9 +512,10 @@ async function upsertScrapedAlert(
   );
 
   const data = {
-    title: alert.title.trim(),
-    description:
-      alert.description ?? existing?.description ?? null,
+    title: cleanPublicText(alert.title),
+    description: alert.description !== undefined
+      ? cleanPublicText(alert.description) || null
+      : existing?.description ?? null,
     alertType: alert.alertType,
     severity: alert.severity,
     city: alert.city ?? existing?.city ?? null,
@@ -573,9 +532,10 @@ async function upsertScrapedAlert(
       alert.sourceUrl,
     startsAt: alert.startsAt ?? existing?.startsAt ?? null,
     expiresAt: alert.expiresAt ?? existing?.expiresAt ?? null,
-    status: (alert.status ??
-      existing?.status ??
-      "ACTIVE") as AlertStatus,
+    status: resolveAlertStatus(
+      alert.status,
+      alert.expiresAt ?? existing?.expiresAt,
+    ) as AlertStatus,
     lastSeenAt: new Date(),
     sourceId: source.id,
   } satisfies Parameters<typeof prisma.alert.create>[0]["data"];

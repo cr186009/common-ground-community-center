@@ -62,6 +62,7 @@ model Alert {
   sourceName       String
   sourceUrl        String
   originalUrl      String?
+  externalId       String?
   startsAt         DateTime?
   expiresAt        DateTime?
   status           AlertStatus   @default(ACTIVE)
@@ -74,6 +75,7 @@ model Alert {
   @@index([status, severity])
   @@index([county, status])
   @@index([city, status])
+  @@unique([sourceName, externalId])
 }
 
 model Meeting {

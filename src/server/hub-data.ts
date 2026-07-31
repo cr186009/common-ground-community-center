@@ -30,6 +30,7 @@ import type {
 import { prisma } from "@/lib/prisma";
 import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
+import { expiredAlertArchiveCutoff } from "@/server/alert-lifecycle";
 
 function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Prisma.EventWhereInput {
   const query = filters.query?.trim();
@@ -88,12 +89,23 @@ function buildMeetingWhere(filters: MeetingFilters): Prisma.MeetingWhereInput {
 }
 
 export async function expireElapsedAlerts() {
+  const now = new Date();
+  const archiveBefore = expiredAlertArchiveCutoff(now);
+
   await prisma.alert.updateMany({
     where: {
       status: "ACTIVE",
-      expiresAt: { lt: new Date() },
+      expiresAt: { lt: now },
     },
     data: { status: "EXPIRED" },
+  });
+
+  await prisma.alert.updateMany({
+    where: {
+      status: "EXPIRED",
+      expiresAt: { lt: archiveBefore },
+    },
+    data: { status: "ARCHIVED" },
   });
 }
 
