@@ -28,6 +28,11 @@ import {
   scrapeSingleSourceById,
 } from "@/server/hub-scrapers";
 import {
+  pauseSource,
+  restoreSource,
+  retireSource,
+} from "@/server/source-lifecycle";
+import {
   assignFallbackImageToEvent,
   assignFallbackImagesToMissingEvents,
 } from "@/server/pexels";
@@ -737,6 +742,65 @@ export async function toggleSourceActiveAction(formData: FormData) {
 
   revalidateAll();
   redirect("/admin?sourceUpdated=1");
+}
+
+export async function retireSourceAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceId = getString(formData, "sourceId");
+  const source = await prisma.source.findUniqueOrThrow({
+    where: { id: sourceId },
+    select: { notes: true },
+  });
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: retireSource({ active: false, notes: source.notes }),
+  });
+
+  revalidateAll();
+  redirect("/admin?tab=sources&sourceRetired=1");
+}
+
+export async function restoreSourceAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceId = getString(formData, "sourceId");
+  const source = await prisma.source.findUniqueOrThrow({
+    where: { id: sourceId },
+    select: { notes: true },
+  });
+
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: restoreSource({ active: false, notes: source.notes }),
+  });
+
+  revalidateAll();
+  redirect("/admin?tab=sources&sourceRestored=1");
+}
+
+export async function bulkPauseSourcesAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceIds = formData
+    .getAll("sourceId")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  if (sourceIds.length === 0) {
+    redirect("/admin?tab=sources&noSourcesSelected=1");
+  }
+
+  const sources = await prisma.source.findMany({
+    where: { id: { in: sourceIds } },
+    select: { id: true, active: true, notes: true },
+  });
+  const updates = await prisma.$transaction(
+    sources.map((source) =>
+      prisma.source.update({ where: { id: source.id }, data: pauseSource(source) }),
+    ),
+  );
+
+  revalidateAll();
+  redirect(`/admin?tab=sources&sourcesPaused=${updates.length}`);
 }
 
 export async function deactivateAllSourcesAction() {

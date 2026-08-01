@@ -20,10 +20,10 @@ type Props = {
 
 const HEALTH_BADGE: Record<SourceHealthStatus, { label: string; className: string }> = {
   HEALTHY: { label: "Healthy", className: "bg-emerald-100 text-emerald-800" },
-  WARNING: { label: "Warning", className: "bg-amber-100 text-amber-800" },
-  FAILED: { label: "Failed", className: "bg-red-100 text-red-800" },
-  MANUAL: { label: "Manual", className: "bg-slate-100 text-slate-600" },
-  INACTIVE: { label: "Inactive", className: "bg-stone-100 text-stone-500" },
+  DEGRADED: { label: "Degraded", className: "bg-amber-100 text-amber-800" },
+  FAILING: { label: "Failing", className: "bg-red-100 text-red-800" },
+  PAUSED: { label: "Paused", className: "bg-stone-100 text-stone-600" },
+  RETIRED: { label: "Retired", className: "bg-slate-100 text-slate-500" },
 };
 
 function StatCard({
@@ -58,7 +58,7 @@ export async function OverviewSection({ subscriberId }: Props) {
       acc[s.health] = (acc[s.health] ?? 0) + 1;
       return acc;
     },
-    { HEALTHY: 0, WARNING: 0, FAILED: 0, MANUAL: 0, INACTIVE: 0 },
+    { HEALTHY: 0, DEGRADED: 0, FAILING: 0, PAUSED: 0, RETIRED: 0 },
   );
 
   const attentionItems: string[] = [];
@@ -66,13 +66,13 @@ export async function OverviewSection({ subscriberId }: Props) {
     attentionItems.push(`${counts.pendingSubmissions} pending submission(s) awaiting review`);
   if (extended.scraperFailures7d > 0)
     attentionItems.push(`${extended.scraperFailures7d} scraper failure(s) in the last 7 days`);
-  if (healthCounts.FAILED > 0)
-    attentionItems.push(`${healthCounts.FAILED} source(s) with a failed last scrape`);
+  if (healthCounts.FAILING > 0)
+    attentionItems.push(`${healthCounts.FAILING} source(s) with a failed last scrape`);
   if (extended.missingUpcomingImages > 0)
     attentionItems.push(`${extended.missingUpcomingImages} upcoming event(s) missing images`);
 
   const staleSources = sources.filter(
-    (s) => s.health === "WARNING" && s.hasAutomatedScraper && s.active,
+    (s) => s.health === "DEGRADED" && s.hasAutomatedScraper && s.active,
   );
   if (staleSources.length > 0)
     attentionItems.push(`${staleSources.length} automated source(s) stale or returning no results`);
@@ -162,13 +162,13 @@ export async function OverviewSection({ subscriberId }: Props) {
             </div>
           ))}
         </div>
-        {healthCounts.FAILED > 0 && (
+        {healthCounts.FAILING > 0 && (
           <div className="mt-4 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-600">
               Failed sources
             </p>
             {sources
-              .filter((s) => s.health === "FAILED")
+              .filter((s) => s.health === "FAILING")
               .map((s) => (
                 <div key={s.id} className="rounded-2xl bg-red-50 p-3 text-sm">
                   <span className="font-semibold text-red-800">{s.name}</span>

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assessSourceHealth, finalizeScrapeOutcome } from "@/server/scrape-health";
+import {
+  assessSourceHealth,
+  finalizeScrapeOutcome,
+  isRetiredSource,
+  summarizeSourceRuns,
+} from "@/server/scrape-health";
 
 const now = new Date("2026-08-01T12:00:00Z");
 const latest = new Date("2026-08-01T11:00:00Z");
@@ -18,7 +23,7 @@ test("a zero-result event scrape is immediately visible as a warning", () => {
     now,
   });
 
-  assert.equal(result.status, "WARNING");
+  assert.equal(result.status, "DEGRADED");
   assert.match(result.warning ?? "", /found no items/i);
 });
 
@@ -49,7 +54,7 @@ test("saved content with nothing published is a warning", () => {
     now,
   });
 
-  assert.equal(result.status, "WARNING");
+  assert.equal(result.status, "DEGRADED");
   assert.match(result.warning ?? "", /no published content/i);
 });
 
@@ -76,4 +81,59 @@ test("zero-result alert runs remain successful", () => {
   });
 
   assert.deepEqual(result, { status: "SUCCESS", message: "Scrape completed." });
+});
+
+test("active sources missing a registry entry are degraded", () => {
+  const result = assessSourceHealth({
+    active: true,
+    lastScrapedAt: null,
+    scrapeFrequency: "daily",
+    hasAutomatedScraper: false,
+    sourceSection: "EVENTS",
+    recentLogs: [],
+    publishedContentCount: 0,
+    now,
+  });
+
+  assert.equal(result.status, "DEGRADED");
+  assert.match(result.warning ?? "", /no registered automated scraper/i);
+});
+
+test("inactive sources are paused unless explicitly marked retired", () => {
+  const common = {
+    active: false,
+    lastScrapedAt: null,
+    scrapeFrequency: null,
+    hasAutomatedScraper: true,
+    sourceSection: "EVENTS",
+    recentLogs: [],
+    publishedContentCount: 0,
+    now,
+  };
+
+  assert.equal(assessSourceHealth(common).status, "PAUSED");
+  assert.equal(assessSourceHealth({ ...common, retired: true }).status, "RETIRED");
+  assert.equal(isRetiredSource("Old calendar [RETIRED] 2026-08-01"), true);
+});
+
+test("recent run metrics expose volume, outcomes, and failure streak", () => {
+  const metrics = summarizeSourceRuns([
+    { status: "FAILED", itemsFound: 0, itemsCreated: 0, itemsUpdated: 0, createdAt: now },
+    { status: "FAILED", itemsFound: 2, itemsCreated: 0, itemsUpdated: 0, createdAt: latest },
+    { status: "SUCCESS", itemsFound: 5, itemsCreated: 2, itemsUpdated: 3, createdAt: latest },
+  ]);
+
+  assert.deepEqual(metrics, {
+    runs: 3,
+    successfulRuns: 1,
+    partialRuns: 0,
+    failedRuns: 2,
+    consecutiveFailures: 2,
+    itemsFound: 7,
+    itemsCreated: 2,
+    itemsUpdated: 3,
+    itemsUnchanged: 2,
+    successRate: 1 / 3,
+    lastSuccessfulAt: latest,
+  });
 });

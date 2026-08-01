@@ -7,7 +7,6 @@ import {
   createManualMeetingAction,
   createSourceAction,
   createVolunteerOpportunityAction,
-  deactivateAllSourcesAction,
   runScrapersNowAction,
   updateEventAction,
 } from "@/server/hub-actions";
@@ -331,6 +330,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
     volunteerCreated: "Volunteer opportunity created.",
     sourceCreated: "Source added.",
     sourceUpdated: "Source updated.",
+    sourceRetired: "Source retired. Its records and run history were preserved.",
+    sourceRestored: "Source restored and activated.",
+    sourcesPaused: `${n("sourcesPaused") ?? "0"} selected sources paused.`,
+    noSourcesSelected: "Select at least one source before using a bulk action.",
     summaryGenerated: "Meeting summary generated.",
     scraped: "Scraper run completed.",
     sourcesDeactivated: `${n("sourcesDeactivated") ?? "0"} scraper sources deactivated.`,
@@ -367,11 +370,9 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 Run all scrapers
               </button>
             </form>
-            <form action={deactivateAllSourcesAction}>
-              <button type="submit" className="btn btn-ghost btn-sm">
-                Deactivate all
-              </button>
-            </form>
+            <a href="/admin?tab=sources" className="btn btn-ghost btn-sm">
+              Review sources
+            </a>
             <form action={adminLogoutAction}>
               <button type="submit" className="btn btn-ghost btn-sm">
                 Sign out
@@ -395,6 +396,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
           search={n("s") ?? undefined}
           section={n("sec") ?? undefined}
           county={n("cty") ?? undefined}
+          city={n("city") ?? undefined}
+          sourceType={n("srcType") ?? undefined}
+          coverage={n("coverage") ?? undefined}
+          status={n("srcStatus") ?? undefined}
           active={n("act") ?? undefined}
           health={n("hlth") ?? undefined}
           editSourceId={editSourceId ?? undefined}

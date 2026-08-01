@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
+import { classifyCommunityCoverage } from "@/lib/geographic-coverage";
 import {
   endOfCommunityDay,
   getCommunityDateKey,
@@ -33,8 +34,16 @@ import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 import { expiredAlertArchiveCutoff } from "@/server/alert-lifecycle";
 import {
   assessSourceHealth,
+  isRetiredSource,
+  summarizeSourceRuns,
   type SourceHealthStatus,
 } from "@/server/scrape-health";
+import {
+  auditScraperInventory,
+  getInventoryMismatch,
+  normalizeInventoryName,
+  type ScraperInventoryMismatch,
+} from "@/server/scraper-inventory";
 
 export type { SourceHealthStatus } from "@/server/scrape-health";
 
@@ -826,9 +835,19 @@ export type AdminSourceHealth = {
   health: SourceHealthStatus;
   consecutiveFailures: number;
   eventCount: number;
+  ownedRecordCounts: {
+    events: number;
+    meetings: number;
+    alerts: number;
+    volunteer: number;
+    total: number;
+  };
   publishedContentCount: number;
   healthWarning: string | null;
   hasAutomatedScraper: boolean;
+  inventoryMismatch: ScraperInventoryMismatch;
+  coverage: ReturnType<typeof classifyCommunityCoverage>;
+  runMetrics: ReturnType<typeof summarizeSourceRuns>;
   lastLog: {
     status: string;
     message: string;
@@ -858,7 +877,7 @@ export async function getAdminSourceHealth(
               createdAt: true,
             },
           },
-          _count: { select: { events: true } },
+          _count: { select: { events: true, meetings: true, alerts: true, volunteer: true } },
         },
         orderBy: [{ section: "asc" }, { name: "asc" }],
       }),
@@ -900,19 +919,28 @@ export async function getAdminSourceHealth(
   addPublishedCounts(activeAlerts.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
   addPublishedCounts(openVolunteer.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
 
+  const normalizedScraperNames = new Set(scraperNames.map(normalizeInventoryName));
+
   return sources.map((source) => {
     const lastLog = source.logs[0] ?? null;
-    const hasAutomatedScraper = scraperNames.includes(source.name);
-
-    let consecutiveFailures = 0;
-    for (const log of source.logs) {
-      if (log.status === "FAILED") consecutiveFailures++;
-      else break;
-    }
+    const hasAutomatedScraper = normalizedScraperNames.has(normalizeInventoryName(source.name));
+    const runMetrics = summarizeSourceRuns(source.logs);
 
     const publishedContentCount = publishedBySource.get(source.id) ?? 0;
+    const ownedRecordCounts = {
+      events: source._count.events,
+      meetings: source._count.meetings,
+      alerts: source._count.alerts,
+      volunteer: source._count.volunteer,
+      total:
+        source._count.events +
+        source._count.meetings +
+        source._count.alerts +
+        source._count.volunteer,
+    };
     const healthAssessment = assessSourceHealth({
       ...source,
+      retired: isRetiredSource(source.notes),
       hasAutomatedScraper,
       sourceSection: source.section,
       recentLogs: source.logs,
@@ -933,10 +961,14 @@ export async function getAdminSourceHealth(
       lastScrapedAt: source.lastScrapedAt,
       health: healthAssessment.status,
       healthWarning: healthAssessment.warning,
-      consecutiveFailures,
+      consecutiveFailures: runMetrics.consecutiveFailures,
       eventCount: source._count.events,
+      ownedRecordCounts,
       publishedContentCount,
       hasAutomatedScraper,
+      inventoryMismatch: getInventoryMismatch(source.name, scraperNames),
+      coverage: classifyCommunityCoverage({ city: source.city, county: source.county }),
+      runMetrics,
       lastLog: lastLog
         ? {
             status: lastLog.status,
@@ -949,6 +981,15 @@ export async function getAdminSourceHealth(
         : null,
     };
   });
+}
+
+/** Includes code-only registrations, which cannot appear in a source-row list. */
+export async function getScraperInventoryAudit(scraperNames: string[]) {
+  const sources = await prisma.source.findMany({
+    select: { name: true },
+    orderBy: { name: "asc" },
+  });
+  return auditScraperInventory(sources.map((source) => source.name), scraperNames);
 }
 
 // -------------------------------------------------------------------------

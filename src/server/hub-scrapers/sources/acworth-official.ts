@@ -1,6 +1,12 @@
 import * as cheerio from "cheerio";
 
 import {
+  COMMUNITY_TIME_ZONE,
+  parseCommunityDateTime,
+  startOfCommunityDay,
+} from "@/lib/hub-date";
+
+import {
   cleanText,
   dedupeNormalizedEvents,
   fetchSourceHtml,
@@ -13,46 +19,126 @@ import type {
   SourceScraper,
 } from "@/server/hub-scrapers/types";
 
-function parseDate(value?: string) {
-  if (!value) {
+export type ParsedAcworthDate = {
+  date: Date;
+  endDate?: Date | null;
+  isAllDay: boolean;
+};
+
+const DATE_ONLY_PATTERN = /^(\d{4}-\d{2}-\d{2})$/;
+const LOCAL_DATE_TIME_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)$/;
+const EXPLICIT_OFFSET_PATTERN = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+/**
+ * Parse Acworth's machine-readable calendar values without allowing a civil
+ * date to masquerade as midnight UTC. Values with an offset represent an
+ * instant; values without one are civil times in metro Atlanta.
+ */
+export function parseAcworthDate(value?: string): ParsedAcworthDate | null {
+  const normalized = cleanText(value);
+
+  if (!normalized) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const dateOnly = DATE_ONLY_PATTERN.exec(normalized);
+  if (dateOnly) {
+    try {
+      return {
+        date: parseCommunityDateTime(`${dateOnly[1]}T00:00`),
+        isAllDay: true,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  const localDateTime = LOCAL_DATE_TIME_PATTERN.exec(normalized);
+  if (localDateTime) {
+    try {
+      return {
+        date: parseCommunityDateTime(`${localDateTime[1]}T${localDateTime[2]}`),
+        isAllDay: false,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  if (!EXPLICIT_OFFSET_PATTERN.test(normalized)) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
 
   return Number.isNaN(parsed.getTime())
     ? null
-    : parsed;
+    : { date: parsed, isAllDay: false };
 }
 
-function isUpcoming(date: Date) {
-  const now = new Date();
+function isUpcoming(date: Date, now = new Date()) {
+  return date >= startOfCommunityDay(now);
+}
 
-  const today = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
+function normalizeClockMatch(match: RegExpMatchArray) {
+  const hour12 = Number(match[1]);
+  const minute = Number(match[2] ?? "0");
+  const hour = (hour12 % 12) + (match[3].toLowerCase() === "p" ? 12 : 0);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function parseClockTimes(value: string) {
+  return Array.from(
+    value.matchAll(/\b(1[0-2]|0?\d)(?::([0-5]\d))?\s*([ap])\.?m\.?\b/gi),
+    normalizeClockMatch,
   );
-
-  return date >= today;
 }
 
 function extractDate(
   $: cheerio.CheerioAPI,
   element: Parameters<cheerio.CheerioAPI>[0],
-) {
- const dateCandidates = [
+): ParsedAcworthDate | null {
+  const container = $(element);
+  const dateCandidates = [
     $(element).attr("datetime"),
-    $(element).find("[datetime]").first().attr("datetime"),
+    ...container
+      .find("[datetime]")
+      .map((_, node) => $(node).attr("datetime"))
+      .get(),
     $(element).find("time").first().text(),
     $(element).find(".date").first().text(),
     $(element).find(".event-date").first().text(),
   ];
 
   for (const candidate of dateCandidates) {
-    const parsed = parseDate(candidate);
+    const parsed = parseAcworthDate(candidate);
 
     if (parsed) {
+      if (parsed.isAllDay) {
+        const timeText = cleanText(
+          container
+            .find(
+              ".tribe-event-date-start,.tribe-event-time,.tribe-events-calendar-list__event-datetime,.event-time",
+            )
+            .text(),
+        );
+        const clockTimes = parseClockTimes(timeText);
+
+        if (clockTimes[0]) {
+          const dateKey = cleanText(candidate);
+          try {
+            return {
+              date: parseCommunityDateTime(`${dateKey}T${clockTimes[0]}`),
+              endDate: clockTimes[1]
+                ? parseCommunityDateTime(`${dateKey}T${clockTimes[1]}`)
+                : null,
+              isAllDay: false,
+            };
+          } catch {
+            // Fall back to the valid date-only value below.
+          }
+        }
+      }
       return parsed;
     }
   }
@@ -107,9 +193,9 @@ export const acworthOfficialScraper: SourceScraper = {
         return;
       }
 
-      const startDateTime = extractDate($, element);
+      const parsedStart = extractDate($, element);
 
-      if (!startDateTime || !isUpcoming(startDateTime)) {
+      if (!parsedStart || !isUpcoming(parsedStart.date)) {
         return;
       }
 
@@ -144,8 +230,10 @@ export const acworthOfficialScraper: SourceScraper = {
       events.push({
         title,
         description,
-        startDateTime,
-        endDateTime: null,
+        startDateTime: parsedStart.date,
+        endDateTime: parsedStart.endDate ?? null,
+        isAllDay: parsedStart.isAllDay,
+        timeZone: COMMUNITY_TIME_ZONE,
 
         locationName: "City of Acworth",
         address: null,

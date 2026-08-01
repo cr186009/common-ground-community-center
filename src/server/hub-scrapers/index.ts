@@ -45,6 +45,11 @@ import {
   validateScrapedEvent,
 } from "@/server/hub-scrapers/quality";
 import { finalizeScrapeOutcome } from "@/server/scrape-health";
+import {
+  classifyPreviewItem,
+  type ExistingComparableItem,
+  type PreviewComparableItem,
+} from "@/server/hub-scrapers/preview-classification";
 
 /*
  * Scraper configuration
@@ -380,9 +385,23 @@ async function upsertScrapedEvent(
     take: 25,
   });
 
-  const existing = candidates.find((candidate) =>
+  let existing = candidates.find((candidate) =>
     isLikelySameEvent(candidate, event),
   );
+  if (!existing && event.originalUrl && event.originalUrl !== event.sourceUrl) {
+    const identityCandidates = await prisma.event.findMany({
+      where: {
+        sourceName: event.sourceName,
+        originalUrl: event.originalUrl,
+        city: event.city,
+      },
+      take: 10,
+    });
+    const normalizedIncomingTitle = normalizeTitle(event.title);
+    existing = identityCandidates.find(
+      (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    );
+  }
   const isCrossSourceDuplicate =
     existing !== undefined && existing.sourceName !== event.sourceName;
   const incomingIsMoreAuthoritative =
@@ -423,16 +442,16 @@ async function upsertScrapedEvent(
     isOutdoor: event.isOutdoor ?? existing?.isOutdoor ?? false,
     // When two calendars publish the same event, retain the attribution of the
     // record that reached the hub first instead of creating or relabeling it.
-    sourceName: retainExistingAttribution ? existing.sourceName : event.sourceName,
-    sourceUrl: retainExistingAttribution ? existing.sourceUrl : event.sourceUrl,
+    sourceName: retainExistingAttribution ? existing!.sourceName : event.sourceName,
+    sourceUrl: retainExistingAttribution ? existing!.sourceUrl : event.sourceUrl,
     originalUrl: retainExistingAttribution
-      ? existing.originalUrl ?? event.originalUrl ?? event.sourceUrl
+      ? existing!.originalUrl ?? event.originalUrl ?? event.sourceUrl
       : event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
     imageUrl: event.imageUrl ?? existing?.imageUrl ?? null,
     status,
     confidenceScore: event.confidenceScore ?? existing?.confidenceScore ?? null,
     lastSeenAt: new Date(),
-    sourceId: retainExistingAttribution ? existing.sourceId : source.id,
+    sourceId: retainExistingAttribution ? existing!.sourceId : source.id,
   } satisfies Parameters<typeof prisma.event.create>[0]["data"];
 
   if (existing) {
@@ -518,7 +537,6 @@ async function upsertScrapedAlert(
   const existing = candidates.find(
     (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
-
   const data = {
     title: cleanPublicText(alert.title),
     description: alert.description !== undefined
@@ -570,9 +588,22 @@ async function upsertScrapedMeeting(
   });
 
   const normalizedIncomingTitle = normalizeTitle(meeting.title);
-  const existing = candidates.find(
+  let existing = candidates.find(
     (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
   );
+  if (!existing && meeting.originalUrl && meeting.originalUrl !== meeting.sourceUrl) {
+    const identityCandidates = await prisma.meeting.findMany({
+      where: {
+        sourceName: meeting.sourceName,
+        originalUrl: meeting.originalUrl,
+        city: meeting.city ?? null,
+      },
+      take: 10,
+    });
+    existing = identityCandidates.find(
+      (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
+    );
+  }
 
   const data = {
     title: meeting.title.trim(),
@@ -780,6 +811,148 @@ export function getSupportedScraperNames() {
 
 export function hasRegisteredScraper(sourceName: string) {
   return Boolean(SCRAPER_REGISTRY[normalizeSourceName(sourceName)]);
+}
+
+/** Run a registered scraper without writing content, source timestamps, or logs. */
+export async function previewScraperSourceById(sourceId: string) {
+  const source = await prisma.source.findUnique({ where: { id: sourceId } });
+  if (!source) {
+    throw new Error("Source was not found.");
+  }
+
+  const scraper = SCRAPER_REGISTRY[normalizeSourceName(source.name)];
+  if (!scraper) {
+    throw new Error(`No automated scraper is registered for ${source.name}.`);
+  }
+
+  const startedAt = new Date();
+  const output = await runScraperWithRetry(scraper, source);
+  const events = output.events ?? [];
+  const alerts = output.alerts ?? [];
+  const meetings = output.meetings ?? [];
+  const volunteer = output.volunteer ?? [];
+
+  const getValidation = (validate: () => void) => {
+    try {
+      validate();
+      return { valid: true, validationError: null };
+    } catch (error) {
+      return { valid: false, validationError: getShortError(error) };
+    }
+  };
+
+  const items: Array<PreviewComparableItem & { confidenceScore: number | null }> = [
+    ...events.map((item) => ({
+      kind: classifyEventContent(item) === "meeting" ? "meeting" as const : "event" as const,
+      title: item.title,
+      date: item.startDateTime,
+      endDate: item.endDateTime ?? null,
+      city: item.city,
+      county: item.county,
+      sourceName: item.sourceName,
+      sourceUrl: item.originalUrl ?? item.sourceUrl,
+      sourcePageUrl: source.url,
+      confidenceScore: item.confidenceScore ?? null,
+      ...getValidation(() => validateEvent(item)),
+    })),
+    ...alerts.map((item) => ({
+      kind: "alert" as const,
+      title: item.title,
+      date: item.startsAt ?? null,
+      endDate: item.expiresAt ?? null,
+      city: item.city ?? null,
+      county: item.county,
+      sourceName: item.sourceName,
+      sourceUrl: item.originalUrl ?? item.sourceUrl,
+      sourcePageUrl: source.url,
+      confidenceScore: null,
+      ...getValidation(() => validateAlert(item)),
+    })),
+    ...meetings.map((item) => ({
+      kind: "meeting" as const,
+      title: item.title,
+      date: item.startDateTime,
+      endDate: item.endDateTime ?? null,
+      city: item.city ?? null,
+      county: item.county,
+      sourceName: item.sourceName,
+      sourceUrl: item.originalUrl ?? item.sourceUrl,
+      sourcePageUrl: source.url,
+      confidenceScore: null,
+      ...getValidation(() => validateMeeting(item)),
+    })),
+    ...volunteer.map((item) => ({
+      kind: "volunteer" as const,
+      title: item.title,
+      date: item.dateTime ?? null,
+      endDate: null,
+      city: item.city ?? null,
+      county: item.county,
+      sourceName: item.sourceName,
+      sourceUrl: item.sourceUrl,
+      sourcePageUrl: source.url,
+      confidenceScore: null,
+      ...getValidation(() => validateVolunteer(item)),
+    })),
+  ];
+
+  const datedItems = items.flatMap((item) => item.date ? [item.date.getTime()] : []);
+  const lowerDate = datedItems.length > 0
+    ? new Date(Math.min(...datedItems) - 2 * 24 * 60 * 60 * 1000)
+    : null;
+  const upperDate = datedItems.length > 0
+    ? new Date(Math.max(...datedItems) + 2 * 24 * 60 * 60 * 1000)
+    : null;
+  const dateRange = lowerDate && upperDate ? { gte: lowerDate, lte: upperDate } : undefined;
+
+  // Read-only comparisons only. Including all records owned by this source lets
+  // stable detail URLs reveal rescheduled items outside the occurrence window.
+  const [existingEvents, existingAlerts, existingMeetings, existingVolunteer] = await Promise.all([
+    prisma.event.findMany({
+      where: { OR: [{ sourceId: source.id }, ...(dateRange ? [{ startDateTime: dateRange }] : [])] },
+      select: { title: true, startDateTime: true, endDateTime: true, city: true, county: true, sourceName: true, sourceUrl: true, originalUrl: true },
+    }),
+    prisma.alert.findMany({
+      where: { OR: [{ sourceId: source.id }, ...(dateRange ? [{ startsAt: dateRange }] : [])] },
+      select: { title: true, startsAt: true, expiresAt: true, city: true, county: true, sourceName: true, sourceUrl: true, originalUrl: true },
+    }),
+    prisma.meeting.findMany({
+      where: { OR: [{ sourceId: source.id }, ...(dateRange ? [{ startDateTime: dateRange }] : [])] },
+      select: { title: true, startDateTime: true, endDateTime: true, city: true, county: true, sourceName: true, sourceUrl: true, originalUrl: true },
+    }),
+    prisma.volunteerOpportunity.findMany({
+      where: { OR: [{ sourceId: source.id }, ...(dateRange ? [{ dateTime: dateRange }] : [])] },
+      select: { title: true, dateTime: true, city: true, county: true, sourceName: true, sourceUrl: true },
+    }),
+  ]);
+
+  const existingItems: ExistingComparableItem[] = [
+    ...existingEvents.map((item) => ({ kind: "event" as const, title: item.title, date: item.startDateTime, endDate: item.endDateTime, city: item.city, county: item.county, sourceName: item.sourceName, sourceUrl: item.originalUrl ?? item.sourceUrl })),
+    ...existingAlerts.map((item) => ({ kind: "alert" as const, title: item.title, date: item.startsAt, endDate: item.expiresAt, city: item.city, county: item.county, sourceName: item.sourceName, sourceUrl: item.originalUrl ?? item.sourceUrl })),
+    ...existingMeetings.map((item) => ({ kind: "meeting" as const, title: item.title, date: item.startDateTime, endDate: item.endDateTime, city: item.city, county: item.county, sourceName: item.sourceName, sourceUrl: item.originalUrl ?? item.sourceUrl })),
+    ...existingVolunteer.map((item) => ({ kind: "volunteer" as const, title: item.title, date: item.dateTime, endDate: null, city: item.city, county: item.county, sourceName: item.sourceName, sourceUrl: item.sourceUrl })),
+  ];
+
+  const classifiedItems = items.map((item) => ({
+    ...item,
+    ...classifyPreviewItem(item, existingItems),
+  }));
+
+  return {
+    source,
+    startedAt,
+    completedAt: new Date(),
+    status: output.status ?? "SUCCESS",
+    message: output.message ?? "Preview completed.",
+    counts: {
+      events: events.length,
+      alerts: alerts.length,
+      meetings: meetings.length,
+      volunteer: volunteer.length,
+      total: events.length + alerts.length + meetings.length + volunteer.length,
+    },
+    items: classifiedItems,
+  };
 }
 
 async function processScrapedItems({

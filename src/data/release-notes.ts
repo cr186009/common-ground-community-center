@@ -12,6 +12,33 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "scraper-administration-and-coverage",
+    publishedOn: "2026-08-01",
+    title: "Clearer calendar source management",
+    summary:
+      "Administrators can now understand scraper health, inspect incoming records, and safely focus coverage around Paulding County.",
+    highlights: [
+      "Added clear healthy, degraded, failing, paused, and retired source states with recent-run metrics.",
+      "Added dry-run previews that show what a scraper finds without publishing or changing records.",
+      "Added reversible source retirement, restoration, and bulk pause controls that preserve history.",
+      "Added a configurable 25-mile coverage policy centered in Dallas with a five-mile review buffer.",
+      "Added inventory warnings for database sources without code and code scrapers without source records.",
+    ],
+  },
+  {
+    slug: "acworth-calendar-time-corrections",
+    publishedOn: "2026-08-01",
+    title: "Correct Acworth dates and times",
+    summary:
+      "Acworth calendar listings now preserve local calendar dates and use the city calendar’s published event times.",
+    highlights: [
+      "Stopped date-only calendar values from shifting to the previous evening during Eastern Time conversion.",
+      "Preserved explicit Eastern and UTC timestamps as exact moments in time.",
+      "Improved Acworth time extraction for meetings, volunteer workdays, and community events.",
+      "Added safeguards so a corrected source record updates its existing listing instead of creating a duplicate.",
+    ],
+  },
+  {
     slug: "expanded-rockmart-and-polk-calendars",
     publishedOn: "2026-08-01",
     title: "More Rockmart and Polk County events",
