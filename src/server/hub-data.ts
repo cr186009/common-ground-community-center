@@ -31,6 +31,12 @@ import { prisma } from "@/lib/prisma";
 import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 import { expiredAlertArchiveCutoff } from "@/server/alert-lifecycle";
+import {
+  assessSourceHealth,
+  type SourceHealthStatus,
+} from "@/server/scrape-health";
+
+export type { SourceHealthStatus } from "@/server/scrape-health";
 
 function buildEventWhere(
   filters: PublicEventFilters,
@@ -805,13 +811,6 @@ export async function getAdminExtendedCounts() {
 // Enhanced source health for admin
 // -------------------------------------------------------------------------
 
-export type SourceHealthStatus =
-  | "HEALTHY"
-  | "WARNING"
-  | "FAILED"
-  | "MANUAL"
-  | "INACTIVE";
-
 export type AdminSourceHealth = {
   id: string;
   name: string;
@@ -827,6 +826,8 @@ export type AdminSourceHealth = {
   health: SourceHealthStatus;
   consecutiveFailures: number;
   eventCount: number;
+  publishedContentCount: number;
+  healthWarning: string | null;
   hasAutomatedScraper: boolean;
   lastLog: {
     status: string;
@@ -838,65 +839,66 @@ export type AdminSourceHealth = {
   } | null;
 };
 
-function computeSourceHealthStatus(
-  source: {
-    active: boolean;
-    lastScrapedAt: Date | null;
-    scrapeFrequency: string | null;
-  },
-  lastLogStatus: string | null,
-  recentLogs: Array<{ status: string; itemsFound: number }>,
-  hasAutomatedScraper: boolean,
-  sourceSection: string,
-): SourceHealthStatus {
-  if (!source.active) return "INACTIVE";
-  if (!hasAutomatedScraper) return "MANUAL";
-  if (!source.lastScrapedAt || !lastLogStatus) return "WARNING";
-  if (lastLogStatus === "FAILED") return "FAILED";
-
-  const ageMs = Date.now() - source.lastScrapedAt.getTime();
-  const freq = (source.scrapeFrequency ?? "").toLowerCase();
-  let staleMs = 10 * 24 * 60 * 60 * 1000;
-  if (freq.includes("hour")) staleMs = 4 * 60 * 60 * 1000;
-  else if (freq.includes("daily") || freq.includes("day"))
-    staleMs = 2 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("week")) staleMs = 10 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("month")) staleMs = 40 * 24 * 60 * 60 * 1000;
-
-  if (ageMs > staleMs) return "WARNING";
-
-  // Repeated zero-results for event sources (alerts legitimately can return zero)
-  if (sourceSection !== "ALERTS" && recentLogs.length >= 3) {
-    const recent = recentLogs.slice(0, 3);
-    if (recent.every((l) => l.itemsFound === 0 && l.status === "SUCCESS")) {
-      return "WARNING";
-    }
-  }
-
-  return "HEALTHY";
-}
-
 export async function getAdminSourceHealth(
   scraperNames: string[] = [],
 ): Promise<AdminSourceHealth[]> {
-  const sources = await prisma.source.findMany({
-    include: {
-      logs: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          status: true,
-          message: true,
-          itemsFound: true,
-          itemsCreated: true,
-          itemsUpdated: true,
-          createdAt: true,
+  const [sources, approvedEvents, scheduledMeetings, activeAlerts, openVolunteer] =
+    await Promise.all([
+      prisma.source.findMany({
+        include: {
+          logs: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+              status: true,
+              message: true,
+              itemsFound: true,
+              itemsCreated: true,
+              itemsUpdated: true,
+              createdAt: true,
+            },
+          },
+          _count: { select: { events: true } },
         },
-      },
-      _count: { select: { events: true } },
-    },
-    orderBy: [{ section: "asc" }, { name: "asc" }],
-  });
+        orderBy: [{ section: "asc" }, { name: "asc" }],
+      }),
+      prisma.event.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "APPROVED" },
+        _count: { _all: true },
+      }),
+      prisma.meeting.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "UPCOMING" },
+        _count: { _all: true },
+      }),
+      prisma.alert.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "ACTIVE" },
+        _count: { _all: true },
+      }),
+      prisma.volunteerOpportunity.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "OPEN" },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const publishedBySource = new Map<string, number>();
+  const addPublishedCounts = (rows: Array<{ sourceId: string | null; count: number }>) => {
+    for (const row of rows) {
+      if (row.sourceId) {
+        publishedBySource.set(
+          row.sourceId,
+          (publishedBySource.get(row.sourceId) ?? 0) + row.count,
+        );
+      }
+    }
+  };
+  addPublishedCounts(approvedEvents.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(scheduledMeetings.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(activeAlerts.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(openVolunteer.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
 
   return sources.map((source) => {
     const lastLog = source.logs[0] ?? null;
@@ -908,13 +910,14 @@ export async function getAdminSourceHealth(
       else break;
     }
 
-    const health = computeSourceHealthStatus(
-      source,
-      lastLog?.status ?? null,
-      source.logs,
+    const publishedContentCount = publishedBySource.get(source.id) ?? 0;
+    const healthAssessment = assessSourceHealth({
+      ...source,
       hasAutomatedScraper,
-      source.section,
-    );
+      sourceSection: source.section,
+      recentLogs: source.logs,
+      publishedContentCount,
+    });
 
     return {
       id: source.id,
@@ -928,9 +931,11 @@ export async function getAdminSourceHealth(
       scrapeFrequency: source.scrapeFrequency,
       notes: source.notes,
       lastScrapedAt: source.lastScrapedAt,
-      health,
+      health: healthAssessment.status,
+      healthWarning: healthAssessment.warning,
       consecutiveFailures,
       eventCount: source._count.events,
+      publishedContentCount,
       hasAutomatedScraper,
       lastLog: lastLog
         ? {

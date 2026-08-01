@@ -41,6 +41,7 @@ import {
   validateScrapedAlert,
   validateScrapedEvent,
 } from "@/server/hub-scrapers/quality";
+import { finalizeScrapeOutcome } from "@/server/scrape-health";
 
 /*
  * Scraper configuration
@@ -964,17 +965,14 @@ export async function scrapeSource(source: Source) {
     const durationMs = Date.now() - startedAtMs;
     const completedAt = new Date();
 
-    let status: ScrapeLogStatus =
-      output.status === "PARTIAL" ? "PARTIAL" : "SUCCESS";
-
-    if (failed > 0) {
-      status = created + updated > 0 ? "PARTIAL" : "FAILED";
-    }
-
-    const zeroItemsWarning =
-      totalFound === 0 ? " Scraper completed but found no items." : "";
-
-    const message = output.message ?? `Scrape completed.${zeroItemsWarning}`;
+    const { status, message } = finalizeScrapeOutcome({
+      sourceSection: source.section,
+      totalFound,
+      failed,
+      saved: created + updated,
+      outputStatus: output.status,
+      outputMessage: output.message,
+    });
 
     const counts: ProcessingCounts = {
       found: totalFound,

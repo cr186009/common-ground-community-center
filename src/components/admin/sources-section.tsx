@@ -276,6 +276,7 @@ export async function SourcesSection({
                     <span>{source.county}</span>
                     {source.scrapeFrequency && <span>Frequency: {source.scrapeFrequency}</span>}
                     <span>{source.eventCount} events</span>
+                    <span>{source.publishedContentCount} published items</span>
                   </div>
 
                   {/* Scrape stats */}
@@ -295,6 +296,11 @@ export async function SourcesSection({
                       </span>
                     )}
                   </div>
+                  {source.healthWarning && (
+                    <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                      {source.healthWarning}
+                    </p>
+                  )}
                   {source.notes && (
                     <p className="mt-2 text-xs italic text-slate-400">{source.notes}</p>
                   )}

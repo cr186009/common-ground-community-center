@@ -102,6 +102,11 @@ export async function LogsSection({ sourceName, status, zeros, created, page }: 
               </span>
             </div>
             <p className="mt-2 text-sm text-slate-600">{log.message}</p>
+            {log.itemsFound === 0 && (
+              <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                Zero-result run — verify the source still contains expected content.
+              </p>
+            )}
             <p className="mt-1.5 text-xs text-slate-400">
               Found {log.itemsFound} · Created {log.itemsCreated} · Updated {log.itemsUpdated} ·{" "}
               {formatTimestamp(log.createdAt)}
