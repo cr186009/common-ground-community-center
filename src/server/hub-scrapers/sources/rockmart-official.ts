@@ -81,6 +81,63 @@ export function parseRockmartCalendarHtml(
   const calendarUrl = new URL("/CityCalendar.aspx", source.url).toString();
   const events: NormalizedScrapedEvent[] = [];
 
+  $("a.mcms_Calendar_Day_Item").each((_, element) => {
+    const link = $(element);
+    const dayCellId = link.closest("td[id]").attr("id") ?? "";
+    const dateMatch = dayCellId.match(/_(20\d{2})_(\d{1,2})_(\d{1,2})_[01]$/);
+    const metadata = cleanText(link.attr("title"));
+    const timeMatch = metadata.match(
+      /^(\d{1,2}:\d{2}\s*(?:AM|PM))(?:\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)))?/i,
+    );
+    const title = cleanText(link.text());
+
+    if (!dateMatch || !timeMatch || !title) return;
+
+    const date = `${dateMatch[2]}/${dateMatch[3]}/${dateMatch[1]}`;
+    const startDateTime = parseOfficialDateTime(`${date} ${timeMatch[1]}`);
+    if (!startDateTime || !isInImportWindow(startDateTime, now)) return;
+
+    const parsedEnd = timeMatch[2]
+      ? parseOfficialDateTime(`${date} ${timeMatch[2]}`)
+      : null;
+    const endDateTime = parsedEnd && parsedEnd >= startDateTime ? parsedEnd : null;
+    const officialLocation = cleanText(
+      metadata.match(/\bEvent Location:\s*(.+)$/i)?.[1],
+    ) || null;
+    const href = link.attr("href");
+    const recordId = href
+      ? new URL(href, calendarUrl).searchParams.get("CNID")
+      : null;
+    const originalUrl = recordId
+      ? `${calendarUrl}?CNID=${encodeURIComponent(recordId)}`
+      : calendarUrl;
+    const searchableText = [title, officialLocation].filter(Boolean).join(" ");
+
+    events.push({
+      title,
+      description: null,
+      startDateTime,
+      endDateTime,
+      locationName: officialLocation ?? DEFAULT_LOCATION,
+      address: officialLocation ?? DEFAULT_ADDRESS,
+      city: "Rockmart",
+      county: "Polk",
+      category: inferCategory(searchableText),
+      tags: ["city source", "rockmart", "official calendar"],
+      cost: null,
+      isFree: /\bfree\b/i.test(searchableText),
+      isKidFriendly: /\bkids?|children|family|youth|community\b/i.test(searchableText),
+      isOutdoor: /\bpark|lawn|outdoor|downtown|trail\b/i.test(searchableText),
+      sourceName: source.name,
+      sourceUrl: calendarUrl,
+      originalUrl,
+      imageUrl: null,
+      confidenceScore: endDateTime ? 0.96 : 0.92,
+      isAllDay: false,
+      timeZone: "America/New_York",
+    });
+  });
+
   $("table#tblContentCalendarLayout").each((_, element) => {
     const table = $(element);
     const title = cleanText(
@@ -156,7 +213,7 @@ export const rockmartOfficialScraper: SourceScraper = {
     return {
       events,
       status: events.length > 0 ? "SUCCESS" : "PARTIAL",
-      message: `Parsed ${events.length} current Rockmart events from the official embedded calendar records.`,
+      message: `Parsed ${events.length} current Rockmart events from the official calendar.`,
     };
   },
 };

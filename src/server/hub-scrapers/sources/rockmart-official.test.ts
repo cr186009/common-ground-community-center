@@ -117,3 +117,42 @@ test("drops an invalid end time without losing an otherwise valid event", () => 
   assert.equal(event.title, "HOLIDAY- OFFICES CLOSED");
   assert.equal(event.endDateTime, null);
 });
+
+test("parses the current browser-facing Rockmart month grid", () => {
+  const html = `
+    <table class="mcms_Calendar_Month">
+      <tr><td id="calendar_2026_8_11_0" class="mcms_Calendar_Day">
+        <a class="mcms_Calendar_Day_Number">11</a>
+        <a class="mcms_Calendar_Day_Item"
+          title="7:00 PM - 8:00 PM&#10;Event Location: 316 N. Piedmont Avenue"
+          href="https://rockmartga.sophicity.com/CityCalendar.aspx?CNID=5253">City Council Meeting</a>
+      </td></tr>
+    </table>`;
+
+  const [event] = parseRockmartCalendarHtml(
+    html,
+    source,
+    new Date("2026-08-01T12:00:00Z"),
+  );
+
+  assert.equal(event.title, "City Council Meeting");
+  assert.equal(event.startDateTime.toISOString(), "2026-08-11T23:00:00.000Z");
+  assert.equal(event.endDateTime?.toISOString(), "2026-08-12T00:00:00.000Z");
+  assert.equal(event.locationName, "316 N. Piedmont Avenue");
+  assert.equal(event.sourceUrl, "https://www.rockmart-ga.gov/CityCalendar.aspx");
+  assert.equal(event.originalUrl, "https://www.rockmart-ga.gov/CityCalendar.aspx?CNID=5253");
+  assert.equal(event.timeZone, "America/New_York");
+  assert.equal(event.isAllDay, false);
+});
+
+test("rejects malformed Rockmart month-grid entries", () => {
+  const html = `
+    <td id="calendar_2026_2_30_0"><a class="mcms_Calendar_Day_Item" title="7:00 PM">Impossible date</a></td>
+    <td id="calendar_2026_8_12_0"><a class="mcms_Calendar_Day_Item" title="no time">No time</a></td>
+    <td id="calendar_bad"><a class="mcms_Calendar_Day_Item" title="7:00 PM">No date</a></td>`;
+
+  assert.deepEqual(
+    parseRockmartCalendarHtml(html, source, new Date("2026-08-01T12:00:00Z")),
+    [],
+  );
+});
