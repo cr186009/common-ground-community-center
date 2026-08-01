@@ -34,9 +34,29 @@ function parseOfficialDateTime(value: string) {
   const pad = (part: string | number) => String(part).padStart(2, "0");
 
   try {
-    return parseCommunityDateTime(
+    const parsed = parseCommunityDateTime(
       `${match[3]}-${pad(match[1])}-${pad(match[2])}T${pad(hour)}:${match[5]}`,
     );
+    const easternParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hourCycle: "h23",
+    }).formatToParts(parsed);
+    const parts = Object.fromEntries(easternParts.map((part) => [part.type, part.value]));
+
+    if (
+      Number(parts.year) !== Number(match[3]) ||
+      Number(parts.month) !== Number(match[1]) ||
+      Number(parts.day) !== Number(match[2]) ||
+      Number(parts.hour) !== hour ||
+      Number(parts.minute) !== Number(match[5])
+    ) return null;
+
+    return parsed;
   } catch {
     return null;
   }

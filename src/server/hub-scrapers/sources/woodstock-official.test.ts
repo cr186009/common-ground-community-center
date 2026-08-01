@@ -11,7 +11,7 @@ test("parses and expands approved Woodstock calendar event times", () => {
       _id: "abc",
       title: "Family Music &amp; Art Night",
       description: "<p>A free outdoor event.</p>",
-      eventLink: "https://visitwoodstockga.com/event/jazz",
+      eventLink: "/event/jazz",
       cover: { source: "https://example.com/jazz.jpg" },
       venueInfo: { name: "The Reeves House" },
       address: { address: "734 Reeves St, Woodstock, GA" },
@@ -27,6 +27,11 @@ test("parses and expands approved Woodstock calendar event times", () => {
   assert.equal(events[0].category, "MUSIC");
   assert.equal(events[0].isFree, true);
   assert.equal(events[0].timeZone, "America/New_York");
+  assert.equal(events[0].isAllDay, false);
+  assert.equal(events[0].originalUrl, "https://visitwoodstockga.com/event/jazz");
+  assert.equal(events[0].sourceUrl, source.url);
+  assert.equal(events[0].startDateTime.toISOString(), "2026-08-01T22:00:00.000Z");
+  assert.equal(events[0].description, "A free outdoor event.");
 });
 
 test("rejects past, cancelled, blocked, and invalid Woodstock records", () => {
@@ -36,7 +41,16 @@ test("rejects past, cancelled, blocked, and invalid Woodstock records", () => {
     { ...base, isBlocked: true },
     { ...base, title: "Past", startTime: "2025-08-02T12:00:00Z" },
     { title: "Missing date" },
+    { ...base, title: "", description: "missing title" },
   ], source, new Date("2026-07-31T12:00:00Z"));
 
   assert.deepEqual(events, []);
+});
+
+test("falls back to the trusted source URL for a malformed event link", () => {
+  const [event] = parseWoodstockEvents([
+    { title: "Community Night", startTime: "2026-08-02T22:00:00Z", eventLink: "http://[bad" },
+  ], source, new Date("2026-07-31T12:00:00Z"));
+
+  assert.equal(event.originalUrl, source.url);
 });

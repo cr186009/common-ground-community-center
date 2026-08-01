@@ -57,6 +57,8 @@ test("parses Rockmart's embedded event record with Eastern time and stable URL",
     "https://www.rockmart-ga.gov/CityCalendar.aspx?CNID=5253",
   );
   assert.equal(event.timeZone, "America/New_York");
+  assert.equal(event.isAllDay, false);
+  assert.equal(event.sourceUrl, "https://www.rockmart-ga.gov/CityCalendar.aspx");
 });
 
 test("ignores stale, implausibly distant, and malformed Rockmart records", () => {
@@ -78,6 +80,12 @@ test("ignores stale, implausibly distant, and malformed Rockmart records", () =>
       title: "Bad Date",
       start: "not a date",
       end: "not a date",
+    }),
+    eventTable({
+      id: "rollover",
+      title: "Impossible Date",
+      start: "2/30/2027 10:00 AM",
+      end: "2/30/2027 11:00 AM",
     }),
   ].join("");
 

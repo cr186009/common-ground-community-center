@@ -1,4 +1,4 @@
-import { cleanPublicText, cleanText, dedupeNormalizedEvents, inferCategory } from "@/server/hub-scrapers/helpers";
+import { cleanPublicText, cleanText, dedupeNormalizedEvents, inferCategory, toAbsoluteUrl } from "@/server/hub-scrapers/helpers";
 import type { NormalizedScrapedEvent, SourceScraper } from "@/server/hub-scrapers/types";
 
 const WOODSTOCK_EVENTS_API =
@@ -96,9 +96,10 @@ export function parseWoodstockEvents(
         isOutdoor: /\b(park|outdoor|festival|concert|market|trail|garden|amphitheater)\b/i.test(combinedText),
         sourceName: source.name,
         sourceUrl: source.url,
-        originalUrl: item.eventLink ?? item.hostLink ?? source.url,
+        originalUrl: toAbsoluteUrl(source.url, item.eventLink ?? item.hostLink) ?? source.url,
         imageUrl: item.cover?.source ?? null,
         confidenceScore: 0.94,
+        isAllDay: false,
         timeZone: "America/New_York",
       });
     }

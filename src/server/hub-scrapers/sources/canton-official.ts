@@ -22,7 +22,16 @@ function parseEasternDate(value: string) {
 
   const local = `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}T${String(hour).padStart(2, "0")}:${match[5]}:00`;
   const parsed = fromZonedTime(local, EASTERN_TIME_ZONE);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (Number.isNaN(parsed.getTime())) return null;
+  const parts = easternParts(parsed);
+  if (
+    Number(parts.year) !== Number(match[3]) ||
+    Number(parts.month) !== Number(match[1]) ||
+    Number(parts.day) !== Number(match[2]) ||
+    Number(parts.hour) !== hour ||
+    Number(parts.minute) !== Number(match[5])
+  ) return null;
+  return parsed;
 }
 
 /** Parse CivicPlus list markup used by Canton's official city calendar. */
@@ -77,6 +86,7 @@ export function parseCantonEventsHtml(
       sourceUrl: source.url,
       originalUrl,
       confidenceScore: 0.95,
+      isAllDay: false,
       timeZone: EASTERN_TIME_ZONE,
     });
   });
@@ -153,16 +163,25 @@ function occurrenceDate(dateText: string, template: Date, now: Date) {
 
   const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
   const templateParts = easternParts(template);
-  let year = match[3] ? Number(match[3]) : now.getFullYear();
+  const nowParts = easternParts(now);
+  let year = match[3] ? Number(match[3]) : Number(nowParts.year);
   const month = monthNames.indexOf(match[1].toLowerCase()) + 1;
 
   // Calendars commonly show next January in December without printing a year.
-  if (!match[3] && month < now.getMonth() + 1 - 6) year += 1;
+  if (!match[3] && month < Number(nowParts.month) - 6) year += 1;
 
-  return fromZonedTime(
+  const parsed = fromZonedTime(
     `${year}-${String(month).padStart(2, "0")}-${match[2].padStart(2, "0")}T${templateParts.hour}:${templateParts.minute}:00`,
     EASTERN_TIME_ZONE,
   );
+  if (Number.isNaN(parsed.getTime())) return null;
+  const parsedParts = easternParts(parsed);
+  if (
+    Number(parsedParts.year) !== year ||
+    Number(parsedParts.month) !== month ||
+    Number(parsedParts.day) !== Number(match[2])
+  ) return null;
+  return parsed;
 }
 
 /** Parse one Explore Canton detail page for the occurrence shown on its listing card. */
@@ -187,6 +206,12 @@ export function parseExploreCantonEventDetail(
     ? Math.max(0, templateEnd.getTime() - templateStart.getTime())
     : 0;
   const endDateTime = duration ? new Date(startDateTime.getTime() + duration) : null;
+  const easternToday = easternParts(now);
+  const cutoff = fromZonedTime(
+    `${easternToday.year}-${easternToday.month}-${easternToday.day}T00:00:00`,
+    EASTERN_TIME_ZONE,
+  );
+  if ((endDateTime ?? startDateTime) < cutoff) return null;
   const title = cleanPublicText(structured.name);
   const description = cleanPublicText(
     $(".detail__summary .text--content").first().html() ?? structured.description,
@@ -217,9 +242,10 @@ export function parseExploreCantonEventDetail(
     isOutdoor: /\b(park|outdoor|festival|concert|market|trail|garden|river|rodeo)\b/i.test(combinedText),
     sourceName: source.name,
     sourceUrl: source.url,
-    originalUrl: structured.url ?? listing.url,
+    originalUrl: toAbsoluteUrl(listing.url, structured.url) ?? listing.url,
     imageUrl: imageUrl ?? null,
     confidenceScore: 0.96,
+    isAllDay: false,
     timeZone: EASTERN_TIME_ZONE,
   } satisfies NormalizedScrapedEvent;
 }
