@@ -119,17 +119,27 @@ const registeredScrapers: SourceScraper[] = [
   ...manualFacebookSources.map((name) => createFacebookManualScraper(name)),
 ];
 
+/** Human-edited source names may differ only in case or spacing. */
+export function normalizeSourceName(name: string) {
+  return name
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function buildScraperRegistry(scrapers: SourceScraper[]) {
   const registry: Record<string, SourceScraper> = {};
 
   for (const scraper of scrapers) {
-    if (registry[scraper.sourceName]) {
+    const key = normalizeSourceName(scraper.sourceName);
+    if (registry[key]) {
       console.warn(
         `[SCRAPER] Duplicate registration detected: ${scraper.sourceName}`,
       );
     }
 
-    registry[scraper.sourceName] = scraper;
+    registry[key] = scraper;
   }
 
   return registry;
@@ -741,7 +751,11 @@ async function processItem<T>({
 }
 
 export function getSupportedScraperNames() {
-  return Object.keys(SCRAPER_REGISTRY).sort();
+  return registeredScrapers.map((scraper) => scraper.sourceName).sort();
+}
+
+export function hasRegisteredScraper(sourceName: string) {
+  return Boolean(SCRAPER_REGISTRY[normalizeSourceName(sourceName)]);
 }
 
 async function processScrapedItems({
@@ -843,7 +857,7 @@ async function processScrapedItems({
 }
 
 export async function scrapeSource(source: Source) {
-  const scraper = SCRAPER_REGISTRY[source.name];
+  const scraper = SCRAPER_REGISTRY[normalizeSourceName(source.name)];
 
   if (!scraper) {
     logScraper("warn", "No registered scraper found", {
@@ -1076,13 +1090,13 @@ export async function scrapeSource(source: Source) {
 
 export async function scrapeAllSupportedSources() {
   await completeElapsedMeetings();
-  const sources = await prisma.source.findMany({
-    where: {
-      active: true,
-      name: { in: getSupportedScraperNames() },
-    },
+  const activeSources = await prisma.source.findMany({
+    where: { active: true },
     orderBy: { name: "asc" },
   });
+  const sources = activeSources.filter((source) =>
+    hasRegisteredScraper(source.name),
+  );
 
   logScraper("info", "Starting all supported scrapers", {
     sourceCount: sources.length,
@@ -1133,6 +1147,10 @@ export async function scrapeSingleSourceById(sourceId: string) {
 
   if (!source) {
     throw new Error("Source not found.");
+  }
+
+  if (!source.active) {
+    throw new Error(`Source "${source.name}" is inactive.`);
   }
 
   const result = await scrapeSource(source);
