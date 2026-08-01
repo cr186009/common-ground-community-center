@@ -111,6 +111,20 @@ p {
 }
 .btn.btn-primary:hover  { background-color: var(--navy-dark); border-color: var(--navy-dark); color: #ffffff; }
 .btn.btn-primary:active { background-color: var(--navy-dark); border-color: var(--navy-dark); color: #ffffff; }
+.btn.btn-primary:focus-visible,
+.btn.btn-primary:disabled,
+.btn.btn-primary[disabled] { color: #ffffff; }
+
+/* A few compact links and tab controls still use Tailwind's navy background
+   utility directly instead of the shared button variants. Keep their label
+   contrast consistent through every interactive state as well. */
+:is(a, button, input)[class~="bg-[color:var(--navy)]"],
+:is(a, button, input)[class~="bg-[color:var(--navy)]"]:hover,
+:is(a, button, input)[class~="bg-[color:var(--navy)]"]:active,
+:is(a, button, input)[class~="bg-[color:var(--navy)]"]:focus-visible,
+:is(a, button, input)[class~="bg-[color:var(--navy)]"]:disabled {
+  color: #ffffff;
+}
 
 /* Forest — dark-green bg, white text */
 .btn.btn-forest {

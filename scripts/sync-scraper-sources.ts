@@ -94,6 +94,39 @@ const managedSources = [
     scrapeFrequency: "DAILY",
     notes: "Official Explore Canton tourism calendar scraper.",
   },
+  {
+    name: "Polk County Chamber events",
+    url: "https://business.polkgeorgia.com/events",
+    type: SourceType.CALENDAR,
+    section: SourceSection.EVENTS,
+    city: null,
+    county: "Polk",
+    scrapeFrequency: "DAILY",
+    notes:
+      "Polk County Chamber GrowthZone calendar with detail-page enrichment.",
+  },
+  {
+    name: "Polk County official calendar",
+    url: "https://www.polkga.org/calendar.php",
+    type: SourceType.GOVERNMENT,
+    section: SourceSection.EVENTS,
+    city: null,
+    county: "Polk",
+    scrapeFrequency: "DAILY",
+    notes:
+      "Official Polk County Revize calendar; routes government meetings separately.",
+  },
+  {
+    name: "Rockmart Cultural Arts Center",
+    url: "https://www.rockmart-ga.gov/RCACArtGallery.aspx",
+    type: SourceType.GOVERNMENT,
+    section: SourceSection.EVENTS,
+    city: "Rockmart",
+    county: "Polk",
+    scrapeFrequency: "DAILY",
+    notes:
+      "Official RCAC gallery exhibits, receptions, and festival listings.",
+  },
 ];
 
 async function main() {

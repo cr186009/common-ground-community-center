@@ -12,6 +12,20 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "expanded-rockmart-and-polk-calendars",
+    publishedOn: "2026-08-01",
+    title: "More Rockmart and Polk County events",
+    summary:
+      "We connected more dependable local calendars and improved safeguards for overlapping listings.",
+    highlights: [
+      "Added events from the Polk County Chamber and the official Polk County calendar.",
+      "Added Rockmart Cultural Arts Center exhibits, receptions, and festivals.",
+      "Separated county government meetings from general community events.",
+      "Improved duplicate protection when multiple calendars publish the same event.",
+      "Changed dark-blue buttons to keep clear white text in every interaction state.",
+    ],
+  },
+  {
     slug: "priority-community-calendar-recovery",
     publishedOn: "2026-07-31",
     title: "More local calendars are connected",

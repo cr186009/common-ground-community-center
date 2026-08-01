@@ -22,6 +22,9 @@ import { cantonOfficialScraper } from "@/server/hub-scrapers/sources/canton-offi
 import { acworthOfficialScraper } from "@/server/hub-scrapers/sources/acworth-official";
 import { myDallasGaScraper } from "@/server/hub-scrapers/sources/mydallasga";
 import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
+import { polkChamberScraper } from "@/server/hub-scrapers/sources/polk-chamber";
+import { polkCountyOfficialScraper } from "@/server/hub-scrapers/sources/polk-county-official";
+import { rockmartCulturalArtsScraper } from "@/server/hub-scrapers/sources/rockmart-cultural-arts";
 import {
   classifyEventContent,
   eventToMeeting,
@@ -116,6 +119,9 @@ const registeredScrapers: SourceScraper[] = [
   cedartownDowntownScraper,
   myDallasGaScraper,
   nwsAlertsScraper,
+  polkChamberScraper,
+  polkCountyOfficialScraper,
+  rockmartCulturalArtsScraper,
   ...manualFacebookSources.map((name) => createFacebookManualScraper(name)),
 ];
 
@@ -190,6 +196,18 @@ function normalizeTitle(title: string) {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function isLikelySameEvent(
+  first: Pick<NormalizedScrapedEvent, "title" | "city" | "startDateTime">,
+  second: Pick<NormalizedScrapedEvent, "title" | "city" | "startDateTime">,
+) {
+  return (
+    normalizeTitle(first.title) === normalizeTitle(second.title) &&
+    first.city.trim().toLocaleLowerCase("en-US") ===
+      second.city.trim().toLocaleLowerCase("en-US") &&
+    first.startDateTime.getTime() === second.startDateTime.getTime()
+  );
 }
 
 function isValidDate(value: Date | null | undefined) {
@@ -358,17 +376,19 @@ async function upsertScrapedEvent(
   const candidates = await prisma.event.findMany({
     where: {
       startDateTime: event.startDateTime,
-      city: event.city,
-      sourceName: event.sourceName,
-      category: event.category,
     },
     take: 25,
   });
 
-  const normalizedIncomingTitle = normalizeTitle(event.title);
-  const existing = candidates.find(
-    (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
+  const existing = candidates.find((candidate) =>
+    isLikelySameEvent(candidate, event),
   );
+  const isCrossSourceDuplicate =
+    existing !== undefined && existing.sourceName !== event.sourceName;
+  const incomingIsMoreAuthoritative =
+    (event.confidenceScore ?? 0) > (existing?.confidenceScore ?? 0);
+  const retainExistingAttribution =
+    isCrossSourceDuplicate && !incomingIsMoreAuthoritative;
 
   /*
    * Preserve a reviewed status when an existing event has already
@@ -401,14 +421,18 @@ async function upsertScrapedEvent(
     isFree: event.isFree ?? existing?.isFree ?? false,
     isKidFriendly: event.isKidFriendly ?? existing?.isKidFriendly ?? false,
     isOutdoor: event.isOutdoor ?? existing?.isOutdoor ?? false,
-    sourceName: event.sourceName,
-    sourceUrl: event.sourceUrl,
-    originalUrl: event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
+    // When two calendars publish the same event, retain the attribution of the
+    // record that reached the hub first instead of creating or relabeling it.
+    sourceName: retainExistingAttribution ? existing.sourceName : event.sourceName,
+    sourceUrl: retainExistingAttribution ? existing.sourceUrl : event.sourceUrl,
+    originalUrl: retainExistingAttribution
+      ? existing.originalUrl ?? event.originalUrl ?? event.sourceUrl
+      : event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
     imageUrl: event.imageUrl ?? existing?.imageUrl ?? null,
     status,
     confidenceScore: event.confidenceScore ?? existing?.confidenceScore ?? null,
     lastSeenAt: new Date(),
-    sourceId: source.id,
+    sourceId: retainExistingAttribution ? existing.sourceId : source.id,
   } satisfies Parameters<typeof prisma.event.create>[0]["data"];
 
   if (existing) {
