@@ -72,6 +72,7 @@ const managedSources = [
     city: "Rockmart",
     county: "Polk",
     scrapeFrequency: "DAILY",
+    active: true,
     notes: "Official Rockmart Mimsware calendar scraper.",
   },
   {
@@ -82,6 +83,7 @@ const managedSources = [
     city: "Woodstock",
     county: "Cherokee",
     scrapeFrequency: "DAILY",
+    active: true,
     notes: "Official Visit Woodstock calendar API scraper.",
   },
   {
@@ -92,6 +94,7 @@ const managedSources = [
     city: "Canton",
     county: "Cherokee",
     scrapeFrequency: "DAILY",
+    active: true,
     notes: "Official Explore Canton tourism calendar scraper.",
   },
   {
@@ -154,6 +157,7 @@ async function main() {
           city: source.city,
           county: source.county,
           scrapeFrequency: source.scrapeFrequency,
+          ...(source.active === true ? { active: true } : {}),
           notes: source.notes,
         },
       });

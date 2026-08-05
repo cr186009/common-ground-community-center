@@ -12,6 +12,19 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "priority-calendar-production-verification",
+    publishedOn: "2026-08-05",
+    title: "Priority community calendars verified",
+    summary:
+      "Rockmart, Woodstock, and Canton calendar connections have been checked against live production records and public listings.",
+    highlights: [
+      "Restored active daily updates for the Visit Woodstock and Explore Canton calendars.",
+      "Confirmed current Woodstock and Canton listings appear on the public events page.",
+      "Confirmed Rockmart government calendar items appear in the public meetings section when appropriate.",
+      "Added a safeguard that keeps these priority calendar sources active during source synchronization.",
+    ],
+  },
+  {
     slug: "scraper-administration-and-coverage",
     publishedOn: "2026-08-01",
     title: "Clearer calendar source management",
