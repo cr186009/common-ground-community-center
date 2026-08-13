@@ -45,6 +45,7 @@ import {
   validateScrapedEvent,
 } from "@/server/hub-scrapers/quality";
 import { finalizeScrapeOutcome } from "@/server/scrape-health";
+import { verifyEventDate } from "@/server/hub-scrapers/date-verification";
 import {
   classifyPreviewItem,
   type ExistingComparableItem,
@@ -377,6 +378,7 @@ async function upsertScrapedEvent(
   event: NormalizedScrapedEvent,
 ) {
   validateEvent(event);
+  const dateVerification = verifyEventDate(event);
 
   const candidates = await prisma.event.findMany({
     where: {
@@ -413,8 +415,10 @@ async function upsertScrapedEvent(
    * Preserve a reviewed status when an existing event has already
    * been approved, rejected, or archived.
    */
-  const status =
-    existing && existing.status !== "PENDING"
+  const hasDateIntegrityRisk = dateVerification.status !== "VERIFIED";
+  const status = hasDateIntegrityRisk
+    ? "PENDING"
+    : existing && existing.status !== "PENDING"
       ? existing.status
       : eventStatusForConfidence(event.confidenceScore, event.status);
 
@@ -449,6 +453,11 @@ async function upsertScrapedEvent(
       : event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
     imageUrl: event.imageUrl ?? existing?.imageUrl ?? null,
     status,
+    dateVerificationStatus: dateVerification.status,
+    dateVerificationReason: dateVerification.reason,
+    dateEvidence: JSON.stringify(dateVerification.evidence),
+    dateVerifiedAt: dateVerification.verifiedAt,
+    sourcePublishedText: dateVerification.sourcePublishedText,
     confidenceScore: event.confidenceScore ?? existing?.confidenceScore ?? null,
     lastSeenAt: new Date(),
     sourceId: retainExistingAttribution ? existing!.sourceId : source.id,

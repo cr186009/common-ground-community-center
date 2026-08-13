@@ -56,6 +56,7 @@ function buildEventWhere(
 
   return {
     status: "APPROVED",
+    dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
     startDateTime: {
       gte: dateFrom,
       ...(filters.dateTo ? { lte: endOfCommunityDay(filters.dateTo) } : {}),
@@ -427,6 +428,7 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
     prisma.event.findMany({
       where: {
         status: "APPROVED",
+        dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
         ...(filters.city ? { city: filters.city } : {}),
         ...(filters.county ? { county: filters.county } : {}),
         ...(filters.category ? { category: filters.category } : {}),
@@ -685,6 +687,7 @@ export async function getDigestPreview(subscriberId?: string | null) {
     prisma.event.findMany({
       where: {
         status: "APPROVED",
+        dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
         startDateTime: { gte: startOfDay(new Date()) },
       },
       orderBy: { startDateTime: "asc" },
@@ -832,6 +835,10 @@ export type AdminSourceHealth = {
   scrapeFrequency: string | null;
   notes: string | null;
   lastScrapedAt: Date | null;
+  /** Timestamp of the latest run regardless of outcome. */
+  lastAttemptAt: Date | null;
+  /** Timestamp of the latest fully successful run. */
+  lastSuccessfulAt: Date | null;
   health: SourceHealthStatus;
   consecutiveFailures: number;
   eventCount: number;
@@ -959,6 +966,8 @@ export async function getAdminSourceHealth(
       scrapeFrequency: source.scrapeFrequency,
       notes: source.notes,
       lastScrapedAt: source.lastScrapedAt,
+      lastAttemptAt: lastLog?.createdAt ?? null,
+      lastSuccessfulAt: runMetrics.lastSuccessfulAt,
       health: healthAssessment.status,
       healthWarning: healthAssessment.warning,
       consecutiveFailures: runMetrics.consecutiveFailures,
@@ -1118,6 +1127,31 @@ export async function getAdminEventManagement(
     page,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
   };
+}
+
+export async function getAdminDateReviewQueue() {
+  return prisma.event.findMany({
+    where: {
+      dateVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] },
+    },
+    orderBy: [{ startDateTime: "asc" }, { updatedAt: "desc" }],
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startDateTime: true,
+      timeZone: true,
+      sourceName: true,
+      originalUrl: true,
+      sourceUrl: true,
+      dateVerificationStatus: true,
+      dateVerificationReason: true,
+      dateEvidence: true,
+      sourcePublishedText: true,
+      updatedAt: true,
+    },
+  });
 }
 
 // -------------------------------------------------------------------------

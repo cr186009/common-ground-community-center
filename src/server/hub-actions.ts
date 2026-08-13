@@ -492,6 +492,9 @@ export async function approveSubmittedEventAction(formData: FormData) {
           sourceUrl: submission.sourceUrl || "/submit",
           originalUrl: submission.sourceUrl || "/submit",
           status: "APPROVED",
+          dateVerificationStatus: "MANUALLY_VERIFIED",
+          dateVerificationReason: "An administrator approved the resident-submitted date against its provided source.",
+          dateVerifiedAt: new Date(),
           confidenceScore: 0.9,
         },
       }),
@@ -542,7 +545,9 @@ export async function createManualEventAction(formData: FormData) {
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
       imageUrl: payload.imageUrl ?? null,
-      status: "APPROVED",
+      status: "PENDING",
+      dateVerificationStatus: "MISSING_EVIDENCE",
+      dateVerificationReason: "Manual event requires an administrator to compare its date with the original source.",
       confidenceScore: 1,
     },
   });
@@ -555,6 +560,11 @@ export async function updateEventAction(formData: FormData) {
   await requireAdmin();
   const payload = parseEventPayload(formData);
   const eventId = getString(formData, "eventId");
+  const existing = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { startDateTime: true },
+  });
+  const dateChanged = existing?.startDateTime.getTime() !== payload.startDateTime.getTime();
 
   await prisma.event.update({
     where: { id: eventId },
@@ -576,6 +586,12 @@ export async function updateEventAction(formData: FormData) {
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
       imageUrl: payload.imageUrl ?? null,
+      ...(dateChanged ? {
+        status: "PENDING" as const,
+        dateVerificationStatus: "MISSING_EVIDENCE" as const,
+        dateVerificationReason: "The event date was edited and must be checked against the original source.",
+        dateVerifiedAt: null,
+      } : {}),
     },
   });
 
@@ -857,12 +873,45 @@ export async function generateMeetingSummaryAction(formData: FormData) {
 export async function approveEventAction(formData: FormData) {
   await requireAdmin();
   const eventId = getString(formData, "eventId");
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { dateVerificationStatus: true },
+  });
+  if (!event || !["VERIFIED", "MANUALLY_VERIFIED"].includes(event.dateVerificationStatus)) {
+    redirect("/admin?tab=events&dateReviewRequired=1");
+  }
   await prisma.event.update({
     where: { id: eventId },
     data: { status: "APPROVED" },
   });
   revalidateAll();
   redirect("/admin?tab=events&approved=1");
+}
+
+export async function manuallyVerifyEventDateAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      status: "APPROVED",
+      dateVerificationStatus: "MANUALLY_VERIFIED",
+      dateVerificationReason: "An administrator compared the listing with its original source.",
+      dateVerifiedAt: new Date(),
+    },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&dateVerified=1");
+}
+
+export async function rejectEventDateAction(formData: FormData) {
+  await requireAdmin();
+  await prisma.event.update({
+    where: { id: getString(formData, "eventId") },
+    data: { status: "REJECTED" },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&dateRejected=1");
 }
 
 // -------------------------------------------------------------------------

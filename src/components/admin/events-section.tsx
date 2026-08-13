@@ -2,11 +2,14 @@ import {
   getAdminEventManagement,
   getAdminPossibleDuplicates,
   getEventStatusCounts,
+  getAdminDateReviewQueue,
   type AdminEventFilters,
 } from "@/server/hub-data";
 import {
   approveEventAction,
   archiveEventAction,
+  manuallyVerifyEventDateAction,
+  rejectEventDateAction,
   assignFallbackImageAction,
   removeFallbackImageAction,
   replaceFallbackImageAction,
@@ -72,16 +75,51 @@ export async function EventsSection({
     { events, total, page: currentPage, totalPages },
     statusCounts,
     duplicateGroups,
+    dateReviewQueue,
   ] = await Promise.all([
     getAdminEventManagement(filters),
     getEventStatusCounts(),
     getAdminPossibleDuplicates(),
+    getAdminDateReviewQueue(),
   ]);
 
   const filterBase = `/admin?tab=events${query ? `&q=${encodeURIComponent(query)}` : ""}${sourceName ? `&src=${encodeURIComponent(sourceName)}` : ""}${city ? `&city=${encodeURIComponent(city)}` : ""}${county ? `&cty=${encodeURIComponent(county)}` : ""}${category ? `&cat=${encodeURIComponent(category)}` : ""}${status ? `&sta=${encodeURIComponent(status)}` : ""}${imgStatus ? `&img=${encodeURIComponent(imgStatus)}` : ""}${upcoming ? `&up=${upcoming}` : ""}`;
 
   return (
     <div className="space-y-6">
+      <section className="rounded-[1.75rem] border border-amber-300 bg-amber-50 p-5">
+        <h2 className="font-serif text-2xl text-[color:var(--navy)]">Pending date review</h2>
+        <p className="mt-1 text-sm text-amber-900">
+          {dateReviewQueue.length} event(s) are withheld from the public site until their dates are resolved.
+        </p>
+        <div className="mt-4 space-y-3">
+          {dateReviewQueue.length === 0 ? <p className="text-sm text-emerald-700">No date discrepancies await review.</p> : dateReviewQueue.map((event) => {
+            let evidence: Array<{ label?: string; value?: string; source?: string; date?: string; text?: string; field?: string }> = [];
+            try { evidence = JSON.parse(event.dateEvidence); } catch { evidence = []; }
+            return (
+              <article key={event.id} className="rounded-2xl border border-amber-200 bg-white p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{event.dateVerificationStatus.replaceAll("_", " ")}</p>
+                    <h3 className="mt-1 font-semibold text-[color:var(--navy)]">{event.title}</h3>
+                    <p className="text-sm text-slate-700">Stored: {formatDateTimeRange(event.startDateTime, null, false)}</p>
+                    <p className="mt-1 text-sm text-amber-900">{event.dateVerificationReason || "Date evidence requires review."}</p>
+                    {evidence.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{evidence.map((item, index) => <li key={index}>{item.label || item.source || item.field || "Evidence"}: {item.value || item.date || item.text}</li>)}</ul>}
+                    {event.sourcePublishedText && <details className="mt-2 text-xs text-slate-600"><summary className="cursor-pointer font-semibold">Source text</summary><p className="mt-1 whitespace-pre-wrap">{event.sourcePublishedText}</p></details>}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <a className="btn btn-ghost btn-xs" href={event.originalUrl || event.sourceUrl} target="_blank" rel="noreferrer">Check source</a>
+                    <a className="btn btn-ghost btn-xs" href={`/admin?tab=events&edit=${event.id}`}>Correct date</a>
+                    <form action={manuallyVerifyEventDateAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-primary btn-xs" type="submit">Verify & publish</button></form>
+                    <form action={rejectEventDateAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-ghost btn-xs" type="submit">Reject</button></form>
+                    <form action={archiveEventAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-ghost btn-xs" type="submit">Archive</button></form>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
       {/* Status counts */}
       <section>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

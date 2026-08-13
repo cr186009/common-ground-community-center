@@ -33,6 +33,12 @@ export type NormalizedScrapedEvent = {
   confidenceScore?: number | null;
   isAllDay?: boolean;
   timeZone?: string | null;
+  /** Independent date signals retained for audit and comparison. */
+  dateEvidence?: {
+    listingDate?: Date | string | null;
+    structuredDate?: Date | string | null;
+    sourcePublishedText?: string | null;
+  };
   meetingDetails?: {
     governmentBody?: string;
     meetingType?: MeetingType;

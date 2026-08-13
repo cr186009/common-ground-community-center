@@ -1,5 +1,27 @@
 # Scraper administration routine
 
+## Automatic schedule
+
+Run `pnpm scrape:due` from an external scheduler every hour. The command is
+idempotent: it runs only active, registered sources whose stored frequency is
+due. Facebook and manual-review sources are excluded. A cron example is:
+
+```cron
+7 * * * * cd /path/to/app && pnpm scrape:due >> /var/log/community-scrape.log 2>&1
+```
+
+The scheduler treats the newest scrape log as the **last attempt**, including
+failures and zero-result runs. The newest successful log remains the **last
+success**. Keeping these timestamps separate prevents a failing source from
+being reported as fresh while also preventing an hourly scheduler from
+retrying it continuously.
+
+Upcoming approved events trigger a tighter source refresh cadence: every 24
+hours within seven days, every 12 hours within 48 hours, and every three hours
+within 12 hours. This rechecks source calendars for late date, time,
+cancellation, or postponement changes. Blank or unrecognized source frequency
+values default to daily.
+
 The Sources tab is the control center for automated calendars. Its default coverage policy is a 25-mile radius from Dallas City Hall, with a five-mile borderline review buffer. Paulding County sources are always treated as core coverage.
 
 ## Weekly review

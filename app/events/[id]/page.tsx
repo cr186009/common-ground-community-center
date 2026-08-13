@@ -18,7 +18,11 @@ export default async function EventDetailPage({ params }: PageProps) {
   const { id } = await params;
   const event = await getEventById(id);
 
-  if (!event || event.status !== "APPROVED") {
+  if (
+    !event ||
+    event.status !== "APPROVED" ||
+    !["VERIFIED", "MANUALLY_VERIFIED"].includes(event.dateVerificationStatus)
+  ) {
     notFound();
   }
 
@@ -125,6 +129,14 @@ export default async function EventDetailPage({ params }: PageProps) {
                 Source attribution
               </dt>
               <dd className="mt-1 text-slate-800">{event.sourceName}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-500">Date verification</dt>
+              <dd className="mt-1 text-slate-800">
+                {event.dateVerificationStatus === "VERIFIED" || event.dateVerificationStatus === "MANUALLY_VERIFIED"
+                  ? `Verified ${event.dateVerifiedAt ? formatDateTimeRange(event.dateVerifiedAt, null, false) : "during the latest source check"}`
+                  : "Source evidence is being reviewed"}
+              </dd>
             </div>
             {tags.length > 0 ? (
               <div>

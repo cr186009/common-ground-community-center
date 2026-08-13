@@ -8,40 +8,46 @@ datasource db {
 }
 
 model Event {
-  id              String      @id @default(cuid())
-  title           String
-  description     String?
-  startDateTime   DateTime
-  endDateTime     DateTime?
-  locationName    String?
-  address         String?
-  city            String
-  county          String
-  category        Category    @default(OTHER)
-  tags            String      @default("[]")
-  cost            String?
-  isFree          Boolean     @default(false)
-  isKidFriendly   Boolean     @default(false)
-  isOutdoor       Boolean     @default(false)
-  sourceName      String
-  sourceUrl       String
-  originalUrl     String?
-  imageUrl        String?
-  imageSource     String?
-  imageCredit     String?
-  imageCreditUrl  String?
-  imageAlt        String?
-  imageIsFallback Boolean     @default(false)
-  status          EventStatus @default(APPROVED)
-  confidenceScore Float?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  lastSeenAt      DateTime    @default(now())
-  sourceId        String?
-  source          Source?     @relation(fields: [sourceId], references: [id])
+  id                     String                 @id @default(cuid())
+  title                  String
+  description            String?
+  startDateTime          DateTime
+  endDateTime            DateTime?
+  locationName           String?
+  address                String?
+  city                   String
+  county                 String
+  category               Category               @default(OTHER)
+  tags                   String                 @default("[]")
+  cost                   String?
+  isFree                 Boolean                @default(false)
+  isKidFriendly          Boolean                @default(false)
+  isOutdoor              Boolean                @default(false)
+  sourceName             String
+  sourceUrl              String
+  originalUrl            String?
+  imageUrl               String?
+  imageSource            String?
+  imageCredit            String?
+  imageCreditUrl         String?
+  imageAlt               String?
+  imageIsFallback        Boolean                @default(false)
+  status                 EventStatus            @default(APPROVED)
+  dateVerificationStatus DateVerificationStatus @default(MISSING_EVIDENCE)
+  dateVerificationReason String?
+  dateEvidence           String                 @default("[]")
+  dateVerifiedAt         DateTime?
+  sourcePublishedText    String?
+  confidenceScore        Float?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  lastSeenAt             DateTime               @default(now())
+  sourceId               String?
+  source                 Source?                @relation(fields: [sourceId], references: [id])
 
-isAllDay Boolean @default(false)
-timeZone String  @default("America/New_York")
+  isAllDay Boolean @default(false)
+  timeZone String  @default("America/New_York")
+
   @@index([status, startDateTime])
   @@index([city, startDateTime])
   @@index([county, startDateTime])
@@ -74,10 +80,10 @@ model Alert {
   sourceId         String?
   source           Source?       @relation(fields: [sourceId], references: [id])
 
+  @@unique([sourceName, externalId])
   @@index([status, severity])
   @@index([county, status])
   @@index([city, status])
-  @@unique([sourceName, externalId])
 }
 
 model Meeting {
@@ -229,6 +235,14 @@ enum EventStatus {
   APPROVED
   REJECTED
   ARCHIVED
+}
+
+enum DateVerificationStatus {
+  VERIFIED
+  CONFLICT
+  AMBIGUOUS
+  MISSING_EVIDENCE
+  MANUALLY_VERIFIED
 }
 
 enum AlertSeverity {
