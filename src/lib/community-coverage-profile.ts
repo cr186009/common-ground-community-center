@@ -26,8 +26,12 @@ export const PILOT_CITY_COVERAGE: CityConfig[] = [
     city: "Canton",
     areas: {
       government: [{ sourceName: "Explore Canton events", role: "primary" }],
-      parks_recreation: [{ sourceName: "Explore Canton events", role: "primary" }],
+      parks_recreation: [
+        { sourceName: "Cherokee Recreation & Parks events", role: "primary" },
+        { sourceName: "Explore Canton events", role: "backup" },
+      ],
       arts_entertainment: [{ sourceName: "Explore Canton events", role: "primary" }],
+      business_chamber: [{ sourceName: "Cherokee County Chamber events", role: "primary" }],
       festivals_markets: [{ sourceName: "Explore Canton events", role: "primary" }],
       public_safety_weather: [{ sourceName: "National Weather Service alerts", role: "primary" }],
       community_nonprofit: [{ sourceName: "Explore Canton Facebook", role: "primary" }],
@@ -37,10 +41,16 @@ export const PILOT_CITY_COVERAGE: CityConfig[] = [
     city: "Kennesaw",
     areas: {
       government: [{ sourceName: "City of Kennesaw events", role: "primary" }],
+      schools: [{ sourceName: "Cobb Schools — Kennesaw campuses", role: "primary" }],
       parks_recreation: [{ sourceName: "City of Kennesaw events", role: "primary" }],
-      arts_entertainment: [{ sourceName: "City of Kennesaw events", role: "primary" }],
+      arts_entertainment: [
+        { sourceName: "City of Kennesaw events", role: "primary" },
+        { sourceName: "Kennesaw State University public events", role: "backup" },
+      ],
+      community_nonprofit: [{ sourceName: "Kennesaw State University public events", role: "primary" }],
       festivals_markets: [{ sourceName: "City of Kennesaw events", role: "primary" }],
       public_safety_weather: [{ sourceName: "National Weather Service alerts", role: "primary" }],
+      sports: [{ sourceName: "Kennesaw State University public events", role: "primary" }],
     },
   },
 ];

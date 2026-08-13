@@ -15,6 +15,8 @@ import { dallasOfficialScraper } from "@/server/hub-scrapers/sources/dallas-offi
 import { createFacebookManualScraper } from "@/server/hub-scrapers/sources/facebook-manual";
 import { hiramOfficialScraper } from "@/server/hub-scrapers/sources/hiram-official";
 import { kennesawOfficialScraper } from "@/server/hub-scrapers/sources/kennesaw-official";
+import { cobbSchoolsKennesawScraper } from "@/server/hub-scrapers/sources/cobb-schools-kennesaw";
+import { ksuLocalistScraper } from "@/server/hub-scrapers/sources/ksu-localist";
 import { mariettaOfficialScraper } from "@/server/hub-scrapers/sources/marietta-official";
 import { pauldingCalendarScraper } from "@/server/hub-scrapers/sources/paulding-calendar";
 import { rockmartOfficialScraper } from "@/server/hub-scrapers/sources/rockmart-official";
@@ -26,6 +28,9 @@ import { nwsAlertsScraper } from "@/server/hub-scrapers/sources/nws-alerts";
 import { polkChamberScraper } from "@/server/hub-scrapers/sources/polk-chamber";
 import { polkCountyOfficialScraper } from "@/server/hub-scrapers/sources/polk-county-official";
 import { rockmartCulturalArtsScraper } from "@/server/hub-scrapers/sources/rockmart-cultural-arts";
+import { playCherokeeScraper } from "@/server/hub-scrapers/sources/play-cherokee";
+import { cherokeeChamberScraper } from "@/server/hub-scrapers/sources/cherokee-chamber";
+import { wgrlsEventsScraper } from "@/server/hub-scrapers/sources/wgrls-events";
 import {
   classifyEventContent,
   eventToMeeting,
@@ -117,6 +122,8 @@ const registeredScrapers: SourceScraper[] = [
   pauldingCalendarScraper,
   acworthOfficialScraper,
   kennesawOfficialScraper,
+  cobbSchoolsKennesawScraper,
+  ksuLocalistScraper,
   mariettaOfficialScraper,
   dallasOfficialScraper,
   hiramOfficialScraper,
@@ -129,6 +136,9 @@ const registeredScrapers: SourceScraper[] = [
   polkChamberScraper,
   polkCountyOfficialScraper,
   rockmartCulturalArtsScraper,
+  playCherokeeScraper,
+  cherokeeChamberScraper,
+  wgrlsEventsScraper,
   ...manualFacebookSources.map((name) => createFacebookManualScraper(name)),
 ];
 
