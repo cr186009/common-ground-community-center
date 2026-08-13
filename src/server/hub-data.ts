@@ -845,6 +845,8 @@ export type AdminSourceHealth = {
   health: SourceHealthStatus;
   consecutiveFailures: number;
   eventCount: number;
+  verifiedEventCount: number;
+  verificationRate: number | null;
   ownedRecordCounts: {
     events: number;
     meetings: number;
@@ -871,7 +873,7 @@ export type AdminSourceHealth = {
 export async function getAdminSourceHealth(
   scraperNames: string[] = [],
 ): Promise<AdminSourceHealth[]> {
-  const [sources, approvedEvents, scheduledMeetings, activeAlerts, openVolunteer] =
+  const [sources, approvedEvents, eventVerification, scheduledMeetings, activeAlerts, openVolunteer] =
     await Promise.all([
       prisma.source.findMany({
         include: {
@@ -895,6 +897,10 @@ export async function getAdminSourceHealth(
         by: ["sourceId"],
         where: { sourceId: { not: null }, status: "APPROVED" },
         _count: { _all: true },
+      }),
+      prisma.event.findMany({
+        where: { sourceId: { not: null }, status: "APPROVED" },
+        select: { sourceId: true, dateVerificationStatus: true, timeVerificationStatus: true },
       }),
       prisma.meeting.groupBy({
         by: ["sourceId"],
@@ -930,6 +936,12 @@ export async function getAdminSourceHealth(
   addPublishedCounts(openVolunteer.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
 
   const normalizedScraperNames = new Set(scraperNames.map(normalizeInventoryName));
+  const verifiedBySource = new Map<string, number>();
+  for (const event of eventVerification) {
+    if (event.sourceId && event.dateVerificationStatus === "VERIFIED" && event.timeVerificationStatus === "VERIFIED") {
+      verifiedBySource.set(event.sourceId, (verifiedBySource.get(event.sourceId) ?? 0) + 1);
+    }
+  }
 
   return sources.map((source) => {
     const lastLog = source.logs[0] ?? null;
@@ -937,6 +949,8 @@ export async function getAdminSourceHealth(
     const runMetrics = summarizeSourceRuns(source.logs);
 
     const publishedContentCount = publishedBySource.get(source.id) ?? 0;
+    const approvedEventCount = approvedEvents.find((row) => row.sourceId === source.id)?._count._all ?? 0;
+    const verifiedEventCount = verifiedBySource.get(source.id) ?? 0;
     const ownedRecordCounts = {
       events: source._count.events,
       meetings: source._count.meetings,
@@ -975,6 +989,8 @@ export async function getAdminSourceHealth(
       healthWarning: healthAssessment.warning,
       consecutiveFailures: runMetrics.consecutiveFailures,
       eventCount: source._count.events,
+      verifiedEventCount,
+      verificationRate: approvedEventCount === 0 ? null : verifiedEventCount / approvedEventCount,
       ownedRecordCounts,
       publishedContentCount,
       hasAutomatedScraper,
@@ -1383,4 +1399,18 @@ export async function getAdminPossibleDuplicates(): Promise<DuplicateGroup[]> {
   return Array.from(groups.values())
     .filter((g) => g.length >= 2)
     .slice(0, 30);
+}
+
+export async function getAdminExactDuplicateSummary() {
+  const { groupExactDuplicateEvents } = await import("@/server/event-deduplication");
+  const events = await prisma.event.findMany({
+    where: { status: "APPROVED", startDateTime: { gte: new Date() } },
+    select: { id: true, title: true, startDateTime: true, city: true, county: true, locationName: true, address: true },
+    orderBy: { startDateTime: "asc" },
+  });
+  const groups = groupExactDuplicateEvents(events);
+  return {
+    groupCount: groups.length,
+    redundantEventCount: groups.reduce((count, group) => count + group.length - 1, 0),
+  };
 }

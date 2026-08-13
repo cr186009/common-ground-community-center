@@ -55,7 +55,7 @@ type JsonLdEvent = {
   image?: string | string[] | { url?: string };
 };
 
-function findJsonLdEvent(html: string): JsonLdEvent | null {
+export function findJsonLdEvent(html: string): JsonLdEvent | null {
   const $ = cheerio.load(html);
   let found: JsonLdEvent | null = null;
 
@@ -232,7 +232,37 @@ async function scrapeDetailPage(
     originalUrl: detailUrl,
     imageUrl,
     confidenceScore: 0.9,
+    dateEvidence: {
+      listingDate: ld?.startDate ?? startDateTime.toISOString(),
+      structuredDate: ld?.startDate ?? startDateTime.toISOString(),
+      sourcePublishedText: [ld?.startDate, ld?.endDate]
+        .filter(Boolean)
+        .join(" – ") || null,
+    },
   };
+}
+
+/** Return only canonical Wix event detail URLs, excluding social-share links. */
+export function collectDetailUrls(html: string, sourceUrl: string): Set<string> {
+  const $ = cheerio.load(html);
+  const urls = new Set<string>();
+  const sourceOrigin = new URL(sourceUrl).origin;
+
+  $(`a[href*="${DETAIL_PATTERN}"]`).each((_, el) => {
+    const href = $(el).attr("href");
+    const absolute = href ? toAbsoluteUrl(sourceUrl, href) : null;
+    if (!absolute) return;
+
+    const url = new URL(absolute);
+    if (url.origin !== sourceOrigin || !url.pathname.startsWith(DETAIL_PATTERN)) return;
+    // Wix social-share hrefs append `&quote=...` directly to the event path.
+    url.pathname = url.pathname.split("&")[0];
+    url.search = "";
+    url.hash = "";
+    urls.add(url.toString().replace(/\/$/, ""));
+  });
+
+  return urls;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,16 +313,9 @@ async function collectEventCalendarUrls(
   }
 
   const $ = cheerio.load(html);
-  const urls = new Set<string>();
+  const urls = collectDetailUrls(html, sourceUrl);
 
   // Strategy 1: direct /event-details-registration/ anchor tags
-  $(`a[href*="${DETAIL_PATTERN}"]`).each((_, el) => {
-    const href = $(el).attr("href");
-    if (!href) return;
-    const abs = toAbsoluteUrl(sourceUrl, href);
-    if (abs) urls.add(abs);
-  });
-
   if (urls.size > 0) {
     console.log(
       `[MYDALLASGA] /eventcalendar: found ${urls.size} event-details link(s) via anchor tags`,
@@ -370,15 +393,7 @@ export const myDallasGaScraper: SourceScraper = {
     // ---- /events (primary feed) ----
     const eventsUrl = buildEventsUrl(source.url);
     const listingHtml = await fetchSourceHtml(eventsUrl);
-    const $ = cheerio.load(listingHtml);
-
-    const detailUrls = new Set<string>();
-    $(`a[href*="${DETAIL_PATTERN}"]`).each((_, el) => {
-      const href = $(el).attr("href");
-      if (!href) return;
-      const absolute = toAbsoluteUrl(source.url, href);
-      if (absolute) detailUrls.add(absolute);
-    });
+    const detailUrls = collectDetailUrls(listingHtml, source.url);
 
     console.log(
       `[MYDALLASGA] ${detailUrls.size} detail link(s) found on ${eventsUrl}`,

@@ -2,6 +2,16 @@ import { SourceSection, SourceType } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 const managedSources = [
   {
+    name: "City of Dallas official events page",
+    url: "https://www.dallasga.gov/calendar.aspx?view=list&CID=0",
+    type: SourceType.GOVERNMENT,
+    section: SourceSection.EVENTS,
+    city: "Dallas",
+    county: "Paulding",
+    scrapeFrequency: "DAILY",
+    notes: "Official CivicEngage calendar scraper",
+  },
+  {
     name: "Paulding County Public Calendar",
     url: "https://www.paulding.gov/calendar.aspx",
     type: SourceType.CALENDAR,
@@ -33,7 +43,7 @@ const managedSources = [
   },
   {
     name: "Downtown Dallas / MyDallasGA",
-    url: "https://www.mydallasga.com/eventcalendar",
+    url: "https://www.mydallasga.com/events",
     type: SourceType.WEBSITE,
     section: SourceSection.EVENTS,
     city: "Dallas",

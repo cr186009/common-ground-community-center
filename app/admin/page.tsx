@@ -337,6 +337,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
     summaryGenerated: "Meeting summary generated.",
     scraped: "Scraper run completed.",
     sourcesDeactivated: `${n("sourcesDeactivated") ?? "0"} scraper sources deactivated.`,
+    duplicatesCleaned: `Duplicate cleanup merged ${n("duplicateGroups") ?? "0"} exact group(s) and removed ${n("duplicatesRemoved") ?? "0"} redundant record(s).`,
   };
   const flashMessage = Object.entries(flashMap).find(([key]) => n(key))?.[1];
 

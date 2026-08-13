@@ -51,7 +51,7 @@ const sources = [
   },
   {
     name: "City of Dallas official events page",
-    url: "https://www.dallasga.gov/community/page/upcoming-events",
+    url: "https://www.dallasga.gov/calendar.aspx?view=list&CID=0",
     type: SourceType.WEBSITE,
     section: SourceSection.EVENTS,
     city: "Dallas",

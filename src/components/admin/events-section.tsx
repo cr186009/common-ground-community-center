@@ -1,6 +1,7 @@
 import {
   getAdminEventManagement,
   getAdminPossibleDuplicates,
+  getAdminExactDuplicateSummary,
   getEventStatusCounts,
   getAdminDateReviewQueue,
   type AdminEventFilters,
@@ -15,6 +16,7 @@ import {
   assignFallbackImageAction,
   removeFallbackImageAction,
   replaceFallbackImageAction,
+  cleanExactEventDuplicatesAction,
 } from "@/server/hub-actions";
 import { CATEGORY_OPTIONS, COUNTY_FILTERS } from "@/lib/hub-constants";
 import { formatDateTimeRange, formatTimestamp } from "@/lib/hub-format";
@@ -78,11 +80,13 @@ export async function EventsSection({
     statusCounts,
     duplicateGroups,
     dateReviewQueue,
+    exactDuplicateSummary,
   ] = await Promise.all([
     getAdminEventManagement(filters),
     getEventStatusCounts(),
     getAdminPossibleDuplicates(),
     getAdminDateReviewQueue(),
+    getAdminExactDuplicateSummary(),
   ]);
 
   const filterBase = `/admin?tab=events${query ? `&q=${encodeURIComponent(query)}` : ""}${sourceName ? `&src=${encodeURIComponent(sourceName)}` : ""}${city ? `&city=${encodeURIComponent(city)}` : ""}${county ? `&cty=${encodeURIComponent(county)}` : ""}${category ? `&cat=${encodeURIComponent(category)}` : ""}${status ? `&sta=${encodeURIComponent(status)}` : ""}${imgStatus ? `&img=${encodeURIComponent(imgStatus)}` : ""}${upcoming ? `&up=${upcoming}` : ""}`;
@@ -422,12 +426,26 @@ export async function EventsSection({
 
       {/* Possible duplicates */}
       <section className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-        <h2 className="font-serif text-2xl text-[color:var(--navy)]">
-          Possible duplicates
-        </h2>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="font-serif text-2xl text-[color:var(--navy)]">Possible duplicates</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {exactDuplicateSummary.groupCount} exact group(s), containing {exactDuplicateSummary.redundantEventCount} safely removable record(s).
+            </p>
+          </div>
+          <form action={cleanExactEventDuplicatesAction}>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={exactDuplicateSummary.redundantEventCount === 0}
+            >
+              Clear {exactDuplicateSummary.redundantEventCount} exact duplicate(s)
+            </button>
+          </form>
+        </div>
         <p className="mt-1 text-sm text-slate-500">
           Upcoming approved events grouped by normalized title + date + city.
-          Inspection only — no automatic merging.
+          The cleanup button is more conservative: it requires an exact start time and matching city/county, refuses records with conflicting known venues or addresses, preserves the strongest details and verification evidence, and records the operation in scrape logs.
         </p>
         <div className="mt-4 space-y-4">
           {duplicateGroups.length === 0 ? (

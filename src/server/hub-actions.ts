@@ -37,6 +37,7 @@ import {
   assignFallbackImagesToMissingEvents,
 } from "@/server/pexels";
 import { generateMeetingPlainEnglishSummary } from "@/services/meeting-summary-service";
+import { cleanExactEventDuplicates } from "@/server/event-deduplication";
 
 const CATEGORY_VALUES = [
   "FAMILY",
@@ -609,6 +610,13 @@ export async function archiveEventAction(formData: FormData) {
 
   revalidateAll();
   redirect("/admin?archived=1");
+}
+
+export async function cleanExactEventDuplicatesAction() {
+  await requireAdmin();
+  const result = await cleanExactEventDuplicates();
+  revalidateAll();
+  redirect(`/admin?tab=events&duplicatesCleaned=1&duplicateGroups=${result.groupCount}&duplicatesRemoved=${result.removedCount}`);
 }
 
 export async function createManualAlertAction(formData: FormData) {

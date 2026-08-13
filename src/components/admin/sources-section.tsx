@@ -18,6 +18,7 @@ import {
   getSourceTypeLabel,
 } from "@/lib/hub-format";
 import { COUNTY_FILTERS, SOURCE_TYPE_LABELS } from "@/lib/hub-constants";
+import { buildCoverageProfiles, type CoverageProfileStatus } from "@/lib/community-coverage-profile";
 
 type Props = {
   search?: string;
@@ -49,6 +50,14 @@ const COVERAGE_BADGE = {
   OUT_OF_AREA: { label: "Out of area", className: "bg-red-100 text-red-800" },
   UNKNOWN: { label: "Location unknown", className: "bg-slate-100 text-slate-600" },
 } as const;
+
+const PROFILE_BADGE: Record<CoverageProfileStatus, { label: string; className: string }> = {
+  covered: { label: "Covered", className: "bg-emerald-100 text-emerald-800" },
+  partial: { label: "Partial", className: "bg-amber-100 text-amber-800" },
+  missing: { label: "Missing", className: "bg-slate-100 text-slate-600" },
+  manual: { label: "Manual", className: "bg-blue-100 text-blue-800" },
+  failing: { label: "Failing", className: "bg-red-100 text-red-800" },
+};
 
 function matchesStatus(source: AdminSourceHealth, status?: string) {
   if (!status) return true;
@@ -92,6 +101,7 @@ function Stat({ label, value, tone = "text-[color:var(--navy)]" }: { label: stri
 export async function SourcesSection(filters: Props) {
   const scraperNames = getSupportedScraperNames();
   const allSources = await getAdminSourceHealth(scraperNames);
+  const coverageProfiles = buildCoverageProfiles(allSources);
   const filtered = applyFilters(allSources, filters);
   const editSource = filters.editSourceId
     ? allSources.find((source) => source.id === filters.editSourceId)
@@ -121,6 +131,34 @@ export async function SourcesSection(filters: Props) {
           <Stat label="Failing" value={counts.failing} tone="text-red-700" />
           <Stat label="Never run" value={counts.neverRun} tone="text-amber-700" />
           <Stat label="Paused" value={counts.paused} tone="text-slate-600" />
+        </div>
+      </section>
+
+      <section aria-labelledby="coverage-profile-heading" className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
+        <div>
+          <h2 id="coverage-profile-heading" className="font-serif text-2xl text-[color:var(--navy)]">Community coverage profiles</h2>
+          <p className="mt-1 text-sm text-slate-600">Pilot view for Canton and Kennesaw. Status is derived from mapped source health, so gaps remain visible even when the existing scrapers are healthy.</p>
+        </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          {coverageProfiles.map((profile) => (
+            <article key={profile.city} className="overflow-hidden rounded-2xl border border-[color:var(--line)]">
+              <h3 className="bg-slate-50 px-4 py-3 font-semibold text-[color:var(--navy)]">{profile.city}</h3>
+              <div className="divide-y divide-[color:var(--line)]">
+                {profile.areas.map((area) => {
+                  const badge = PROFILE_BADGE[area.status];
+                  return <div key={area.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[10rem_5rem_1fr] sm:items-start">
+                    <span className="text-sm font-medium text-slate-800">{area.label}</span>
+                    <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+                    <div className="text-xs text-slate-500">
+                      {area.sources.length === 0 ? "No source mapped" : area.sources.map(({ sourceName, role, source }) => (
+                        <p key={`${sourceName}-${role}`}><span className="font-medium text-slate-700">{sourceName}</span> · {role}{source ? <> · last success {source.lastSuccessfulAt ? formatTimestamp(source.lastSuccessfulAt) : "never"} · last yield {source.lastLog?.itemsFound ?? "—"} · verified {source.verificationRate === null ? "—" : `${Math.round(source.verificationRate * 100)}%`}</> : " · source record missing"}</p>
+                      ))}
+                    </div>
+                  </div>;
+                })}
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
