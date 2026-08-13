@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { fromZonedTime } from "date-fns-tz";
 
 import {
   cleanText,
@@ -118,11 +119,49 @@ function parseLocalDate(value?: string | null) {
     return null;
   }
 
-  const parsed = new Date(value.replace(" ", "T"));
+  const parsed = fromZonedTime(
+    value.replace(" ", "T"),
+    "America/New_York",
+  );
 
   return Number.isNaN(parsed.getTime())
     ? null
     : parsed;
+}
+
+function localDateKey(value?: string | null) {
+  const match = value?.match(/^(\d{4}-\d{2}-\d{2})[ T]/);
+  return match?.[1] ?? null;
+}
+
+/** Retain the official API fields separately from the normalized event value. */
+function buildDateEvidence(
+  apiEvent: TribeEvent,
+  startDateTime: Date,
+) {
+  const scheduleParts = [
+    apiEvent.start_date
+      ? `Official start: ${apiEvent.start_date}`
+      : null,
+    apiEvent.end_date
+      ? `Official end: ${apiEvent.end_date}`
+      : null,
+    apiEvent.all_day === true ? "All-day event" : null,
+  ].filter(Boolean);
+
+  return {
+    // A date-only value preserves the calendar date printed by the listing.
+    listingDate:
+      localDateKey(apiEvent.start_date) ??
+      startDateTime.toISOString().slice(0, 10),
+    // The official occurrence timestamp verifies both date and time. Prefer
+    // Tribe's UTC value, while retaining a correctly zoned local fallback.
+    structuredDate:
+      parseUtcDate(apiEvent.utc_start_date)?.toISOString() ??
+      startDateTime.toISOString(),
+    sourcePublishedText:
+      scheduleParts.join("; ") || null,
+  };
 }
 
 function parseEventDate(
@@ -386,6 +425,10 @@ export const kennesawOfficialScraper: SourceScraper = {
         title,
         description,
         startDateTime,
+        dateEvidence: buildDateEvidence(
+          apiEvent,
+          startDateTime,
+        ),
         isAllDay: apiEvent.all_day === true,
         timeZone: "America/New_York",
         endDateTime:

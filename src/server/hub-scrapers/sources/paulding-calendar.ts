@@ -380,7 +380,7 @@ function findLocation(
   return null;
 }
 
-function parseCalendarPage(
+export function parseCalendarPage(
   html: string,
   pageUrl: string,
   sourceName: string,
@@ -507,6 +507,13 @@ function parseCalendarPage(
         description || locationName
           ? 0.93
           : 0.9,
+      dateEvidence: {
+        // This value was parsed from the visible, official CivicPlus
+        // listing. Retain both the normalized value and the exact listing
+        // text so verification remains auditable after the scrape.
+        listingDate: startDateTime,
+        sourcePublishedText: containerText,
+      },
     });
   });
 

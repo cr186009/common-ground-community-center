@@ -25,6 +25,8 @@ type CalendarFeed = {
   url: string;
 };
 
+const MARIETTA_CATEGORY_IDS_ENV = "MARIETTA_CALENDAR_CATEGORY_IDS";
+
 type ParsedICalEvent = {
   type?: string;
   uid?: string | number;
@@ -207,14 +209,7 @@ async function fetchText(url: string, accept: string) {
   return response.text();
 }
 
-async function discoverCalendarFeeds() {
-  console.log("[MARIETTA] Discovering CivicPlus iCalendar feeds.");
-
-  const html = await fetchText(
-    MARIETTA_ICAL_INDEX_URL,
-    "text/html,application/xhtml+xml",
-  );
-
+export function parseCalendarFeeds(html: string) {
   const $ = cheerio.load(html);
 
   const feedsByCategoryId = new Map<string, CalendarFeed>();
@@ -237,6 +232,10 @@ async function discoverCalendarFeeds() {
     try {
       parsedUrl = new URL(absoluteUrl);
     } catch {
+      return;
+    }
+
+    if (parsedUrl.origin !== MARIETTA_BASE_URL) {
       return;
     }
 
@@ -278,6 +277,50 @@ async function discoverCalendarFeeds() {
   );
 
   return feeds;
+}
+
+function configuredCalendarFeeds(value = process.env[MARIETTA_CATEGORY_IDS_ENV]) {
+  if (!value) {
+    return [];
+  }
+
+  return Array.from(new Set(value.split(",").map((id) => id.trim())))
+    .filter((id) => /^\d+$/.test(id))
+    .slice(0, MAX_CALENDAR_FEEDS)
+    .map((categoryId) => ({
+      categoryId,
+      categoryName: `Calendar ${categoryId}`,
+      url: `${MARIETTA_BASE_URL}/common/modules/iCalendar/iCalendar.aspx?feed=calendar&catID=${categoryId}`,
+    }));
+}
+
+export function getConfiguredCalendarFeeds(value?: string) {
+  return configuredCalendarFeeds(value);
+}
+
+async function discoverCalendarFeeds() {
+  console.log("[MARIETTA] Discovering CivicPlus iCalendar feeds.");
+
+  try {
+    const html = await fetchText(
+      MARIETTA_ICAL_INDEX_URL,
+      "text/html,application/xhtml+xml",
+    );
+
+    return parseCalendarFeeds(html);
+  } catch (error) {
+    const fallbackFeeds = configuredCalendarFeeds();
+
+    if (fallbackFeeds.length === 0) {
+      throw error;
+    }
+
+    console.warn(
+      `[MARIETTA] Feed discovery failed; using ${fallbackFeeds.length} explicitly configured official CivicPlus feeds from ${MARIETTA_CATEGORY_IDS_ENV}.`,
+    );
+
+    return fallbackFeeds;
+  }
 }
 
 async function fetchCalendarFeed(feed: CalendarFeed) {
@@ -486,6 +529,12 @@ export const mariettaOfficialScraper: SourceScraper = {
           imageUrl: null,
 
           confidenceScore: 0.96,
+
+          dateEvidence: {
+            // DTSTART is first-party structured data from the official
+            // City of Marietta iCalendar feed.
+            structuredDate: startDateTime,
+          },
         });
       }
     }

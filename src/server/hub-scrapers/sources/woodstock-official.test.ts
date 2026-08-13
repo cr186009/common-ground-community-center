@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { verifyEventDateTime } from "../date-verification";
 import { parseWoodstockEvents } from "./woodstock-official";
 
 const source = { name: "Visit Woodstock", url: "https://visitwoodstockga.com/events/", city: "Woodstock", county: "Cherokee" };
@@ -32,6 +33,13 @@ test("parses and expands approved Woodstock calendar event times", () => {
   assert.equal(events[0].sourceUrl, source.url);
   assert.equal(events[0].startDateTime.toISOString(), "2026-08-01T22:00:00.000Z");
   assert.equal(events[0].description, "A free outdoor event.");
+  assert.deepEqual(events[0].dateEvidence, {
+    structuredDate: "2026-08-01T22:00:00.000Z",
+    sourcePublishedText: "Official calendar start: 2026-08-01T22:00:00.000Z",
+  });
+  const verification = verifyEventDateTime(events[0]);
+  assert.equal(verification.date.status, "VERIFIED");
+  assert.equal(verification.time.status, "VERIFIED");
 });
 
 test("rejects past, cancelled, blocked, and invalid Woodstock records", () => {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { verifyEventDateTime } from "../date-verification";
 import {
   discoverExploreCantonListings,
   parseCantonEventsHtml,
@@ -55,6 +56,7 @@ test("discovers Explore Canton listing occurrences", () => {
 
 test("uses Explore Canton structured times for each listed occurrence", () => {
   const html = `<main>
+    <div class="detail__date-heading">August 8, 2026 9:00 AM – 12:30 PM</div>
     <div class="detail__summary"><div class="text--content"><p>A free outdoor community market.</p></div></div>
     <div class="detail__address"><span>Brown Park</span><span>251 E. Marietta St.</span><span>Canton, GA 30114</span></div>
     <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Event","name":"Canton Farmers Market &amp; Music","startDate":"2026-05-30T09:00:00-04:00","endDate":"2026-05-30T12:30:00-04:00","url":"https://explorecantonga.com/events/canton-farmers-market/","image":{"url":"https://example.com/market.jpg"},"eventStatus":"https://schema.org/EventScheduled"}]}</script>
@@ -73,6 +75,36 @@ test("uses Explore Canton structured times for each listed occurrence", () => {
   assert.equal(event?.isAllDay, false);
   assert.equal(event?.sourceUrl, source.url);
   assert.equal(event?.originalUrl, "https://explorecantonga.com/events/canton-farmers-market/");
+  assert.deepEqual(event?.dateEvidence, {
+    listingDate: "2026-08-08",
+    structuredDate: "2026-08-08T13:00:00.000Z",
+    sourcePublishedText: "August 8 August 8, 2026 9:00 AM – 12:30 PM",
+  });
+  assert.equal(verifyEventDateTime(event!).date.status, "VERIFIED");
+  assert.equal(verifyEventDateTime(event!).time.status, "VERIFIED");
+});
+
+test("does not retain registration deadlines as Explore Canton occurrence evidence", () => {
+  const html = `<main>
+    <div class="detail__date">August 20, 2026 at 6:30 PM</div>
+    <div class="detail__summary"><div class="text--content">
+      Register by August 12 at 5:00 PM. The event begins after check-in.
+    </div></div>
+    <script type="application/ld+json">${JSON.stringify({
+      "@type": "Event",
+      name: "Community Workshop",
+      startDate: "2026-08-20T18:30:00-04:00",
+      endDate: "2026-08-20T20:00:00-04:00",
+    })}</script>
+  </main>`;
+  const event = parseExploreCantonEventDetail(html, {
+    url: "https://explorecantonga.com/events/community-workshop/",
+    dateText: "August 20, 2026",
+    category: "Community",
+  }, source, new Date("2026-08-01T12:00:00Z"));
+
+  assert.equal(event?.dateEvidence?.sourcePublishedText, "August 20, 2026 August 20, 2026 at 6:30 PM");
+  assert.doesNotMatch(event?.dateEvidence?.sourcePublishedText ?? "", /register|August 12|5:00 PM/i);
 });
 
 test("rejects past, cancelled, malformed-date, and malformed-title Explore Canton details", () => {

@@ -66,7 +66,8 @@ export function parseWoodstockEvents(
       : [{ startTime: item.startTime, endTime: item.endTime }];
 
     for (const instance of instances) {
-      const startDateTime = validDate(instance.startTime ?? item.startTime);
+      const rawStartTime = instance.startTime ?? item.startTime;
+      const startDateTime = validDate(rawStartTime);
       const candidateEnd = validDate(instance.endTime ?? item.endTime);
       if (!startDateTime || (candidateEnd ?? startDateTime) < cutoff) continue;
 
@@ -101,6 +102,12 @@ export function parseWoodstockEvents(
         confidenceScore: 0.94,
         isAllDay: false,
         timeZone: "America/New_York",
+        dateEvidence: {
+          // The API timestamp is the calendar publisher's occurrence-specific value,
+          // including its time and offset. Retain the raw value for auditability.
+          structuredDate: rawStartTime,
+          sourcePublishedText: rawStartTime ? `Official calendar start: ${rawStartTime}` : null,
+        },
       });
     }
   }

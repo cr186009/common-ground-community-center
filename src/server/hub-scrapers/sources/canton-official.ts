@@ -155,6 +155,24 @@ function easternParts(date: Date) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
+function easternDateKey(date: Date) {
+  const parts = easternParts(date);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function exploreCantonPublishedDateText($: cheerio.CheerioAPI, listingDate: string) {
+  // These elements are event metadata. Deliberately exclude the summary/body,
+  // which often contains registration and application deadlines.
+  const visibleMetadata = [
+    ".detail__date-heading",
+    ".detail__date",
+    ".detail__time",
+    "[data-event-date]",
+    "time[datetime]",
+  ].map((selector) => cleanText($(selector).first().text())).filter(Boolean);
+  return Array.from(new Set([listingDate, ...visibleMetadata])).join(" ");
+}
+
 function occurrenceDate(dateText: string, template: Date, now: Date) {
   const match = cleanText(dateText).match(
     /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+([1-9]|[12]\d|3[01])(?:,?\s+(20\d{2}))?$/i,
@@ -224,6 +242,7 @@ export function parseExploreCantonEventDetail(
   const address = addressParts.length > 1 ? addressParts.join(", ") : null;
   const combinedText = [title, description, locationName, address, listing.category].filter(Boolean).join(" ");
   const imageUrl = typeof structured.image === "string" ? structured.image : structured.image?.url;
+  const sourcePublishedText = exploreCantonPublishedDateText($, listing.dateText);
 
   return {
     title,
@@ -247,6 +266,13 @@ export function parseExploreCantonEventDetail(
     confidenceScore: 0.96,
     isAllDay: false,
     timeZone: EASTERN_TIME_ZONE,
+    dateEvidence: {
+      listingDate: easternDateKey(startDateTime),
+      // The JSON-LD supplies the authoritative time, while the listing card
+      // supplies the occurrence date for recurring events.
+      structuredDate: startDateTime.toISOString(),
+      sourcePublishedText: sourcePublishedText || null,
+    },
   } satisfies NormalizedScrapedEvent;
 }
 

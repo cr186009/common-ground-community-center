@@ -22,6 +22,15 @@ within 12 hours. This rechecks source calendars for late date, time,
 cancellation, or postponement changes. Blank or unrecognized source frequency
 values default to daily.
 
+### Marietta fallback feeds
+
+The City of Marietta may block automated access to its iCalendar index while
+leaving individual official CivicPlus feeds available. In that case, set
+`MARIETTA_CALENDAR_CATEGORY_IDS` to the comma-separated numeric category IDs
+copied from Marietta's official iCalendar links. The scraper rejects nonnumeric
+values and constructs only `mariettaga.gov` feed URLs; do not guess category
+IDs or substitute third-party calendars.
+
 The Sources tab is the control center for automated calendars. Its default coverage policy is a 25-mile radius from Dallas City Hall, with a five-mile borderline review buffer. Paulding County sources are always treated as core coverage.
 
 ## Weekly review
