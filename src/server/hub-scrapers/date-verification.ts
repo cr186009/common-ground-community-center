@@ -53,6 +53,7 @@ const MONTH = "January|Jan|February|Feb|March|Mar|April|Apr|May|June|Jun|July|Ju
 const WEEKDAY = "Sunday|Sun|Monday|Mon|Tuesday|Tue(?:s)?|Wednesday|Wed|Thursday|Thu(?:rs?)?|Friday|Fri|Saturday|Sat";
 const DATE_PATTERN = new RegExp(`\\b(?:(${WEEKDAY}),?\\s+)?(${MONTH})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, "gi");
 const MONTH_LIST_PATTERN = new RegExp(`\\b(${MONTH})\\.?\\s+(\\d{1,2}(?!\\d)(?:st|nd|rd|th)?(?:\\s*,\\s*\\d{1,2}(?!\\d)(?:st|nd|rd|th)?)+(?:\\s*(?:,|and)\\s*\\d{1,2}(?!\\d)(?:st|nd|rd|th)?)?)(?:,?\\s+(\\d{4}))?`, "gi");
+const DATE_RANGE_PATTERN = new RegExp(`\\b(${MONTH})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|–|—|through|thru|to)\\s*(?:(${MONTH})\\.?\\s+)?(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?`, "gi");
 const RANGE_PATTERN = new RegExp(`\\b(?:every\\s+)?(${WEEKDAY})s?\\b[^.\\n]{0,50}?\\b(${MONTH})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|–|—|through|thru|to)\\s*(?:(${MONTH})\\.?\\s+)?(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?`, "gi");
 const TIME_PATTERN = /\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)\b/gi;
 const TIME_RANGE_PATTERN = /\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to|until)\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)\b/gi;
@@ -96,12 +97,27 @@ function calendarDate(month: number, day: number, year: number) {
 }
 
 function isIncidental(text: string, index: number) {
-  return INCIDENTAL_DATE_CONTEXT.test(text.slice(Math.max(0, index - 18), index));
+  return INCIDENTAL_DATE_CONTEXT.test(text.slice(Math.max(0, index - 30), index));
 }
 
 function textDateEvidence(kind: "title" | "description", text: string, reference: Date) {
   const results: VerificationEvidence[] = [];
   const covered = new Set<string>();
+  const expected = dateOnly(reference);
+  for (const match of text.matchAll(DATE_RANGE_PATTERN)) {
+    if (isIncidental(text, match.index)) continue;
+    const year = match[5] ? Number(match[5]) : reference.getUTCFullYear();
+    const start = calendarDate(MONTHS[match[1].toLowerCase()], Number(match[2]), year);
+    const end = calendarDate(match[3] ? MONTHS[match[3].toLowerCase()] : MONTHS[match[1].toLowerCase()], Number(match[4]), year);
+    if (!start || !end || end < start) {
+      results.push({ kind, raw: match[0], value: null, issue: `Invalid calendar date range: ${match[0]}` });
+    } else {
+      for (let date = start; date <= end; date = new Date(date.getTime() + 86_400_000)) {
+        results.push({ kind, raw: match[0], value: dateOnly(date) });
+      }
+    }
+    covered.add(`${match.index}:${match[0].length}`);
+  }
   for (const match of text.matchAll(MONTH_LIST_PATTERN)) {
     if (isIncidental(text, match.index)) continue;
     const month = MONTHS[match[1].toLowerCase()];
@@ -120,7 +136,7 @@ function textDateEvidence(kind: "title" | "description", text: string, reference
     const parsed = calendarDate(month, Number(match[3]), year);
     let issue: string | undefined;
     if (!parsed) issue = `Invalid calendar date: ${match[0]}`;
-    else if (match[1] && parsed.getUTCDay() !== WEEKDAYS[match[1].toLowerCase()]) issue = `Weekday does not match calendar date: ${match[0]}`;
+    else if (match[1] && parsed.getUTCDay() !== WEEKDAYS[match[1].toLowerCase()] && dateOnly(parsed) === expected) issue = `Weekday does not match calendar date: ${match[0]}`;
     results.push({ kind, raw: match[0], value: issue || !parsed ? null : dateOnly(parsed), issue });
   }
   return results;
@@ -163,6 +179,8 @@ function textTimeEvidence(kind: "title" | "description", text: string) {
     }
   }
   for (const match of text.matchAll(TIME_PATTERN)) {
+    const context = text.slice(Math.max(0, match.index - 80), match.index);
+    if (/\b(?:registration|register|seat sales?|tickets?|sales?)\b[^.\n]{0,60}\buntil\s*$/i.test(context)) continue;
     let hour = Number(match[1]) % 12;
     if (match[3].toLowerCase().startsWith("p")) hour += 12;
     results.push({ kind, raw: match[0], value: `${String(hour).padStart(2, "0")}:${match[2] ?? "00"}` });

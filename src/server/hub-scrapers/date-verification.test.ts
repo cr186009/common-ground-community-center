@@ -68,6 +68,32 @@ test("uses an occurrence date embedded in the original URL", () => {
   assert.equal(result.status, "VERIFIED");
 });
 
+test("verifies an occurrence within a multi-day date range", () => {
+  const result = verifyEventDate(event({
+    startDateTime: new Date("2026-08-22T13:00:00Z"),
+    description: "The census takes place August 21–22, 2026.",
+  }));
+  assert.equal(result.status, "VERIFIED");
+});
+
+test("ignores an incidental album release date", () => {
+  const result = verifyEventDate(event({
+    originalUrl: "https://example.com/events/2026/08/15/show",
+    description: "Their new album arrives October 3, 2026.",
+  }));
+  assert.equal(result.status, "VERIFIED");
+  assert.ok(!result.evidence.some((item) => item.value === "2026-10-03"));
+});
+
+test("a matching occurrence URL outranks an unrelated weekday typo in a long schedule", () => {
+  const result = verifyEventDate(event({
+    originalUrl: "https://example.com/toddler-tuesday/2026-08-15/",
+    description: "Schedule: January 1, February 2, and Tuesday November 11.",
+  }));
+  assert.equal(result.status, "VERIFIED");
+  assert.doesNotMatch(result.reason ?? "", /Weekday/);
+});
+
 test("verifies time independently in Eastern daylight time", () => {
   const result = verifyEventDateTime(event({
     startDateTime: new Date("2026-08-15T22:00:00Z"),
@@ -90,6 +116,15 @@ test("detects a source time conflict independently", () => {
   }));
   assert.equal(result.date.status, "VERIFIED");
   assert.equal(result.time.status, "CONFLICT");
+});
+
+test("ignores a registration seat-sales deadline time", () => {
+  const result = verifyEventDateTime(event({
+    startDateTime: new Date("2026-08-15T23:00:00Z"),
+    description: "August 15, 2026. Registration and seat sales remain open until 5:00 p.m.",
+  }));
+  assert.equal(result.date.status, "VERIFIED");
+  assert.equal(result.time.status, "MISSING_EVIDENCE");
 });
 
 test("structured timestamps verify both date and time", () => {
