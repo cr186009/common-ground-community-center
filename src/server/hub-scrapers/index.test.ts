@@ -25,6 +25,31 @@ test("supported scraper names remain canonical for CLI display", () => {
   assert.ok(getSupportedScraperNames().includes("Rockmart Cultural Arts Center"));
 });
 
+test("automated scraper registry includes the complete supported fleet", () => {
+  const automatedSources = [
+    "City of Acworth events",
+    "City of Dallas official events page",
+    "City of Hiram official site",
+    "City of Kennesaw events",
+    "City of Marietta calendar",
+    "City of Rockmart official site",
+    "Downtown Cedartown events page",
+    "Downtown Dallas / MyDallasGA",
+    "Explore Canton events",
+    "National Weather Service alerts",
+    "Paulding County Public Calendar",
+    "Polk County Chamber events",
+    "Polk County official calendar",
+    "Rockmart Cultural Arts Center",
+    "Visit Woodstock events",
+  ];
+
+  const supported = getSupportedScraperNames();
+  for (const sourceName of automatedSources) {
+    assert.ok(supported.includes(sourceName), `${sourceName} is not registered`);
+  }
+});
+
 test("unregistered sources do not match", () => {
   assert.equal(hasRegisteredScraper("Unrelated Community Calendar"), false);
 });

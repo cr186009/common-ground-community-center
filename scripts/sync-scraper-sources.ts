@@ -22,7 +22,7 @@ const managedSources = [
     notes: "Dedicated Acworth events scraper",
   },
   {
-    name: "City of Hiram Official Events",
+    name: "City of Hiram official site",
     url: "https://www.cityofhiramga.gov/",
     type: SourceType.GOVERNMENT,
     section: SourceSection.EVENTS,

@@ -27,7 +27,14 @@ async function main() {
     prisma.source.findMany({
       include: {
         logs: { orderBy: { createdAt: "desc" }, take: 20 },
-        events: { where: { status: "APPROVED" }, select: { id: true } },
+        _count: {
+          select: {
+            events: { where: { status: "APPROVED" } },
+            meetings: { where: { status: "UPCOMING" } },
+            alerts: { where: { status: "ACTIVE" } },
+            volunteer: { where: { status: "OPEN" } },
+          },
+        },
       },
       orderBy: { name: "asc" },
     }),
@@ -39,10 +46,14 @@ async function main() {
     }),
   ]);
 
-  const latestSuccessBySourceName = new Map(latestSuccessfulLogs.map((log) => [
-    normalizeSourceName(log.sourceName),
-    log.createdAt,
-  ]));
+  const latestSuccessBySourceName = new Map<string, Date>();
+  for (const log of latestSuccessfulLogs) {
+    const key = normalizeSourceName(log.sourceName);
+    const existing = latestSuccessBySourceName.get(key);
+    if (!existing || log.createdAt > existing) {
+      latestSuccessBySourceName.set(key, log.createdAt);
+    }
+  }
 
   const sourceReports = sources.map((source) => {
     const runs = summarizeSourceRuns(source.logs);
@@ -56,7 +67,11 @@ async function main() {
       hasAutomatedScraper: registeredScrapers.has(normalizeSourceName(source.name)),
       sourceSection: source.section,
       recentLogs: source.logs,
-      publishedContentCount: source.events.length,
+      publishedContentCount:
+        source._count.events
+        + source._count.meetings
+        + source._count.alerts
+        + source._count.volunteer,
       now,
     });
     return {

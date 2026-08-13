@@ -58,6 +58,23 @@ test("saved content with nothing published is a warning", () => {
   assert.match(result.warning ?? "", /no published content/i);
 });
 
+test("a source that routes results to another content section is not falsely degraded", () => {
+  const result = assessSourceHealth({
+    active: true,
+    lastScrapedAt: latest,
+    scrapeFrequency: "daily",
+    hasAutomatedScraper: true,
+    sourceSection: "EVENTS",
+    recentLogs: [{ status: "SUCCESS", itemsFound: 13, itemsCreated: 13, itemsUpdated: 0 }],
+    // For example, an event calendar may classify every result as a meeting.
+    publishedContentCount: 13,
+    now,
+  });
+
+  assert.equal(result.status, "HEALTHY");
+  assert.equal(result.warning, null);
+});
+
 test("zero-result event runs are partial and retain a custom scraper message", () => {
   const result = finalizeScrapeOutcome({
     sourceSection: "EVENTS",

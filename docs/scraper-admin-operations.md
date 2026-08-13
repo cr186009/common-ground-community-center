@@ -33,6 +33,18 @@ IDs or substitute third-party calendars.
 
 The Sources tab is the control center for automated calendars. Its default coverage policy is a 25-mile radius from Dallas City Hall, with a five-mile borderline review buffer. Paulding County sources are always treated as core coverage.
 
+## Automated source onboarding contract
+
+Before enabling a new automated source:
+
+1. Register its canonical database source name in the runtime scraper fleet. Source-name matching ignores only casing and repeated whitespace; wording changes create a database-only source.
+2. Add source-specific fixture tests for parsing, date/time-zone handling, malformed records, and upstream response changes. Add the canonical name to the fleet invariant test.
+3. Retain official date/time evidence (`listingDate`, `structuredDate`, and the relevant `sourcePublishedText`) so displayed timestamps can be verified independently.
+4. Provide a stable item identity: prefer an official occurrence/detail URL or upstream ID. Verify that reruns update existing records instead of creating duplicates.
+5. Treat an unexpected zero-result event, meeting, or activity run as partial/degraded and preserve a diagnostic message. Alert feeds may legitimately contain zero active alerts.
+6. Confirm each record is inside the geographic coverage policy using venue coordinates where available, with city/source coordinates only as a fallback.
+7. Run a read-only preview, inspect classification and deduplication, then run the focused tests, TypeScript, and the full scraper test suite before activation.
+
 ## Weekly review
 
 1. Filter to **Failing** and inspect the latest error and recent run metrics.
