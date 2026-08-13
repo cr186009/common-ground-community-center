@@ -38,6 +38,8 @@ import {
 } from "@/server/pexels";
 import { generateMeetingPlainEnglishSummary } from "@/services/meeting-summary-service";
 import { cleanExactEventDuplicates } from "@/server/event-deduplication";
+import { verifyCaptcha } from "@/server/captcha";
+import { notifyOwnerSafely } from "@/server/notifications";
 
 const CATEGORY_VALUES = [
   "FAMILY",
@@ -333,6 +335,11 @@ function revalidateAll() {
 }
 
 export async function submitCommunityItemAction(formData: FormData) {
+  const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
+  if (!captchaValid) {
+    redirect("/submit?error=captcha");
+  }
+
   const payload = parseEventPayload(formData);
   const submitterName = getString(formData, "submitterName");
   const submitterEmail = getString(formData, "submitterEmail");
@@ -342,7 +349,7 @@ export async function submitCommunityItemAction(formData: FormData) {
     throw new Error("Submitter information is required.");
   }
 
-  await prisma.submittedEvent.create({
+  const submission = await prisma.submittedEvent.create({
     data: {
       
       submitterName,
@@ -362,6 +369,18 @@ export async function submitCommunityItemAction(formData: FormData) {
     },
   });
 
+  await notifyOwnerSafely({
+    subject: `New community submission: ${submission.title}`,
+    text: [
+      `A new ${submission.submissionType.toLocaleLowerCase("en-US")} was submitted for moderation.`,
+      `Title: ${submission.title}`,
+      `Submitted by: ${submission.submitterName} <${submission.submitterEmail}>`,
+      `Starts: ${submission.startDateTime.toISOString()}`,
+      `Location: ${[submission.locationName, submission.city, submission.county].filter(Boolean).join(", ")}`,
+      `Submission ID: ${submission.id}`,
+    ].join("\n"),
+  });
+
   revalidatePath("/admin");
   redirect("/submit?success=1");
 }
@@ -374,7 +393,8 @@ export async function subscribeDigestAction(formData: FormData) {
   });
   const interests = formData.getAll("interests").map((entry) => String(entry));
 
-  await prisma.subscriber.upsert({
+  const existing = await prisma.subscriber.findUnique({ where: { email: base.email } });
+  const subscriber = await prisma.subscriber.upsert({
     where: { email: base.email },
     update: {
       city: base.city ?? null,
@@ -389,6 +409,17 @@ export async function subscribeDigestAction(formData: FormData) {
       interests: JSON.stringify(interests),
       active: true,
     },
+  });
+
+  await notifyOwnerSafely({
+    subject: `${existing ? "Updated" : "New"} weekly digest registration`,
+    text: [
+      `Email: ${subscriber.email}`,
+      `City: ${subscriber.city || "Any"}`,
+      `County: ${subscriber.county || "Any"}`,
+      `Interests: ${interests.length ? interests.join(", ") : "All"}`,
+      `Subscriber ID: ${subscriber.id}`,
+    ].join("\n"),
   });
 
   revalidatePath("/");

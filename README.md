@@ -100,10 +100,15 @@ DATABASE_URL="file:./dev.db"
 ADMIN_PASSWORD="community-center-admin"
 NEXT_PUBLIC_SITE_NAME="Common Ground Digital Community Center"
 EMAIL_PROVIDER_API_KEY=
+RESEND_API_KEY=
+EMAIL_FROM="Common Ground <onboarding@resend.dev>"
+ADMIN_NOTIFICATION_EMAIL="chris.a.robertson@gmail.com"
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
 OPENAI_API_KEY=
 ```
 
-Only `DATABASE_URL` and `ADMIN_PASSWORD` are required for local development. Email and AI keys remain optional stubs.
+Only `DATABASE_URL` and `ADMIN_PASSWORD` are required for local development. For production event submissions, create a Cloudflare Turnstile widget and set both Turnstile keys. Owner notifications use Resend: set `RESEND_API_KEY` (or the legacy `EMAIL_PROVIDER_API_KEY`), a verified `EMAIL_FROM`, and optionally override `ADMIN_NOTIFICATION_EMAIL`.
 
 ## How to seed sources
 

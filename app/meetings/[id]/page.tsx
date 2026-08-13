@@ -6,6 +6,7 @@ import {
   parseStoredList,
 } from "@/lib/hub-format";
 import { getMeetingById } from "@/server/hub-data";
+import { getMeetingContext, getMeetingWhyItMatters } from "@/lib/meeting-context";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -90,7 +91,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
             <h2 className="font-serif text-2xl text-[color:var(--navy)]">Plain-English summary</h2>
             <p className="mt-4 text-sm leading-7 text-slate-700">
-              {meeting.plainEnglishSummary || meeting.summary || "A plain-English summary has not been generated yet."}
+              {getMeetingContext(meeting)}
             </p>
           </div>
         </div>
@@ -113,8 +114,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
             <h2 className="font-serif text-2xl text-[color:var(--navy)]">Why residents might care</h2>
             <p className="mt-4 text-sm leading-7 text-slate-700">
-              {meeting.whyResidentsCare ||
-                "Meeting outcomes can affect local services, budgets, infrastructure, neighborhood growth, and how public resources are used."}
+              {getMeetingWhyItMatters(meeting)}
             </p>
           </div>
         </aside>

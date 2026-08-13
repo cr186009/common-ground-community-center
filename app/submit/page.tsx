@@ -5,6 +5,7 @@ import {
 } from "@/lib/hub-constants";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
 import { submitCommunityItemAction } from "@/server/hub-actions";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 type PageProps = {
   searchParams: Promise<SearchParamsRecord>;
@@ -13,6 +14,7 @@ type PageProps = {
 export default async function SubmitPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const success = readSearchParam(params, "success");
+  const error = readSearchParam(params, "error");
 
   return (
     <div className="space-y-6">
@@ -27,6 +29,11 @@ export default async function SubmitPage({ searchParams }: PageProps) {
       {success ? (
         <div className="rounded-[1.75rem] border border-[color:var(--forest)]/20 bg-[color:var(--forest-soft)] p-4 text-sm text-[color:var(--forest)]">
           Your submission is in the moderation queue. Thanks for helping keep the community informed.
+        </div>
+      ) : null}
+      {error === "captcha" ? (
+        <div className="rounded-[1.75rem] border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Please complete the CAPTCHA and submit the form again.
         </div>
       ) : null}
 
@@ -85,9 +92,10 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         </div>
 
         <div className="md:col-span-2">
+          <TurnstileWidget />
           <button
             type="submit"
-            className="btn btn-primary btn-md"
+            className="mt-4 btn btn-primary btn-md"
           >
             Submit for review
           </button>

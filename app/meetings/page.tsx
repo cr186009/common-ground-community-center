@@ -7,6 +7,7 @@ import {
 } from "@/lib/hub-format";
 import { parseMeetingFilters, type SearchParamsRecord } from "@/lib/hub-search";
 import { getMeetings } from "@/server/hub-data";
+import { getMeetingContext, getMeetingWhyItMatters } from "@/lib/meeting-context";
 
 type PageProps = {
   searchParams: Promise<SearchParamsRecord>;
@@ -87,9 +88,12 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
               </Link>
               <p className="mt-2 text-sm text-slate-600">{formatDateTimeRange(meeting.startDateTime, meeting.endDateTime)}</p>
               <p className="mt-1 text-sm text-slate-600">{[meeting.locationName, meeting.city, meeting.county].filter(Boolean).join(" · ")}</p>
-              {meeting.plainEnglishSummary ? (
-                <p className="mt-4 text-sm leading-6 text-slate-700">{meeting.plainEnglishSummary}</p>
-              ) : null}
+              <p className="mt-4 text-sm leading-6 text-slate-700">{getMeetingContext(meeting)}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600"><span className="font-semibold">Why it matters:</span> {getMeetingWhyItMatters(meeting)}</p>
+              <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold">
+                <Link href={`/meetings/${meeting.id}`} className="text-[color:var(--forest)]">Meeting details →</Link>
+                <a href={meeting.originalUrl || meeting.sourceUrl} target="_blank" rel="noreferrer" className="text-[color:var(--forest)]">Official meeting page ↗</a>
+              </div>
             </article>
           ))}
         </div>
