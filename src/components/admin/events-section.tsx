@@ -8,8 +8,10 @@ import {
 import {
   approveEventAction,
   archiveEventAction,
-  manuallyVerifyEventDateAction,
+  manuallyVerifyEventDetailsAction,
   rejectEventDateAction,
+  rescrapeEventSourceAction,
+  unpublishEventAction,
   assignFallbackImageAction,
   removeFallbackImageAction,
   replaceFallbackImageAction,
@@ -88,29 +90,42 @@ export async function EventsSection({
   return (
     <div className="space-y-6">
       <section className="rounded-[1.75rem] border border-amber-300 bg-amber-50 p-5">
-        <h2 className="font-serif text-2xl text-[color:var(--navy)]">Pending date review</h2>
+        <h2 className="font-serif text-2xl text-[color:var(--navy)]">Date and time review</h2>
         <p className="mt-1 text-sm text-amber-900">
-          {dateReviewQueue.length} event(s) are withheld from the public site until their dates are resolved.
+          {dateReviewQueue.length} event(s) need review. Plausible unverified listings stay public with a notice; conflicts are withheld.
         </p>
         <div className="mt-4 space-y-3">
           {dateReviewQueue.length === 0 ? <p className="text-sm text-emerald-700">No date discrepancies await review.</p> : dateReviewQueue.map((event) => {
-            let evidence: Array<{ label?: string; value?: string; source?: string; date?: string; text?: string; field?: string }> = [];
-            try { evidence = JSON.parse(event.dateEvidence); } catch { evidence = []; }
+            let dateEvidence: Array<{ label?: string; value?: string; source?: string; date?: string; text?: string; field?: string }> = [];
+            let timeEvidence: typeof dateEvidence = [];
+            try { dateEvidence = JSON.parse(event.dateEvidence); } catch { dateEvidence = []; }
+            try { timeEvidence = JSON.parse(event.timeEvidence); } catch { timeEvidence = []; }
+            const renderEvidence = (items: typeof dateEvidence) => items.length > 0
+              ? <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">{items.map((item, index) => <li key={index}>{item.label || item.source || item.field || "Evidence"}: {item.value || item.date || item.text}</li>)}</ul>
+              : <p className="mt-1 text-xs text-slate-500">No independent evidence detected.</p>;
             return (
               <article key={event.id} className="rounded-2xl border border-amber-200 bg-white p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{event.dateVerificationStatus.replaceAll("_", " ")}</p>
+                    <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                      <span>Date: {event.dateVerificationStatus.replaceAll("_", " ")}</span>
+                      <span>Time: {event.timeVerificationStatus.replaceAll("_", " ")}</span>
+                    </div>
                     <h3 className="mt-1 font-semibold text-[color:var(--navy)]">{event.title}</h3>
-                    <p className="text-sm text-slate-700">Stored: {formatDateTimeRange(event.startDateTime, null, false)}</p>
-                    <p className="mt-1 text-sm text-amber-900">{event.dateVerificationReason || "Date evidence requires review."}</p>
-                    {evidence.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{evidence.map((item, index) => <li key={index}>{item.label || item.source || item.field || "Evidence"}: {item.value || item.date || item.text}</li>)}</ul>}
+                    <p className="text-sm text-slate-700">Stored date and time: {formatDateTimeRange(event.startDateTime, null, false)}</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs font-semibold text-slate-700">Date evidence</p><p className="mt-1 text-xs text-amber-900">{event.dateVerificationReason || "Date evidence requires review."}</p>{renderEvidence(dateEvidence)}</div>
+                      <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs font-semibold text-slate-700">Time evidence</p><p className="mt-1 text-xs text-amber-900">{event.timeVerificationReason || "Time evidence requires review."}</p>{renderEvidence(timeEvidence)}</div>
+                    </div>
                     {event.sourcePublishedText && <details className="mt-2 text-xs text-slate-600"><summary className="cursor-pointer font-semibold">Source text</summary><p className="mt-1 whitespace-pre-wrap">{event.sourcePublishedText}</p></details>}
+                    <p className="mt-2 text-xs text-slate-500">Last scrape attempt: {formatTimestamp(event.lastScrapeAttemptAt)} · Last successful scrape: {formatTimestamp(event.lastSuccessfulScrapeAt)}</p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  <div className="flex max-w-md shrink-0 flex-wrap items-start gap-2">
                     <a className="btn btn-ghost btn-xs" href={event.originalUrl || event.sourceUrl} target="_blank" rel="noreferrer">Check source</a>
-                    <a className="btn btn-ghost btn-xs" href={`/admin?tab=events&edit=${event.id}`}>Correct date</a>
-                    <form action={manuallyVerifyEventDateAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-primary btn-xs" type="submit">Verify & publish</button></form>
+                    <a className="btn btn-ghost btn-xs" href={`/admin?tab=events&edit=${event.id}`}>Correct details</a>
+                    {event.sourceId && <form action={rescrapeEventSourceAction}><input type="hidden" name="sourceId" value={event.sourceId} /><button className="btn btn-ghost btn-xs" type="submit">Rescrape</button></form>}
+                    {[{ field: "date", label: "Verify date" }, { field: "time", label: "Verify time" }, { field: "both", label: "Verify both" }].map(({ field, label }) => <form key={field} action={manuallyVerifyEventDetailsAction} className="flex gap-1"><input type="hidden" name="eventId" value={event.id} /><input type="hidden" name="field" value={field} /><input name="verificationNote" aria-label={`${label} note`} placeholder="Optional note" className="w-28 rounded-full border border-[color:var(--line)] px-2 py-1 text-xs" /><button className="btn btn-primary btn-xs" type="submit">{label}</button></form>)}
+                    <form action={unpublishEventAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-ghost btn-xs" type="submit">Unpublish</button></form>
                     <form action={rejectEventDateAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-ghost btn-xs" type="submit">Reject</button></form>
                     <form action={archiveEventAction}><input type="hidden" name="eventId" value={event.id} /><button className="btn btn-ghost btn-xs" type="submit">Archive</button></form>
                   </div>

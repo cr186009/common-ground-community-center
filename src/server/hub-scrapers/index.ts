@@ -7,6 +7,7 @@ import type {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { getCommunityDateKey } from "@/lib/hub-date";
 import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { resolveAlertStatus } from "@/server/alert-lifecycle";
 import { cedartownDowntownScraper } from "@/server/hub-scrapers/sources/cedartown-downtown";
@@ -45,7 +46,7 @@ import {
   validateScrapedEvent,
 } from "@/server/hub-scrapers/quality";
 import { finalizeScrapeOutcome } from "@/server/scrape-health";
-import { verifyEventDate } from "@/server/hub-scrapers/date-verification";
+import { verifyEventDateTime } from "@/server/hub-scrapers/date-verification";
 import {
   classifyPreviewItem,
   type ExistingComparableItem,
@@ -378,7 +379,7 @@ async function upsertScrapedEvent(
   event: NormalizedScrapedEvent,
 ) {
   validateEvent(event);
-  const dateVerification = verifyEventDate(event);
+  const verification = verifyEventDateTime(event);
 
   const candidates = await prisma.event.findMany({
     where: {
@@ -410,13 +411,28 @@ async function upsertScrapedEvent(
     (event.confidenceScore ?? 0) > (existing?.confidenceScore ?? 0);
   const retainExistingAttribution =
     isCrossSourceDuplicate && !incomingIsMoreAuthoritative;
+  const dateUnchanged = existing
+    ? getCommunityDateKey(existing.startDateTime) === getCommunityDateKey(event.startDateTime)
+    : false;
+  const timeUnchanged = existing
+    ? existing.startDateTime.getTime() === event.startDateTime.getTime()
+    : false;
+  const retainManualDateVerification =
+    existing?.dateVerificationStatus === "MANUALLY_VERIFIED" &&
+    dateUnchanged &&
+    verification.date.status !== "CONFLICT" &&
+    !verification.hardConflict;
+  const retainManualTimeVerification =
+    existing?.timeVerificationStatus === "MANUALLY_VERIFIED" &&
+    timeUnchanged &&
+    verification.time.status !== "CONFLICT" &&
+    !verification.hardConflict;
 
   /*
    * Preserve a reviewed status when an existing event has already
    * been approved, rejected, or archived.
    */
-  const hasDateIntegrityRisk = dateVerification.status !== "VERIFIED";
-  const status = hasDateIntegrityRisk
+  const status = verification.date.status === "CONFLICT" || verification.time.status === "CONFLICT" || verification.hardConflict
     ? "PENDING"
     : existing && existing.status !== "PENDING"
       ? existing.status
@@ -453,11 +469,15 @@ async function upsertScrapedEvent(
       : event.originalUrl ?? existing?.originalUrl ?? event.sourceUrl,
     imageUrl: event.imageUrl ?? existing?.imageUrl ?? null,
     status,
-    dateVerificationStatus: dateVerification.status,
-    dateVerificationReason: dateVerification.reason,
-    dateEvidence: JSON.stringify(dateVerification.evidence),
-    dateVerifiedAt: dateVerification.verifiedAt,
-    sourcePublishedText: dateVerification.sourcePublishedText,
+    dateVerificationStatus: retainManualDateVerification ? "MANUALLY_VERIFIED" : verification.date.status,
+    dateVerificationReason: retainManualDateVerification ? existing!.dateVerificationReason : verification.date.reason,
+    dateEvidence: JSON.stringify(verification.date.evidence),
+    dateVerifiedAt: retainManualDateVerification ? existing!.dateVerifiedAt : verification.date.verifiedAt,
+    timeVerificationStatus: retainManualTimeVerification ? "MANUALLY_VERIFIED" : verification.time.status,
+    timeVerificationReason: retainManualTimeVerification ? existing!.timeVerificationReason : verification.time.reason,
+    timeEvidence: JSON.stringify(verification.time.evidence),
+    timeVerifiedAt: retainManualTimeVerification ? existing!.timeVerifiedAt : verification.time.verifiedAt,
+    sourcePublishedText: verification.sourcePublishedText,
     confidenceScore: event.confidenceScore ?? existing?.confidenceScore ?? null,
     lastSeenAt: new Date(),
     sourceId: retainExistingAttribution ? existing!.sourceId : source.id,

@@ -8,6 +8,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import Link from "next/link";
+import { getVerificationNoticeLabel } from "@/components/event-verification-notice";
 
 export function HubCalendarGrid({
   events,
@@ -72,6 +73,11 @@ export function HubCalendarGrid({
                             ? "All day"
                             : format(event.startDateTime, "h:mm a")}
                         </span>
+                        {getVerificationNoticeLabel(event.dateVerificationStatus, event.timeVerificationStatus) ? (
+                          <span className="mt-1 block text-[0.65rem] font-semibold text-amber-800">
+                            {getVerificationNoticeLabel(event.dateVerificationStatus, event.timeVerificationStatus)}
+                          </span>
+                        ) : null}
                       </Link>
                     ))}
                     {dayEvents.length > 3 ? (

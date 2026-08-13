@@ -875,9 +875,13 @@ export async function approveEventAction(formData: FormData) {
   const eventId = getString(formData, "eventId");
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { dateVerificationStatus: true },
+    select: { dateVerificationStatus: true, timeVerificationStatus: true },
   });
-  if (!event || !["VERIFIED", "MANUALLY_VERIFIED"].includes(event.dateVerificationStatus)) {
+  if (
+    !event ||
+    event.dateVerificationStatus === "CONFLICT" ||
+    event.timeVerificationStatus === "CONFLICT"
+  ) {
     redirect("/admin?tab=events&dateReviewRequired=1");
   }
   await prisma.event.update({
@@ -889,19 +893,50 @@ export async function approveEventAction(formData: FormData) {
 }
 
 export async function manuallyVerifyEventDateAction(formData: FormData) {
+  return manuallyVerifyEventDetailsAction(formData);
+}
+
+export async function manuallyVerifyEventDetailsAction(formData: FormData) {
   await requireAdmin();
   const eventId = getString(formData, "eventId");
+  const field = getString(formData, "field") || "date";
+  if (!["date", "time", "both"].includes(field)) {
+    redirect("/admin?tab=events&verificationInvalid=1");
+  }
+  const verifyDate = field === "date" || field === "both";
+  const verifyTime = field === "time" || field === "both";
+  const note = getString(formData, "verificationNote").trim();
   await prisma.event.update({
     where: { id: eventId },
     data: {
       status: "APPROVED",
-      dateVerificationStatus: "MANUALLY_VERIFIED",
-      dateVerificationReason: "An administrator compared the listing with its original source.",
-      dateVerifiedAt: new Date(),
+      ...(verifyDate
+        ? {
+            dateVerificationStatus: "MANUALLY_VERIFIED" as const,
+            dateVerificationReason: note || "An administrator compared the date with its original source.",
+            dateVerifiedAt: new Date(),
+          }
+        : {}),
+      ...(verifyTime
+        ? {
+            timeVerificationStatus: "MANUALLY_VERIFIED" as const,
+            timeVerificationReason: note || "An administrator compared the time with its original source.",
+            timeVerifiedAt: new Date(),
+          }
+        : {}),
     },
   });
   revalidateAll();
-  redirect("/admin?tab=events&dateVerified=1");
+  redirect(`/admin?tab=events&verified=${field}`);
+}
+
+export async function rescrapeEventSourceAction(formData: FormData) {
+  await requireAdmin();
+  const sourceId = getString(formData, "sourceId");
+  if (!sourceId) redirect("/admin?tab=events&rescrapeUnavailable=1");
+  await scrapeSingleSourceById(sourceId);
+  revalidateAll();
+  redirect("/admin?tab=events&rescraped=1");
 }
 
 export async function rejectEventDateAction(formData: FormData) {
@@ -912,6 +947,16 @@ export async function rejectEventDateAction(formData: FormData) {
   });
   revalidateAll();
   redirect("/admin?tab=events&dateRejected=1");
+}
+
+export async function unpublishEventAction(formData: FormData) {
+  await requireAdmin();
+  await prisma.event.update({
+    where: { id: getString(formData, "eventId") },
+    data: { status: "PENDING" },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&unpublished=1");
 }
 
 // -------------------------------------------------------------------------

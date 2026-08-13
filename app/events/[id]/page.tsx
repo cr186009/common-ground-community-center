@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { EventImage } from "@/components/event-image";
+import { EventVerificationNotice } from "@/components/event-verification-notice";
 import {
   createCalendarUrl,
   formatDateTimeRange,
@@ -21,7 +22,8 @@ export default async function EventDetailPage({ params }: PageProps) {
   if (
     !event ||
     event.status !== "APPROVED" ||
-    !["VERIFIED", "MANUALLY_VERIFIED"].includes(event.dateVerificationStatus)
+    event.dateVerificationStatus === "CONFLICT" ||
+    event.timeVerificationStatus === "CONFLICT"
   ) {
     notFound();
   }
@@ -65,6 +67,14 @@ export default async function EventDetailPage({ params }: PageProps) {
             {event.description ||
               "This listing was imported with limited detail. Use the original source link for the latest information."}
           </p>
+          <div className="mt-5 max-w-3xl">
+            <EventVerificationNotice
+              dateStatus={event.dateVerificationStatus}
+              timeStatus={event.timeVerificationStatus}
+              sourceUrl={event.originalUrl || event.sourceUrl}
+              lastCheckedAt={event.lastSeenAt}
+            />
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <a
               href={createCalendarUrl({
@@ -131,11 +141,9 @@ export default async function EventDetailPage({ params }: PageProps) {
               <dd className="mt-1 text-slate-800">{event.sourceName}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-slate-500">Date verification</dt>
+              <dt className="font-semibold text-slate-500">Date and time verification</dt>
               <dd className="mt-1 text-slate-800">
-                {event.dateVerificationStatus === "VERIFIED" || event.dateVerificationStatus === "MANUALLY_VERIFIED"
-                  ? `Verified ${event.dateVerifiedAt ? formatDateTimeRange(event.dateVerifiedAt, null, false) : "during the latest source check"}`
-                  : "Source evidence is being reviewed"}
+                Date: {event.dateVerificationStatus.replaceAll("_", " ").toLowerCase()}; time: {event.timeVerificationStatus.replaceAll("_", " ").toLowerCase()}.
               </dd>
             </div>
             {tags.length > 0 ? (

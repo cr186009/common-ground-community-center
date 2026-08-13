@@ -18,6 +18,7 @@
     "meetings:backfill": "node --import tsx scripts/backfill-government-meetings.ts",
     "events:audit": "node --import tsx scripts/audit-event-quality.ts",
     "events:audit-dates": "node --import tsx scripts/audit-event-dates.ts",
+    "events:audit-verification": "node --import tsx scripts/audit-event-dates.ts",
     "test:meetings": "node --import tsx --test src/server/hub-scrapers/content-classifier.test.ts",
     "postinstall": "prisma generate"
   },

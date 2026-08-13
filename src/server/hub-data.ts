@@ -56,7 +56,8 @@ function buildEventWhere(
 
   return {
     status: "APPROVED",
-    dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
+    dateVerificationStatus: { not: "CONFLICT" },
+    timeVerificationStatus: { not: "CONFLICT" },
     startDateTime: {
       gte: dateFrom,
       ...(filters.dateTo ? { lte: endOfCommunityDay(filters.dateTo) } : {}),
@@ -428,7 +429,8 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
     prisma.event.findMany({
       where: {
         status: "APPROVED",
-        dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
+        dateVerificationStatus: { not: "CONFLICT" },
+        timeVerificationStatus: { not: "CONFLICT" },
         ...(filters.city ? { city: filters.city } : {}),
         ...(filters.county ? { county: filters.county } : {}),
         ...(filters.category ? { category: filters.category } : {}),
@@ -687,7 +689,8 @@ export async function getDigestPreview(subscriberId?: string | null) {
     prisma.event.findMany({
       where: {
         status: "APPROVED",
-        dateVerificationStatus: { in: ["VERIFIED", "MANUALLY_VERIFIED"] },
+        dateVerificationStatus: { not: "CONFLICT" },
+        timeVerificationStatus: { not: "CONFLICT" },
         startDateTime: { gte: startOfDay(new Date()) },
       },
       orderBy: { startDateTime: "asc" },
@@ -1130,9 +1133,12 @@ export async function getAdminEventManagement(
 }
 
 export async function getAdminDateReviewQueue() {
-  return prisma.event.findMany({
+  const events = await prisma.event.findMany({
     where: {
-      dateVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] },
+      OR: [
+        { dateVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] } },
+        { timeVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] } },
+      ],
     },
     orderBy: [{ startDateTime: "asc" }, { updatedAt: "desc" }],
     take: 100,
@@ -1145,13 +1151,37 @@ export async function getAdminDateReviewQueue() {
       sourceName: true,
       originalUrl: true,
       sourceUrl: true,
+      sourceId: true,
       dateVerificationStatus: true,
       dateVerificationReason: true,
       dateEvidence: true,
+      dateVerifiedAt: true,
+      timeVerificationStatus: true,
+      timeVerificationReason: true,
+      timeEvidence: true,
+      timeVerifiedAt: true,
       sourcePublishedText: true,
+      lastSeenAt: true,
       updatedAt: true,
+      source: {
+        select: { lastScrapedAt: true },
+      },
     },
   });
+  const sourceNames = [...new Set(events.map((event) => event.sourceName))];
+  const logs = await prisma.scrapeLog.findMany({
+    where: { sourceName: { in: sourceNames } },
+    orderBy: { createdAt: "desc" },
+    select: { sourceName: true, status: true, createdAt: true },
+  });
+  return events.map((event) => ({
+    ...event,
+    lastScrapeAttemptAt: logs.find((log) => log.sourceName === event.sourceName)?.createdAt ?? null,
+    lastSuccessfulScrapeAt:
+      logs.find((log) => log.sourceName === event.sourceName && log.status === "SUCCESS")?.createdAt ??
+      event.source?.lastScrapedAt ??
+      null,
+  }));
 }
 
 // -------------------------------------------------------------------------

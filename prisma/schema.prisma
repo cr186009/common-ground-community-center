@@ -37,6 +37,10 @@ model Event {
   dateVerificationReason String?
   dateEvidence           String                 @default("[]")
   dateVerifiedAt         DateTime?
+  timeVerificationStatus DateVerificationStatus @default(MISSING_EVIDENCE)
+  timeVerificationReason String?
+  timeEvidence           String                 @default("[]")
+  timeVerifiedAt         DateTime?
   sourcePublishedText    String?
   confidenceScore        Float?
   createdAt              DateTime               @default(now())

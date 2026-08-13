@@ -2,6 +2,7 @@ import type { Event } from "@prisma/client";
 import Link from "next/link";
 
 import { EventImage } from "@/components/event-image";
+import { EventVerificationNotice } from "@/components/event-verification-notice";
 import {
   createCalendarUrl,
   formatDateTimeRange,
@@ -78,6 +79,14 @@ export function HubEventCard({
             event.isAllDay,
           )}
         </p>
+
+        <EventVerificationNotice
+          dateStatus={event.dateVerificationStatus}
+          timeStatus={event.timeVerificationStatus}
+          sourceUrl={event.originalUrl || event.sourceUrl}
+          lastCheckedAt={event.lastSeenAt}
+          compact
+        />
 
         <p className="mt-1 text-sm text-slate-600">
           {[event.locationName, event.city, event.county]
