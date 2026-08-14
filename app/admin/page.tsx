@@ -403,6 +403,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           status={n("srcStatus") ?? undefined}
           active={n("act") ?? undefined}
           health={n("hlth") ?? undefined}
+          usage={n("usage") ?? undefined}
           editSourceId={editSourceId ?? undefined}
         />
       )}

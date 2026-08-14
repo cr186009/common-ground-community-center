@@ -30,6 +30,7 @@ type Props = {
   status?: string;
   active?: string;
   health?: string;
+  usage?: string;
   editSourceId?: string;
 };
 
@@ -85,8 +86,15 @@ function applyFilters(sources: AdminSourceHealth[], filters: Props): AdminSource
     if (filters.active === "true" && !source.active) return false;
     if (filters.active === "false" && source.active) return false;
     if (filters.health && source.health !== filters.health) return false;
+    if ((filters.usage ?? "USED") === "USED" && !sourceIsInUse(source)) return false;
+    if (filters.usage === "UNUSED" && sourceIsInUse(source)) return false;
     return true;
   });
+}
+
+export function sourceIsInUse(source: Pick<AdminSourceHealth, "publishedContentCount" | "url">) {
+  const hasSourceUrl = /^https?:\/\/\S+$/i.test(source.url.trim());
+  return source.publishedContentCount > 0 && hasSourceUrl;
 }
 
 function Stat({ label, value, tone = "text-[color:var(--navy)]" }: { label: string; value: number; tone?: string }) {
@@ -103,6 +111,7 @@ export async function SourcesSection(filters: Props) {
   const allSources = await getAdminSourceHealth(scraperNames);
   const coverageProfiles = buildCoverageProfiles(allSources);
   const filtered = applyFilters(allSources, filters);
+  const minimizedCount = allSources.filter((source) => !sourceIsInUse(source)).length;
   const editSource = filters.editSourceId
     ? allSources.find((source) => source.id === filters.editSourceId)
     : null;
@@ -180,6 +189,11 @@ export async function SourcesSection(filters: Props) {
             <option value="PAUSED">Paused</option>
             <option value="RETIRED">Retired</option>
           </select>
+          <select aria-label="Content usage" name="usage" defaultValue={filters.usage ?? "USED"} className="rounded-2xl border border-[color:var(--line)] px-4 py-2.5 text-sm">
+            <option value="USED">Used on the public site</option>
+            <option value="ALL">All source records</option>
+            <option value="UNUSED">Unused or incomplete only</option>
+          </select>
           <select aria-label="Source type" name="srcType" defaultValue={filters.sourceType ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-2.5 text-sm">
             <option value="">Every source type</option>
             {Object.entries(SOURCE_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -205,7 +219,9 @@ export async function SourcesSection(filters: Props) {
             <a href="/admin?tab=sources" className="btn btn-ghost btn-sm">Clear</a>
           </div>
         </form>
-        <p className="mt-3 text-xs text-slate-500">Showing {filtered.length} of {allSources.length} sources</p>
+        <p className="mt-3 text-xs text-slate-500">
+          Showing {filtered.length} of {allSources.length} sources. {minimizedCount} with no published content or usable source URL {filters.usage === "ALL" || filters.usage === "UNUSED" ? "are included" : "are minimized"}.
+        </p>
       </section>
 
       {editSource && (
