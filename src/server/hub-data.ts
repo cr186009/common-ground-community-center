@@ -301,7 +301,18 @@ export async function getEventsForCalendar(
 }
 
 export async function getEventById(id: string) {
-  return prisma.event.findUnique({ where: { id } });
+  return prisma.event.findUnique({
+    where: { id },
+    include: {
+      _count: { select: { interests: true } },
+      interests: {
+        where: { showNamePublicly: true, displayName: { not: null } },
+        select: { displayName: true },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      },
+    },
+  });
 }
 
 export async function getAlerts(filters: AlertFilters) {
@@ -524,6 +535,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
     logs,
     sources,
     subscribers,
+    eventInterests,
     editEvent,
   ] = await Promise.all([
     prisma.submittedEvent.findMany({
@@ -566,6 +578,12 @@ export async function getAdminDashboardData(editEventId?: string | null) {
       orderBy: { createdAt: "desc" },
     }),
 
+    prisma.eventInterest.findMany({
+      include: { event: { select: { id: true, title: true, startDateTime: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+    }),
+
     editEventId
       ? prisma.event.findUnique({
           where: { id: editEventId },
@@ -582,6 +600,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
     logs,
     sources,
     subscribers,
+    eventInterests,
     editEvent,
   };
 }

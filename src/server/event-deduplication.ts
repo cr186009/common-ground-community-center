@@ -180,6 +180,22 @@ export async function cleanExactEventDuplicates() {
       const canonical = selectCanonicalEvent(group);
       const removedIds = group.filter((event) => event.id !== canonical.id).map((event) => event.id);
       await tx.event.update({ where: { id: canonical.id }, data: buildMergedEventData(group) });
+      const interests = await tx.eventInterest.findMany({ where: { eventId: { in: removedIds } } });
+      for (const interest of interests) {
+        await tx.eventInterest.upsert({
+          where: { eventId_email: { eventId: canonical.id, email: interest.email } },
+          update: {
+            displayName: interest.displayName,
+            showNamePublicly: interest.showNamePublicly,
+          },
+          create: {
+            eventId: canonical.id,
+            email: interest.email,
+            displayName: interest.displayName,
+            showNamePublicly: interest.showNamePublicly,
+          },
+        });
+      }
       await tx.event.deleteMany({ where: { id: { in: removedIds } } });
       auditGroups.push({
         canonicalId: canonical.id,

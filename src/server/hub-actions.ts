@@ -40,6 +40,7 @@ import { generateMeetingPlainEnglishSummary } from "@/services/meeting-summary-s
 import { cleanExactEventDuplicates } from "@/server/event-deduplication";
 import { verifyCaptcha } from "@/server/captcha";
 import { notifyOwnerSafely } from "@/server/notifications";
+import { normalizeInterestEmail, normalizePublicFirstName } from "@/lib/event-interest";
 
 const CATEGORY_VALUES = [
   "FAMILY",
@@ -424,6 +425,47 @@ export async function subscribeDigestAction(formData: FormData) {
 
   revalidatePath("/");
   redirect("/?subscribed=1");
+}
+
+export async function registerEventInterestAction(formData: FormData) {
+  const eventId = getString(formData, "eventId");
+  const email = normalizeInterestEmail(getString(formData, "email"));
+  const displayName = normalizePublicFirstName(getString(formData, "displayName"));
+  const showNamePublicly = getBoolean(formData, "showNamePublicly") && Boolean(displayName);
+  const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
+
+  if (!captchaValid) redirect(`/events/${encodeURIComponent(eventId)}?interestError=captcha`);
+
+  const parsed = z.object({ eventId: z.string().min(1), email: z.string().email() }).parse({ eventId, email });
+  const event = await prisma.event.findFirst({
+    where: {
+      id: parsed.eventId,
+      status: "APPROVED",
+      dateVerificationStatus: { not: "CONFLICT" },
+      timeVerificationStatus: { not: "CONFLICT" },
+    },
+    select: { id: true, title: true },
+  });
+  if (!event) redirect("/events");
+
+  const existing = await prisma.eventInterest.findUnique({
+    where: { eventId_email: { eventId: event.id, email: parsed.email } },
+  });
+  await prisma.eventInterest.upsert({
+    where: { eventId_email: { eventId: event.id, email: parsed.email } },
+    update: { displayName: displayName || null, showNamePublicly },
+    create: { eventId: event.id, email: parsed.email, displayName: displayName || null, showNamePublicly },
+  });
+
+  if (!existing) {
+    await notifyOwnerSafely({
+      subject: `New event interest: ${event.title}`,
+      text: [`Event: ${event.title}`, `Email: ${parsed.email}`, `Name: ${displayName || "Not provided"}`, `Event ID: ${event.id}`].join("\n"),
+    });
+  }
+
+  revalidatePath(`/events/${event.id}`);
+  redirect(`/events/${event.id}?interested=1`);
 }
 
 export async function adminLoginAction(formData: FormData) {

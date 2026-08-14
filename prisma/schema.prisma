@@ -48,6 +48,7 @@ model Event {
   lastSeenAt             DateTime               @default(now())
   sourceId               String?
   source                 Source?                @relation(fields: [sourceId], references: [id])
+  interests              EventInterest[]
 
   isAllDay Boolean @default(false)
   timeZone String  @default("America/New_York")
@@ -58,6 +59,21 @@ model Event {
   @@index([sourceName, startDateTime])
   @@index([category, startDateTime])
   @@index([isFree, isKidFriendly, isOutdoor])
+}
+
+model EventInterest {
+  id               String   @id @default(cuid())
+  eventId          String
+  email            String
+  displayName      String?
+  showNamePublicly Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, email])
+  @@index([eventId, createdAt])
+  @@index([createdAt])
 }
 
 model Alert {

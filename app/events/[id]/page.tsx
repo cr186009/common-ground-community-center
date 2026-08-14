@@ -10,13 +10,20 @@ import {
   parseStoredList,
 } from "@/lib/hub-format";
 import { getEventById } from "@/server/hub-data";
+import { registerEventInterestAction } from "@/server/hub-actions";
+import { TurnstileWidget } from "@/components/turnstile-widget";
+import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<SearchParamsRecord>;
 };
 
-export default async function EventDetailPage({ params }: PageProps) {
+export default async function EventDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const query = await searchParams;
+  const interested = readSearchParam(query, "interested");
+  const interestError = readSearchParam(query, "interestError");
   const event = await getEventById(id);
 
   if (
@@ -165,6 +172,28 @@ export default async function EventDetailPage({ params }: PageProps) {
         </div>
 
         <aside className="space-y-4">
+          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-[color:var(--gold-soft)]/50 p-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Community interest</p>
+            <h2 className="mt-2 font-serif text-2xl text-[color:var(--navy)]">
+              {event._count.interests} {event._count.interests === 1 ? "neighbor is" : "neighbors are"} interested
+            </h2>
+            {event.interests.length > 0 ? (
+              <p className="mt-2 text-sm text-slate-600">Including {event.interests.map((entry) => entry.displayName).join(", ")}</p>
+            ) : null}
+            {interested ? <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Your interest was saved. Thanks for helping show what matters locally.</p> : null}
+            {interestError === "captcha" ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">Please complete the CAPTCHA and try again.</p> : null}
+            <form action={registerEventInterestAction} className="mt-5 grid gap-3">
+              <input type="hidden" name="eventId" value={event.id} />
+              <input name="displayName" maxLength={60} placeholder="First name (optional)" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
+              <input name="email" type="email" required placeholder="Email address" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
+              <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+                <input type="checkbox" name="showNamePublicly" className="mt-1" />
+                Show my first name publicly with this event. Your email is never displayed.
+              </label>
+              <TurnstileWidget />
+              <button type="submit" className="btn btn-primary btn-md">I’m interested</button>
+            </form>
+          </div>
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-[color:var(--forest-soft)] p-6">
             <h2 className="font-serif text-2xl text-[color:var(--navy)]">
               Family and access notes

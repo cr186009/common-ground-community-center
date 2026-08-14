@@ -293,6 +293,22 @@ export async function OverviewSection({ subscriberId }: Props) {
 
       {/* Subscribers */}
       <section className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
+        <h2 className="font-serif text-2xl text-[color:var(--navy)]">Recent event interest</h2>
+        <p className="mt-1 text-sm text-slate-600">Private engagement records for follow-up. Emails are never displayed publicly.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {dashboard.eventInterests.map((interest) => (
+            <div key={interest.id} className="rounded-2xl bg-stone-50 p-4">
+              <a href={`/events/${interest.event.id}`} className="font-semibold text-[color:var(--navy)] hover:underline">{interest.event.title}</a>
+              <p className="mt-1 text-sm text-slate-700">{interest.displayName || "Name not supplied"} · {interest.email}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatTimestamp(interest.createdAt)}{interest.showNamePublicly ? " · name public" : " · private"}</p>
+            </div>
+          ))}
+          {dashboard.eventInterests.length === 0 ? <p className="text-sm text-slate-500">No event interest has been registered yet.</p> : null}
+        </div>
+      </section>
+
+      {/* Subscribers */}
+      <section className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
         <h2 className="font-serif text-2xl text-[color:var(--navy)]">Subscribers</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {dashboard.subscribers.map((subscriber) => (
