@@ -13,6 +13,7 @@ import { getEventById } from "@/server/hub-data";
 import { registerEventInterestAction } from "@/server/hub-actions";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
+import { EventShareButtons } from "@/components/event-share-buttons";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -108,6 +109,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               View original source
             </a>
           </div>
+          <div className="mt-4"><EventShareButtons title={event.title} path={`/events/${event.id}`} /></div>
         </div>
       </section>
 
@@ -189,6 +191,10 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
                 <input type="checkbox" name="showNamePublicly" className="mt-1" />
                 Show my first name publicly with this event. Your email is never displayed.
+              </label>
+              <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+                <input type="checkbox" name="reminderRequested" className="mt-1" />
+                Email me one reminder about 24 hours before this event.
               </label>
               <TurnstileWidget />
               <button type="submit" className="btn btn-primary btn-md">I’m interested</button>

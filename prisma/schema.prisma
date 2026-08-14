@@ -62,18 +62,23 @@ model Event {
 }
 
 model EventInterest {
-  id               String   @id @default(cuid())
-  eventId          String
-  email            String
-  displayName      String?
-  showNamePublicly Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  event            Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  eventId           String
+  email             String
+  displayName       String?
+  showNamePublicly  Boolean   @default(false)
+  reminderRequested Boolean   @default(false)
+  reminderClaimedAt DateTime?
+  reminderSentAt    DateTime?
+  reminderFailure   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, email])
   @@index([eventId, createdAt])
   @@index([createdAt])
+  @@index([reminderRequested, reminderSentAt])
 }
 
 model Alert {

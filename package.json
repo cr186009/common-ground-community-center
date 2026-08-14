@@ -14,6 +14,7 @@
     "db:seed": "node --import tsx prisma/seed.ts",
     "scrape": "node --import tsx scripts/scrape.ts",
     "scrape:due": "node --import tsx scripts/scrape-due.ts",
+    "events:send-reminders": "node --import tsx scripts/send-event-reminders.ts",
     "cleanup:mvp": "node --import tsx scripts/cleanup-mvp-data.ts",
     "meetings:backfill": "node --import tsx scripts/backfill-government-meetings.ts",
     "events:audit": "node --import tsx scripts/audit-event-quality.ts",

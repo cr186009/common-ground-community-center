@@ -10,8 +10,7 @@
 
 ## Next — useful follow-up
 
-- Let interested residents opt into reminders for a specific event.
-- Send a confirmation and a reminder only after explicit email consent.
+- Monitor one-time event reminder delivery and retry failures safely.
 - Add organizer-facing engagement totals without exposing resident emails.
 - Add share links and track privacy-safe referral counts.
 - Group recurring events and preserve interest per occurrence.

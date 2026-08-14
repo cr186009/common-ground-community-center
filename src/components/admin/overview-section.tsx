@@ -300,7 +300,7 @@ export async function OverviewSection({ subscriberId }: Props) {
             <div key={interest.id} className="rounded-2xl bg-stone-50 p-4">
               <a href={`/events/${interest.event.id}`} className="font-semibold text-[color:var(--navy)] hover:underline">{interest.event.title}</a>
               <p className="mt-1 text-sm text-slate-700">{interest.displayName || "Name not supplied"} · {interest.email}</p>
-              <p className="mt-1 text-xs text-slate-500">{formatTimestamp(interest.createdAt)}{interest.showNamePublicly ? " · name public" : " · private"}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatTimestamp(interest.createdAt)}{interest.showNamePublicly ? " · name public" : " · private"}{interest.reminderRequested ? interest.reminderSentAt ? " · reminder sent" : " · reminder requested" : ""}</p>
             </div>
           ))}
           {dashboard.eventInterests.length === 0 ? <p className="text-sm text-slate-500">No event interest has been registered yet.</p> : null}

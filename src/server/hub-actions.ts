@@ -432,6 +432,7 @@ export async function registerEventInterestAction(formData: FormData) {
   const email = normalizeInterestEmail(getString(formData, "email"));
   const displayName = normalizePublicFirstName(getString(formData, "displayName"));
   const showNamePublicly = getBoolean(formData, "showNamePublicly") && Boolean(displayName);
+  const reminderRequested = getBoolean(formData, "reminderRequested");
   const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
 
   if (!captchaValid) redirect(`/events/${encodeURIComponent(eventId)}?interestError=captcha`);
@@ -453,8 +454,8 @@ export async function registerEventInterestAction(formData: FormData) {
   });
   await prisma.eventInterest.upsert({
     where: { eventId_email: { eventId: event.id, email: parsed.email } },
-    update: { displayName: displayName || null, showNamePublicly },
-    create: { eventId: event.id, email: parsed.email, displayName: displayName || null, showNamePublicly },
+    update: { displayName: displayName || null, showNamePublicly, reminderRequested },
+    create: { eventId: event.id, email: parsed.email, displayName: displayName || null, showNamePublicly, reminderRequested },
   });
 
   if (!existing) {

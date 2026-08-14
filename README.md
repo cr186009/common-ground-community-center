@@ -99,6 +99,7 @@ Use `.env.example` as the template:
 DATABASE_URL="file:./dev.db"
 ADMIN_PASSWORD="community-center-admin"
 NEXT_PUBLIC_SITE_NAME="Common Ground Digital Community Center"
+NEXT_PUBLIC_SITE_URL="https://your-production-domain.example"
 EMAIL_PROVIDER_API_KEY=
 RESEND_API_KEY=
 EMAIL_FROM="Common Ground <onboarding@resend.dev>"
@@ -109,6 +110,14 @@ OPENAI_API_KEY=
 ```
 
 Only `DATABASE_URL` and `ADMIN_PASSWORD` are required for local development. For production event submissions, create a Cloudflare Turnstile widget and set both Turnstile keys. Owner notifications use Resend: set `RESEND_API_KEY` (or the legacy `EMAIL_PROVIDER_API_KEY`), a verified `EMAIL_FROM`, and optionally override `ADMIN_NOTIFICATION_EMAIL`.
+
+Event reminders require `NEXT_PUBLIC_SITE_URL` to point to the public site. Run the reminder dispatcher hourly in production:
+
+```bash
+DATABASE_URL="$PRODUCTION_DATABASE_URL" npm run events:send-reminders
+```
+
+The dispatcher claims each record before delivery and records successful sends, so overlapping jobs do not send the same reminder twice.
 
 ## How to seed sources
 
