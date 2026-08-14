@@ -30,6 +30,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const data = await getHomepageData();
   const subscribed = readSearchParam(params, "subscribed");
+  const heroEvent = data.upcomingEvents.find((event) => event.imageUrl);
 
   return (
     <div className="space-y-8">
@@ -47,78 +48,61 @@ export default async function HomePage({ searchParams }: PageProps) {
         )}
       />
 
-      <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="rounded-[2rem] bg-[linear-gradient(140deg,_rgba(22,59,89,0.97),_rgba(39,92,67,0.92)_58%,_rgba(216,179,86,0.9))] p-8 text-white shadow-[0_32px_90px_-45px_rgba(20,44,68,0.8)]">
-          <p className="text-sm uppercase tracking-[0.2em] text-white/70">
-            Local Georgia communities
-          </p>
-          <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-tight sm:text-5xl">
-            {HOME_HEADLINE}
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-white/88">
-            {HOME_SUBHEADLINE}
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/events" className="btn btn-light btn-md">
-              Browse events
-            </Link>
-            <Link href="/submit" className="btn btn-outline-white btn-md">
-              Submit an item
-            </Link>
-            <Link href="/meetings" className="btn btn-outline-white btn-md">
-              See public meetings
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
-              Last updated
+      <section
+        className="relative isolate min-h-[34rem] overflow-hidden rounded-[2rem] bg-[color:var(--navy)] text-white shadow-[0_32px_90px_-45px_rgba(20,44,68,0.8)] sm:min-h-[38rem]"
+        style={
+          heroEvent?.imageUrl
+            ? {
+                backgroundImage: `url(${heroEvent.imageUrl})`,
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+              }
+            : undefined
+        }
+      >
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,_rgba(11,34,52,0.96)_0%,_rgba(22,59,89,0.82)_48%,_rgba(22,59,89,0.24)_100%)]" />
+        <div className="flex min-h-[34rem] flex-col justify-between p-7 sm:min-h-[38rem] sm:p-10 lg:p-12">
+          <div className="max-w-3xl pt-5 sm:pt-10">
+            <p className="text-sm uppercase tracking-[0.2em] text-white/75">
+              Local Georgia communities
             </p>
-
-            <p className="mt-3 font-serif text-2xl text-[color:var(--navy)]">
-              {data.lastUpdatedAt
-                ? formatTimestamp(data.lastUpdatedAt)
-                : "Update pending"}
+            <h1 className="mt-4 font-serif text-4xl leading-[1.08] sm:text-6xl lg:text-7xl">
+              {HOME_HEADLINE}
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/90 sm:text-lg">
+              {HOME_SUBHEADLINE}
             </p>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Based on the latest successful source refresh.
-            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link href="/events" className="btn btn-light btn-md">Browse events</Link>
+              <Link href="/submit" className="btn btn-outline-white btn-md">Submit an item</Link>
+              <Link href="/meetings" className="btn btn-outline-white btn-md">See public meetings</Link>
+            </div>
           </div>
 
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
-              Upcoming events
-            </p>
-
-            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">
-              {data.upcomingEventCount}
-            </p>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Approved local listings happening from today forward.
-            </p>
-          </div>
-
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 sm:col-span-3 lg:col-span-1">
-            <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
-              Communities covered
-            </p>
-
-            <p className="mt-3 font-serif text-4xl text-[color:var(--navy)]">
-              {data.communitiesCovered}
-            </p>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Cities represented across upcoming local listings.
-            </p>
+          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">
+                Last updated
+              </p>
+              <p className="mt-2 font-serif text-xl text-white">
+                {data.lastUpdatedAt
+                  ? formatTimestamp(data.lastUpdatedAt)
+                  : "Update pending"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming events</p>
+              <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventCount}</p>
+            </div>
+            <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Communities covered</p>
+              <p className="mt-2 font-serif text-3xl text-white">{data.communitiesCovered}</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <section className="space-y-6">
         <div className="space-y-6">
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -136,14 +120,14 @@ export default async function HomePage({ searchParams }: PageProps) {
               View all events
             </Link>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {data.upcomingEvents.map((event) => (
               <HubEventCard key={event.id} event={event} />
             ))}
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid gap-5 lg:grid-cols-3">
           <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
             <div className="flex items-end justify-between gap-4">
               <div>
@@ -250,7 +234,12 @@ export default async function HomePage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      {data.upcomingMeetings.length > 0 ||
+      data.volunteerOpportunities.length > 0 ? (
+        <section
+          className={`grid gap-6 ${data.upcomingMeetings.length > 0 && data.volunteerOpportunities.length > 0 ? "lg:grid-cols-2" : ""}`}
+        >
+          {data.upcomingMeetings.length > 0 ? (
         <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -295,8 +284,10 @@ export default async function HomePage({ searchParams }: PageProps) {
             ))}
           </div>
         </div>
+          ) : null}
 
-        <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
+        {data.volunteerOpportunities.length > 0 ? (
+          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
@@ -328,8 +319,10 @@ export default async function HomePage({ searchParams }: PageProps) {
               </div>
             ))}
           </div>
-        </div>
-      </section>
+          </div>
+        ) : null}
+        </section>
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
