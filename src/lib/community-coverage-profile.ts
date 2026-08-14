@@ -26,6 +26,7 @@ export const PILOT_CITY_COVERAGE: CityConfig[] = [
     city: "Canton",
     areas: {
       government: [{ sourceName: "Explore Canton events", role: "primary" }],
+      schools: [{ sourceName: "Cherokee County School District — Canton coverage", role: "primary" }],
       parks_recreation: [
         { sourceName: "Cherokee Recreation & Parks events", role: "primary" },
         { sourceName: "Explore Canton events", role: "backup" },
@@ -42,6 +43,7 @@ export const PILOT_CITY_COVERAGE: CityConfig[] = [
     areas: {
       government: [{ sourceName: "City of Kennesaw events", role: "primary" }],
       schools: [{ sourceName: "Cobb Schools — Kennesaw campuses", role: "primary" }],
+      libraries: [{ sourceName: "North Cobb Regional Library events", role: "primary" }],
       parks_recreation: [{ sourceName: "City of Kennesaw events", role: "primary" }],
       arts_entertainment: [
         { sourceName: "City of Kennesaw events", role: "primary" },

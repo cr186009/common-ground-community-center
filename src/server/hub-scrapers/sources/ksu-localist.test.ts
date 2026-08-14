@@ -19,6 +19,6 @@ test("KSU keeps only General Public events physically in Kennesaw and retains oc
 });
 
 test("KSU treats a healthy strict-filter zero result as success", async () => {
-  const original = globalThis.fetch; globalThis.fetch = async () => new Response(JSON.stringify({ page: { current: 1, total: 1 }, events: [] }));
-  try { const output = await ksuLocalistScraper.scrape(source as never); assert.equal(output.status, "SUCCESS"); assert.deepEqual(output.events, []); } finally { globalThis.fetch = original; }
+  const original = globalThis.fetch; let requestedUrl = ""; globalThis.fetch = async (input) => { requestedUrl = String(input); return new Response(JSON.stringify({ page: { current: 1, total: 1 }, events: [] })); };
+  try { const output = await ksuLocalistScraper.scrape(source as never); assert.equal(output.status, "SUCCESS"); assert.deepEqual(output.events, []); assert.match(requestedUrl, /days=365/); } finally { globalThis.fetch = original; }
 });

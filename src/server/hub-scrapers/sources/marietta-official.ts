@@ -16,8 +16,10 @@ import type {
 const MARIETTA_BASE_URL = "https://www.mariettaga.gov";
 
 const MARIETTA_ICAL_INDEX_URL = `${MARIETTA_BASE_URL}/iCalendar.aspx`;
+const MARIETTA_CALENDAR_URL = `${MARIETTA_BASE_URL}/Calendar.aspx`;
 
 const MAX_CALENDAR_FEEDS = 100;
+const MAX_FUTURE_MONTHS = 18;
 
 type CalendarFeed = {
   categoryId: string;
@@ -54,10 +56,16 @@ function isValidDate(value: unknown): value is Date {
   return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
-function isUpcoming(startDateTime: Date, endDateTime?: Date | null) {
-  const now = new Date();
-
+export function isWithinMariettaImportWindow(
+  startDateTime: Date,
+  endDateTime?: Date | null,
+  now = new Date(),
+) {
   const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const futureCutoff = new Date(cutoff);
+  futureCutoff.setMonth(futureCutoff.getMonth() + MAX_FUTURE_MONTHS);
+
+  if (startDateTime > futureCutoff) return false;
 
   if (endDateTime && endDateTime >= cutoff) {
     return true;
@@ -221,7 +229,7 @@ export function parseCalendarFeeds(html: string) {
       return;
     }
 
-    const absoluteUrl = toAbsoluteUrl(MARIETTA_BASE_URL, href);
+    const absoluteUrl = toAbsoluteUrl(MARIETTA_CALENDAR_URL, href);
 
     if (!absoluteUrl) {
       return;
@@ -239,31 +247,28 @@ export function parseCalendarFeeds(html: string) {
       return;
     }
 
-    if (
-      !parsedUrl.pathname
-        .toLowerCase()
-        .includes("/common/modules/icalendar/icalendar.aspx")
-    ) {
+    const path = parsedUrl.pathname.toLowerCase();
+    const isFeed = path.includes("/common/modules/icalendar/icalendar.aspx");
+    const isCalendarCategory = path === "/calendar.aspx";
+
+    if (!isFeed && !isCalendarCategory) return;
+    if (isFeed && parsedUrl.searchParams.get("feed")?.toLowerCase() !== "calendar") return;
+
+    const categoryId = parsedUrl.searchParams.get(isFeed ? "catID" : "CID");
+
+    if (!categoryId || !/^\d+$/.test(categoryId) || categoryId === "0") {
       return;
     }
 
-    if (parsedUrl.searchParams.get("feed")?.toLowerCase() !== "calendar") {
-      return;
-    }
-
-    const categoryId = parsedUrl.searchParams.get("catID");
-
-    if (!categoryId) {
-      return;
-    }
-
-    const categoryName =
-      cleanText($(element).text()) || `Calendar ${categoryId}`;
+    const categoryName = cleanText($(element).text())
+      .replace(/\s*\(\d+\)\s*$/, "") || `Calendar ${categoryId}`;
 
     feedsByCategoryId.set(categoryId, {
       categoryId,
       categoryName,
-      url: absoluteUrl,
+      url: isFeed
+        ? absoluteUrl
+        : `${MARIETTA_BASE_URL}/common/modules/iCalendar/iCalendar.aspx?feed=calendar&catID=${categoryId}`,
     });
   });
 
@@ -303,11 +308,20 @@ async function discoverCalendarFeeds() {
 
   try {
     const html = await fetchText(
-      MARIETTA_ICAL_INDEX_URL,
+      MARIETTA_CALENDAR_URL,
       "text/html,application/xhtml+xml",
     );
 
-    return parseCalendarFeeds(html);
+    const feeds = parseCalendarFeeds(html);
+    if (feeds.length > 0) return feeds;
+
+    // Some CivicPlus deployments expose feed links only on the subscription
+    // page. Keep it as a secondary discovery path, not the primary one.
+    const subscriptionHtml = await fetchText(
+      MARIETTA_ICAL_INDEX_URL,
+      "text/html,application/xhtml+xml",
+    );
+    return parseCalendarFeeds(subscriptionHtml);
   } catch (error) {
     const fallbackFeeds = configuredCalendarFeeds();
 
@@ -383,7 +397,7 @@ export const mariettaOfficialScraper: SourceScraper = {
 
     let successfulFeeds = 0;
     let failedFeeds = 0;
-    let skippedPastEvents = 0;
+    let skippedOutOfWindowEvents = 0;
     let skippedInvalidEvents = 0;
 
     /*
@@ -426,8 +440,8 @@ export const mariettaOfficialScraper: SourceScraper = {
           ? calendarEvent.end
           : null;
 
-        if (!isUpcoming(startDateTime, rawEndDateTime)) {
-          skippedPastEvents += 1;
+        if (!isWithinMariettaImportWindow(startDateTime, rawEndDateTime)) {
+          skippedOutOfWindowEvents += 1;
           continue;
         }
 
@@ -546,7 +560,7 @@ export const mariettaOfficialScraper: SourceScraper = {
         `[MARIETTA] Parsed ${dedupedEvents.length} upcoming events.`,
         `${successfulFeeds} feeds succeeded.`,
         `${failedFeeds} feeds failed.`,
-        `${skippedPastEvents} past events skipped.`,
+        `${skippedOutOfWindowEvents} out-of-window events skipped.`,
         `${skippedInvalidEvents} invalid events skipped.`,
       ].join(" "),
     );

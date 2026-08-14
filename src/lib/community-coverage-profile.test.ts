@@ -21,5 +21,5 @@ test("coverage is derived from source health and collection mode", () => {
   assert.equal(canton.areas.find((area) => area.id === "arts_entertainment")?.status, "covered");
   assert.equal(canton.areas.find((area) => area.id === "public_safety_weather")?.status, "failing");
   assert.equal(canton.areas.find((area) => area.id === "community_nonprofit")?.status, "manual");
-  assert.equal(canton.areas.find((area) => area.id === "schools")?.status, "missing");
+  assert.equal(canton.areas.find((area) => area.id === "schools")?.status, "failing");
 });

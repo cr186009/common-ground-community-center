@@ -31,6 +31,9 @@ import { rockmartCulturalArtsScraper } from "@/server/hub-scrapers/sources/rockm
 import { playCherokeeScraper } from "@/server/hub-scrapers/sources/play-cherokee";
 import { cherokeeChamberScraper } from "@/server/hub-scrapers/sources/cherokee-chamber";
 import { wgrlsEventsScraper } from "@/server/hub-scrapers/sources/wgrls-events";
+import { northCobbLibraryScraper } from "@/server/hub-scrapers/sources/north-cobb-library";
+import { pauldingSchoolsScraper } from "@/server/hub-scrapers/sources/paulding-schools";
+import { cherokeeSchoolsCantonScraper } from "@/server/hub-scrapers/sources/cherokee-schools-canton";
 import {
   classifyEventContent,
   eventToMeeting,
@@ -139,6 +142,9 @@ const registeredScrapers: SourceScraper[] = [
   playCherokeeScraper,
   cherokeeChamberScraper,
   wgrlsEventsScraper,
+  northCobbLibraryScraper,
+  pauldingSchoolsScraper,
+  cherokeeSchoolsCantonScraper,
   ...manualFacebookSources.map((name) => createFacebookManualScraper(name)),
 ];
 

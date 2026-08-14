@@ -29,7 +29,7 @@ function isPublicKennesawEvent(event: LocalistEvent) {
 }
 
 async function fetchPage(page: number) {
-  const response = await fetch(`${API_URL}?pp=${PAGE_SIZE}&page=${page}`, {
+  const response = await fetch(`${API_URL}?pp=${PAGE_SIZE}&page=${page}&days=365`, {
     headers: { accept: "application/json", "user-agent": "Common Ground Community Calendar (public-events scraper)" },
     cache: "no-store",
   });

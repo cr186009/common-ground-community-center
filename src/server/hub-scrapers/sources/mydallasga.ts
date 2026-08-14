@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { fromZonedTime } from "date-fns-tz";
 
 import {
   cleanText,
@@ -46,13 +47,15 @@ type JsonLdLocation = {
 };
 
 type JsonLdEvent = {
-  "@type"?: string;
+  "@type"?: string | string[];
+  "@graph"?: unknown[];
   name?: string;
   description?: string;
   startDate?: string;
   endDate?: string;
   location?: JsonLdLocation;
   image?: string | string[] | { url?: string };
+  eventStatus?: string;
 };
 
 export function findJsonLdEvent(html: string): JsonLdEvent | null {
@@ -63,12 +66,19 @@ export function findJsonLdEvent(html: string): JsonLdEvent | null {
     if (found) return;
     try {
       const raw = JSON.parse($(el).html() ?? "") as unknown;
-      const items: JsonLdEvent[] = Array.isArray(raw) ? (raw as JsonLdEvent[]) : [raw as JsonLdEvent];
-      for (const item of items) {
-        if (item["@type"] === "Event") {
+      const pending: unknown[] = Array.isArray(raw) ? [...raw] : [raw];
+      while (pending.length > 0 && !found) {
+        const candidate = pending.shift();
+        if (!candidate || typeof candidate !== "object") continue;
+        const item = candidate as JsonLdEvent;
+        const types = Array.isArray(item["@type"])
+          ? item["@type"]
+          : [item["@type"]];
+        if (types.includes("Event")) {
           found = item;
           break;
         }
+        if (Array.isArray(item["@graph"])) pending.push(...item["@graph"]);
       }
     } catch {
       // malformed block — skip
@@ -97,34 +107,42 @@ function imageFromJsonLd(ld: JsonLdEvent): string | null {
 function locationFromJsonLd(ld: JsonLdEvent): {
   name: string | null;
   street: string | null;
+  locality: string | null;
 } {
   const loc = ld.location;
-  if (!loc) return { name: null, street: null };
+  if (!loc) return { name: null, street: null, locality: null };
   const name = loc.name ?? null;
   if (typeof loc.address === "string") {
-    return { name, street: loc.address };
+    return { name, street: loc.address, locality: null };
   }
   if (loc.address && typeof loc.address === "object") {
-    return { name, street: loc.address.streetAddress ?? null };
+    return {
+      name,
+      street: loc.address.streetAddress ?? null,
+      locality: loc.address.addressLocality ?? null,
+    };
   }
-  return { name, street: null };
+  return { name, street: null, locality: null };
+}
+
+function parseSchemaDate(value?: string) {
+  if (!value) return null;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const parsed = dateOnly
+    ? fromZonedTime(`${value}T00:00:00`, "America/New_York")
+    : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 // ---------------------------------------------------------------------------
 // Per-detail-page extraction
 // ---------------------------------------------------------------------------
 
-async function scrapeDetailPage(
+export function parseMyDallasEventDetail(
+  html: string,
   detailUrl: string,
   source: { name: string; url: string },
-): Promise<NormalizedScrapedEvent | null> {
-  let html: string;
-  try {
-    html = await fetchSourceHtml(detailUrl);
-  } catch {
-    return null;
-  }
-
+): NormalizedScrapedEvent | null {
   const $ = cheerio.load(html);
   const ld = findJsonLdEvent(html);
 
@@ -137,13 +155,19 @@ async function scrapeDetailPage(
 
   if (!title) return null;
 
+  if (
+    /EventCancelled$/i.test(ld?.eventStatus ?? "") ||
+    /\b(cancelled|canceled)\b/i.test(title)
+  ) {
+    return null;
+  }
+
   // ---- dates ----
   let startDateTime: Date | null = null;
   let endDateTime: Date | null = null;
 
   if (ld?.startDate) {
-    const d = new Date(ld.startDate);
-    if (!Number.isNaN(d.getTime())) startDateTime = d;
+    startDateTime = parseSchemaDate(ld.startDate);
   }
   if (!startDateTime) {
     const timeAttr = $("time[datetime]").first().attr("datetime");
@@ -156,8 +180,7 @@ async function scrapeDetailPage(
   if (!startDateTime) return null; // must have a start date
 
   if (ld?.endDate) {
-    const d = new Date(ld.endDate);
-    if (!Number.isNaN(d.getTime())) endDateTime = d;
+    endDateTime = parseSchemaDate(ld.endDate);
   }
 
   // ---- description ----
@@ -168,7 +191,13 @@ async function scrapeDetailPage(
     null;
 
   // ---- location ----
-  const locFromLd = ld ? locationFromJsonLd(ld) : { name: null, street: null };
+  const locFromLd = ld
+    ? locationFromJsonLd(ld)
+    : { name: null, street: null, locality: null };
+
+  if (locFromLd.locality && !/^dallas$/i.test(cleanText(locFromLd.locality))) {
+    return null;
+  }
 
   const locationName =
     locFromLd.name ||
@@ -218,6 +247,8 @@ async function scrapeDetailPage(
     description: description || null,
     startDateTime,
     endDateTime: endDateTime ?? null,
+    isAllDay: Boolean(ld?.startDate && /^\d{4}-\d{2}-\d{2}$/.test(ld.startDate)),
+    timeZone: "America/New_York",
     locationName,
     address: address || null,
     city: "Dallas",
@@ -240,6 +271,18 @@ async function scrapeDetailPage(
         .join(" – ") || null,
     },
   };
+}
+
+async function scrapeDetailPage(
+  detailUrl: string,
+  source: { name: string; url: string },
+): Promise<NormalizedScrapedEvent | null> {
+  try {
+    const html = await fetchSourceHtml(detailUrl);
+    return parseMyDallasEventDetail(html, detailUrl, source);
+  } catch {
+    return null;
+  }
 }
 
 /** Return only canonical Wix event detail URLs, excluding social-share links. */

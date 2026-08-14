@@ -5,6 +5,7 @@
   "description": "Local civic and community hub for Paulding County and Polk County, Georgia.",
   "scripts": {
     "sources:sync": "tsx scripts/sync-scraper-sources.ts",
+    "sources:cleanup": "tsx scripts/cleanup-sources.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
