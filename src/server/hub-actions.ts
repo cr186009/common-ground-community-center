@@ -879,9 +879,10 @@ export async function runScrapersNowAction() {
 
 export async function runSingleScraperAction(formData: FormData) {
   await requireAdmin();
-  await scrapeSingleSourceById(getString(formData, "sourceId"));
+  const sourceId = getString(formData, "sourceId");
+  await scrapeSingleSourceById(sourceId);
   revalidateAll();
-  redirect("/admin?scraped=1");
+  redirect(`/admin?tab=sources&usage=ALL&scraped=1#source-${encodeURIComponent(sourceId)}`);
 }
 
 export async function generateMeetingSummaryAction(formData: FormData) {

@@ -254,7 +254,7 @@ export async function SourcesSection(filters: Props) {
           const badge = HEALTH_BADGE[source.health];
           const coverageBadge = COVERAGE_BADGE[source.coverage.classification];
           return (
-            <article key={source.id} className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
+            <article id={`source-${source.id}`} key={source.id} className="scroll-mt-6 rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
