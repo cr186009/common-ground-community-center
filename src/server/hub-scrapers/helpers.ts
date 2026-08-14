@@ -117,6 +117,37 @@ export function summarizePublicText(
   return `${cleaned.slice(0, end).replace(/[\s,;:.!?-]+$/g, "")}…`;
 }
 
+type TitleCorrection = {
+  pattern: RegExp;
+  replacement: string;
+  sourcePattern?: RegExp;
+};
+
+/**
+ * Conservative, auditable corrections for known feed defects. Corrections are
+ * intentionally explicit so local names and proper nouns are never passed
+ * through a general-purpose spellchecker.
+ */
+const KNOWN_TITLE_CORRECTIONS: TitleCorrection[] = [
+  { pattern: /\bPickbleball\b/gi, replacement: "Pickleball" },
+];
+
+export function applyKnownTitleCorrections(
+  title: string,
+  sourceName = "",
+) {
+  return KNOWN_TITLE_CORRECTIONS.reduce((corrected, correction) => {
+    if (
+      correction.sourcePattern &&
+      !correction.sourcePattern.test(sourceName)
+    ) {
+      return corrected;
+    }
+
+    return corrected.replace(correction.pattern, correction.replacement);
+  }, title);
+}
+
 export function toAbsoluteUrl(baseUrl: string, input: string | null | undefined) {
   if (!input) {
     return undefined;

@@ -6,7 +6,7 @@ A civic community hub for northwest Georgia (Paulding, Polk, Cobb, Bartow, Chero
 
 - **Framework:** Next.js 16 (App Router, Turbopack)
 - **Language:** TypeScript 6
-- **Database:** Prisma 6 + SQLite (`prisma/dev.db`)
+- **Database:** Prisma 6 + PostgreSQL
 - **Styling:** Tailwind CSS 4, PostCSS
 - **Scraping:** Cheerio
 - **Validation:** Zod
@@ -21,9 +21,13 @@ PORT=5000 pnpm run dev
 
 ## Database setup
 
+For local development, create a PostgreSQL database and provide an untracked
+`DATABASE_URL`. Run `db:push` and `db:seed` only against a disposable local
+database, never against production.
+
 ```bash
-pnpm run db:push   # sync schema to SQLite
-pnpm run db:seed   # seed sample data and sources
+pnpm run db:push   # local/disposable database only
+pnpm run db:seed   # destructive sample seed; local only
 pnpm run scrape    # pull from official city/county sources
 ```
 
@@ -31,7 +35,7 @@ pnpm run scrape    # pull from official city/county sources
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Prisma connection string — **required**. Resolves relative to `prisma/schema.prisma`, so `file:./prisma/dev.db` places the DB at `prisma/prisma/dev.db`. |
+| `DATABASE_URL` | PostgreSQL connection string — **required**. Keep it in Replit Secrets or an untracked local `.env`. |
 | `ADMIN_PASSWORD` | Password for the `/admin` route |
 | `NEXT_PUBLIC_SITE_NAME` | Site title shown in the UI |
 | `OPENAI_API_KEY` | Optional — meeting summary service |

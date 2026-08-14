@@ -8,7 +8,7 @@ Common Ground Digital Community Center is a full-stack local civic web app for n
 - TypeScript
 - Tailwind CSS
 - Prisma ORM
-- SQLite for local development
+- PostgreSQL through Prisma
 - Cheerio for scraper parsing
 
 ## Main sections
@@ -73,19 +73,22 @@ The Prisma schema lives at [prisma/schema.prisma](/Users/home/Documents/Playgrou
 npm install
 ```
 
-2. Sync the local database:
+2. Create a local PostgreSQL database and set `DATABASE_URL` in an untracked
+   `.env` file. Never point local setup commands at production.
+
+3. Sync the local database:
 
 ```bash
 npm run db:push
 ```
 
-3. Seed sources and sample data:
+4. Seed sources and sample data:
 
 ```bash
 npm run db:seed
 ```
 
-4. Start the app:
+5. Start the app:
 
 ```bash
 npm run dev
@@ -93,13 +96,15 @@ npm run dev
 
 ## Environment variables
 
-Use `.env.example` as the template:
+Use `.env.example` as the template and replace the PostgreSQL placeholder with
+your disposable local database connection:
 
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://app_user:change-me@localhost:5432/common_ground_dev?schema=public"
 ADMIN_PASSWORD="community-center-admin"
 NEXT_PUBLIC_SITE_NAME="Common Ground Digital Community Center"
 NEXT_PUBLIC_SITE_URL="https://your-production-domain.example"
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
 EMAIL_PROVIDER_API_KEY=
 RESEND_API_KEY=
 EMAIL_FROM="Common Ground <onboarding@resend.dev>"
@@ -109,7 +114,15 @@ TURNSTILE_SECRET_KEY=
 OPENAI_API_KEY=
 ```
 
+Optional animation, image-delivery, and map setup is documented in
+[`docs/dynamic-integrations.md`](docs/dynamic-integrations.md).
+
 Only `DATABASE_URL` and `ADMIN_PASSWORD` are required for local development. For production event submissions, create a Cloudflare Turnstile widget and set both Turnstile keys. Owner notifications use Resend: set `RESEND_API_KEY` (or the legacy `EMAIL_PROVIDER_API_KEY`), a verified `EMAIL_FROM`, and optionally override `ADMIN_NOTIFICATION_EMAIL`.
+
+On Replit production deployments, the database connection may instead be stored
+as `PRODUCTION_DATABASE_URL`. The application maps that production alias to
+Prisma's required `DATABASE_URL` at startup. Configure one database variable,
+not two competing values.
 
 Event reminders require `NEXT_PUBLIC_SITE_URL` to point to the public site. Run the reminder dispatcher hourly in production:
 
@@ -205,8 +218,7 @@ The project stores subscribers and can build a digest preview in admin, but it d
 
 ## Deployment notes
 
-- SQLite is fine for local testing
-- For production, consider moving Prisma to Postgres or another managed database
+- PostgreSQL is required by the current Prisma schema in every environment
 - Set a real `ADMIN_PASSWORD`
 - Add an email provider before enabling live sends
 - Replace the placeholder meeting-summary service with an AI integration if needed

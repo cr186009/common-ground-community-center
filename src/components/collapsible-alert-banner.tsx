@@ -52,10 +52,13 @@ const SEVERITY_STYLES: Record<
   },
 };
 
-function getTopSeverity(alerts: AlertBannerItem[]): AlertBannerItem["severity"] {
-  return alerts.reduce<AlertBannerItem["severity"]>(
-    (best, a) => (SEVERITY_RANK[a.severity] > SEVERITY_RANK[best] ? a.severity : best),
-    "LOW",
+export function getHighestRankedAlert(alerts: AlertBannerItem[]) {
+  return alerts.reduce<AlertBannerItem | null>(
+    (best, alert) =>
+      !best || SEVERITY_RANK[alert.severity] > SEVERITY_RANK[best.severity]
+        ? alert
+        : best,
+    null,
   );
 }
 
@@ -68,8 +71,8 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
 
   if (alerts.length === 0) return null;
 
-  const topSeverity = getTopSeverity(alerts);
-  const topStyles = SEVERITY_STYLES[topSeverity] ?? SEVERITY_STYLES.LOW;
+  const topAlert = getHighestRankedAlert(alerts)!;
+  const topStyles = SEVERITY_STYLES[topAlert.severity] ?? SEVERITY_STYLES.LOW;
   const count = alerts.length;
 
   return (
@@ -87,14 +90,14 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
           <span
             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${topStyles.badge}`}
           >
-            {alerts[0].severityLabel}
+            {topAlert.severityLabel}
           </span>
           <span className="min-w-0 truncate text-sm font-semibold text-slate-800">
             {count === 1 ? "1 active alert" : `${count} active alerts`}
           </span>
           {count === 1 && (
             <span className="hidden min-w-0 truncate text-sm text-slate-600 sm:block">
-              — {alerts[0].title}
+              — {topAlert.title}
             </span>
           )}
           <button

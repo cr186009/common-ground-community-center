@@ -25,9 +25,11 @@ export function getVerificationNoticeLabel(
 ) {
   const dateUnverified = !isVerified(dateStatus);
   const timeUnverified = !isVerified(timeStatus);
-  if (dateUnverified && timeUnverified) return "Date and time not yet verified";
+  if (dateUnverified && timeUnverified) {
+    return "Date not yet verified. Time listed by source; not independently verified";
+  }
   if (dateUnverified) return "Date not yet verified";
-  if (timeUnverified) return "Time not yet verified";
+  if (timeUnverified) return "Time listed by source; not independently verified";
   return null;
 }
 
@@ -48,7 +50,7 @@ export function EventVerificationNotice({
         <p className="mt-1">
           Confirm with the organizer before attending. {" "}
           <a className="font-semibold underline" href={sourceUrl} target="_blank" rel="noreferrer">
-            Check official source
+            View original listing
           </a>
         </p>
       </div>
@@ -63,7 +65,7 @@ export function EventVerificationNotice({
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <a className="font-semibold underline" href={sourceUrl} target="_blank" rel="noreferrer">
-          Check official source
+          View original listing
         </a>
         <span>Last checked {formatTimestamp(lastCheckedAt)}</span>
       </div>

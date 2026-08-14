@@ -10,6 +10,7 @@ import {
   createCalendarUrl,
   formatDateTimeRange,
   formatFriendlyDate,
+  parseStoredList,
 } from "../src/lib/hub-format";
 
 test("parses winter datetime-local values as Eastern Standard Time", () => {
@@ -36,6 +37,14 @@ test("formats event ranges in Eastern time regardless of server timezone", () =>
   );
 });
 
+test("formats missing, equal, or backwards end times as a start time", () => {
+  const start = new Date("2026-07-15T12:00:00Z");
+  const expected = "Wed, Jul 15 at 8:00 AM";
+  assert.equal(formatDateTimeRange(start, null), expected);
+  assert.equal(formatDateTimeRange(start, new Date(start)), expected);
+  assert.equal(formatDateTimeRange(start, new Date("2026-07-15T11:00:00Z")), expected);
+});
+
 test("friendly dates compare calendar days in Eastern time", () => {
   const now = new Date("2026-07-31T03:30:00Z");
   assert.equal(getCommunityDateKey(now), "2026-07-30");
@@ -59,4 +68,23 @@ test("calendar URLs carry explicit UTC instants", () => {
   });
   const dates = new URL(url).searchParams.get("dates");
   assert.equal(dates, "20260715T120000Z/20260715T160000Z");
+});
+
+test("calendar URLs use a one-hour duration for missing or non-positive ends", () => {
+  const start = new Date("2026-07-15T12:00:00Z");
+  for (const end of [undefined, new Date(start), new Date("2026-07-15T11:00:00Z")]) {
+    const url = createCalendarUrl({ title: "Farmers Market", start, end });
+    assert.equal(
+      new URL(url).searchParams.get("dates"),
+      "20260715T120000Z/20260715T130000Z",
+    );
+  }
+});
+
+test("stored tag lists are trimmed and deduplicated case-insensitively", () => {
+  assert.deepEqual(
+    parseStoredList('[" Free ", "free", "Kid   friendly", ""]'),
+    ["Free", "Kid friendly"],
+  );
+  assert.deepEqual(parseStoredList("Music, music, Outdoors"), ["Music", "Outdoors"]);
 });

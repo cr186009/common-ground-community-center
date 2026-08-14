@@ -2,9 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyKnownTitleCorrections,
   cleanPublicText,
   summarizePublicText,
 } from "@/server/hub-scrapers/helpers";
+
+test("known title corrections fix exact feed defects without changing proper nouns", () => {
+  assert.equal(
+    applyKnownTitleCorrections("Open Play: Pickbleball"),
+    "Open Play: Pickleball",
+  );
+  assert.equal(
+    applyKnownTitleCorrections("Pickle & Ball Makers Market"),
+    "Pickle & Ball Makers Market",
+  );
+  assert.equal(
+    applyKnownTitleCorrections(applyKnownTitleCorrections("Pickbleball")),
+    "Pickleball",
+  );
+});
 
 test("cleanPublicText decodes entities and removes source boilerplate", () => {
   const input = [

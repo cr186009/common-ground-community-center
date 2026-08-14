@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { EventImage } from "@/components/event-image";
 import { EventVerificationNotice } from "@/components/event-verification-notice";
+import { MotionEventCard } from "@/components/motion/motion-event-card";
 import {
   createCalendarUrl,
   formatDateTimeRange,
@@ -10,6 +11,11 @@ import {
   getCategoryLabel,
   parseStoredList,
 } from "@/lib/hub-format";
+import { partitionEventTags } from "@/lib/event-tags";
+import {
+  cleanPublicText,
+  summarizePublicText,
+} from "@/server/hub-scrapers/helpers";
 
 type HubEventCardProps = {
   event: Event;
@@ -21,10 +27,15 @@ export function HubEventCard({
   additionalOccurrences = [],
 }: HubEventCardProps) {
   const tags = parseStoredList(event.tags);
+  const { visibleTags, hiddenTags } = partitionEventTags(tags);
   const hasAdditionalOccurrences = additionalOccurrences.length > 0;
+  const fullDescription = cleanPublicText(event.description).replace(/\s+/g, " ");
+  const description = event.description
+    ? summarizePublicText(event.description, 220)
+    : "Details are limited in the source listing. Use the original link for updates.";
 
   return (
-    <article className="rounded-[1.75rem] border border-[color:var(--line)] bg-white shadow-[0_25px_60px_-45px_rgba(24,40,60,0.4)]">
+    <MotionEventCard className="rounded-[1.75rem] border border-[color:var(--line)] bg-white shadow-[0_25px_60px_-45px_rgba(24,40,60,0.4)]">
       <Link href={`/events/${event.id}`} className="block">
         <EventImage
           title={event.title}
@@ -145,14 +156,22 @@ export function HubEventCard({
           </details>
         ) : null}
 
-        <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-700">
-          {event.description ||
-            "Details are limited in the source listing. Use the original link for updates."}
+        <p className="mt-4 text-sm leading-6 text-slate-700">
+          {description}
         </p>
+        {event.description && description !== fullDescription ? (
+          <Link
+            href={`/events/${event.id}`}
+            className="mt-2 inline-flex text-sm font-semibold text-[color:var(--forest)] hover:underline"
+            aria-label={`Read the full description for ${event.title}`}
+          >
+            Read more →
+          </Link>
+        ) : null}
 
         {tags.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            {tags.slice(0, 4).map((tag) => (
+            {visibleTags.map((tag) => (
               <span
                 key={tag}
                 className="rounded-full bg-stone-100 px-3 py-1 text-xs text-slate-600"
@@ -160,6 +179,24 @@ export function HubEventCard({
                 {tag}
               </span>
             ))}
+            {hiddenTags.length > 0 ? (
+              <details className="relative">
+                <summary className="cursor-pointer list-none rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--navy)]">
+                  +{hiddenTags.length} more
+                  <span className="sr-only"> tags for {event.title}</span>
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-2" aria-label={`Additional tags for ${event.title}`}>
+                  {hiddenTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-stone-100 px-3 py-1 text-xs text-slate-600"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </div>
         ) : null}
 
@@ -201,6 +238,6 @@ export function HubEventCard({
           </div>
         </div>
       </div>
-    </article>
+    </MotionEventCard>
   );
 }

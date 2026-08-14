@@ -2,6 +2,7 @@
 
 import type { Category } from "@prisma/client";
 
+import { getDeliveredImageUrl } from "@/lib/cloudinary-image";
 import { getCategoryLabel } from "@/lib/hub-format";
 
 type Props = {
@@ -14,6 +15,8 @@ type Props = {
   imageCreditUrl?: string | null;
   imageAlt?: string | null;
   imageIsFallback?: boolean | null;
+  deliveryWidth?: number;
+  deliveryHeight?: number;
 };
 
 export function EventImage({
@@ -25,17 +28,23 @@ export function EventImage({
   imageCreditUrl,
   imageAlt,
   imageIsFallback,
+  deliveryWidth = 960,
+  deliveryHeight = 540,
 }: Props) {
   const label = imageAlt || title;
   const showAttribution = imageIsFallback && imageCredit && imageCreditUrl;
+  const deliveredImageUrl = getDeliveredImageUrl(imageUrl, {
+    width: deliveryWidth,
+    height: deliveryHeight,
+  });
 
   return (
     <div
       className={`relative overflow-hidden rounded-[1.5rem] ${className ?? ""}`}
       style={
-        imageUrl
+        deliveredImageUrl
           ? {
-              backgroundImage: `url(${imageUrl})`,
+              backgroundImage: `url(${deliveredImageUrl})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }

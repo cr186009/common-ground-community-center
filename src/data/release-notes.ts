@@ -12,6 +12,20 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "modular-community-coverage-profiles",
+    publishedOn: "2026-08-14",
+    title: "Reusable coverage profiles for more communities",
+    summary:
+      "Administrators can now compare each community’s coverage plan and see which local information sources are connected, need attention, or are still missing.",
+    highlights: [
+      "Added coverage profiles for all 13 communities currently supported by Common Ground.",
+      "Added a side-scrolling profile library that works with touch, trackpads, arrow buttons, and keyboards.",
+      "Grouped each community’s automated calendars and manually reviewed sources into a reusable source bundle.",
+      "Made missing coverage areas visible so new community profiles can be prepared and improved before reuse.",
+      "Added direct paths for administrators to preview, edit, filter, and review logs for a profile’s sources.",
+    ],
+  },
+  {
     slug: "priority-calendar-production-verification",
     publishedOn: "2026-08-05",
     title: "Priority community calendars verified",

@@ -47,7 +47,10 @@ import type {
   ScrapeOutput,
   SourceScraper,
 } from "@/server/hub-scrapers/types";
-import { cleanPublicText } from "@/server/hub-scrapers/helpers";
+import {
+  applyKnownTitleCorrections,
+  cleanPublicText,
+} from "@/server/hub-scrapers/helpers";
 import {
   isValidScrapedDate,
   validateScrapedAlert,
@@ -213,7 +216,7 @@ function getShortError(error: unknown) {
 }
 
 function normalizeTitle(title: string) {
-  return title
+  return applyKnownTitleCorrections(title)
     .normalize("NFKD")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -235,6 +238,13 @@ export function isLikelySameEvent(
 
 function isValidDate(value: Date | null | undefined) {
   return isValidScrapedDate(value);
+}
+
+function normalizeEndDate(
+  start: Date,
+  end: Date | null | undefined,
+) {
+  return end && end.getTime() > start.getTime() ? end : null;
 }
 
 function toIsoString(value: Date | null | undefined) {
@@ -455,12 +465,15 @@ async function upsertScrapedEvent(
       : eventStatusForConfidence(event.confidenceScore, event.status);
 
   const data = {
-    title: cleanPublicText(event.title),
+    title: applyKnownTitleCorrections(
+      cleanPublicText(event.title),
+      event.sourceName,
+    ),
     description: event.description !== undefined
       ? cleanPublicText(event.description) || null
       : existing?.description ?? null,
     startDateTime: event.startDateTime,
-    endDateTime: event.endDateTime,
+    endDateTime: normalizeEndDate(event.startDateTime, event.endDateTime),
     isAllDay: event.isAllDay ?? false,
     timeZone: event.timeZone ?? "America/New_York",
     locationName: event.locationName ?? existing?.locationName ?? null,
@@ -655,7 +668,10 @@ async function upsertScrapedMeeting(
     governmentBody: meeting.governmentBody,
     meetingType: meeting.meetingType,
     startDateTime: meeting.startDateTime,
-    endDateTime: meeting.endDateTime ?? existing?.endDateTime ?? null,
+    endDateTime: normalizeEndDate(
+      meeting.startDateTime,
+      meeting.endDateTime ?? existing?.endDateTime,
+    ),
     locationName: meeting.locationName ?? existing?.locationName ?? null,
     address: meeting.address ?? existing?.address ?? null,
     city: meeting.city ?? existing?.city ?? null,

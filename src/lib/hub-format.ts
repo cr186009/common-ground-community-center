@@ -60,7 +60,7 @@ export function formatDateTimeRange(start: Date, end?: Date | null, isAllDay = f
   }
   const startTime = formatCommunityDate(start, { hour: "numeric", minute: "2-digit" });
 
-  if (!end) {
+  if (!end || end.getTime() <= start.getTime()) {
     return `${startDate} at ${startTime}`;
   }
 
@@ -104,13 +104,28 @@ export function parseStoredList(value: string | null | undefined) {
   try {
     const parsed = JSON.parse(value) as unknown;
 
-    return Array.isArray(parsed) ? parsed.map((entry) => String(entry)) : [];
+    if (!Array.isArray(parsed)) return [];
+    return normalizeStoredList(parsed.map((entry) => String(entry)));
   } catch {
-    return value
+    return normalizeStoredList(
+      value
       .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+      .map((entry) => entry),
+    );
   }
+}
+
+function normalizeStoredList(entries: string[]) {
+  const seen = new Set<string>();
+  return entries
+    .map((entry) => entry.replace(/\s+/g, " ").trim())
+    .filter((entry) => {
+      if (!entry) return false;
+      const key = entry.toLocaleLowerCase("en-US");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export function formatMoneyText(
@@ -132,7 +147,13 @@ export function createCalendarUrl(input: {
   end?: Date | null;
 }) {
   const start = compactUtcDateTime(input.start);
-  const end = compactUtcDateTime(input.end ?? input.start);
+  // Calendar providers expect a real interval. Source feeds frequently omit an
+  // end time (or repeat the start time), so use a conservative one-hour default.
+  const providedEnd = input.end;
+  const effectiveEnd = providedEnd && providedEnd.getTime() > input.start.getTime()
+    ? providedEnd
+    : new Date(input.start.getTime() + 60 * 60 * 1000);
+  const end = compactUtcDateTime(effectiveEnd);
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: input.title,

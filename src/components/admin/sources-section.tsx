@@ -18,7 +18,13 @@ import {
   getSourceTypeLabel,
 } from "@/lib/hub-format";
 import { COUNTY_FILTERS, SOURCE_TYPE_LABELS } from "@/lib/hub-constants";
-import { buildCoverageProfiles, type CoverageProfileStatus } from "@/lib/community-coverage-profile";
+import {
+  buildCoverageProfiles,
+  COVERAGE_AREAS,
+  type CoverageAreaId,
+  type CoverageProfileStatus,
+} from "@/lib/community-coverage-profile";
+import { HorizontalCardCarousel } from "@/components/admin/horizontal-card-carousel";
 
 type Props = {
   search?: string;
@@ -59,6 +65,10 @@ const PROFILE_BADGE: Record<CoverageProfileStatus, { label: string; className: s
   manual: { label: "Manual", className: "bg-blue-100 text-blue-800" },
   failing: { label: "Failing", className: "bg-red-100 text-red-800" },
 };
+
+const COVERAGE_AREA_LABELS = Object.fromEntries(
+  COVERAGE_AREAS.map((area) => [area.id, area.label]),
+) as Record<CoverageAreaId, string>;
 
 function matchesStatus(source: AdminSourceHealth, status?: string) {
   if (!status) return true;
@@ -144,31 +154,81 @@ export async function SourcesSection(filters: Props) {
       </section>
 
       <section aria-labelledby="coverage-profile-heading" className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">
-        <div>
-          <h2 id="coverage-profile-heading" className="font-serif text-2xl text-[color:var(--navy)]">Community coverage profiles</h2>
-          <p className="mt-1 text-sm text-slate-600">Pilot view for Canton and Kennesaw. Status is derived from mapped source health, so gaps remain visible even when the existing scrapers are healthy.</p>
+        <div className="max-w-3xl">
+          <h2 id="coverage-profile-heading" className="font-serif text-2xl text-[color:var(--navy)]">Community profile library</h2>
+          <p className="mt-1 text-sm text-slate-600">Each card is a portable coverage plan: the community, its content areas, and the source or scraper bundle assigned to it. Missing areas stay visible so a profile can be improved before it is reused.</p>
         </div>
-        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <HorizontalCardCarousel
+          ariaLabel="Community coverage profiles"
+          itemLabel="community profile"
+          className="mt-5"
+          cardClassName="h-auto"
+        >
           {coverageProfiles.map((profile) => (
-            <article key={profile.city} className="overflow-hidden rounded-2xl border border-[color:var(--line)]">
-              <h3 className="bg-slate-50 px-4 py-3 font-semibold text-[color:var(--navy)]">{profile.city}</h3>
-              <div className="divide-y divide-[color:var(--line)]">
-                {profile.areas.map((area) => {
-                  const badge = PROFILE_BADGE[area.status];
-                  return <div key={area.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[10rem_5rem_1fr] sm:items-start">
-                    <span className="text-sm font-medium text-slate-800">{area.label}</span>
-                    <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
-                    <div className="text-xs text-slate-500">
-                      {area.sources.length === 0 ? "No source mapped" : area.sources.map(({ sourceName, role, source }) => (
-                        <p key={`${sourceName}-${role}`}><span className="font-medium text-slate-700">{sourceName}</span> · {role}{source ? <> · last success {source.lastSuccessfulAt ? formatTimestamp(source.lastSuccessfulAt) : "never"} · last yield {source.lastLog?.itemsFound ?? "—"} · verified {source.verificationRate === null ? "—" : `${Math.round(source.verificationRate * 100)}%`}</> : " · source record missing"}</p>
-                      ))}
-                    </div>
-                  </div>;
-                })}
+            <article key={profile.id} className="h-full overflow-hidden rounded-2xl border border-[color:var(--line)] bg-white">
+              <div className="border-b border-[color:var(--line)] bg-slate-50 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-serif text-xl text-[color:var(--navy)]">{profile.city}</h3>
+                    <p className="text-xs text-slate-500">{profile.county} County · {profile.id}</p>
+                  </div>
+                  <a href={`/admin?tab=sources&usage=ALL&city=${encodeURIComponent(profile.city)}`} className="btn btn-ghost btn-xs shrink-0">View sources</a>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-emerald-50 px-2 py-2"><p className="text-lg font-semibold text-emerald-800">{profile.statusCounts.covered}</p><p className="text-[0.68rem] text-emerald-700">Covered</p></div>
+                  <div className="rounded-xl bg-amber-50 px-2 py-2"><p className="text-lg font-semibold text-amber-800">{profile.statusCounts.partial + profile.statusCounts.manual + profile.statusCounts.failing}</p><p className="text-[0.68rem] text-amber-700">Needs work</p></div>
+                  <div className="rounded-xl bg-slate-100 px-2 py-2"><p className="text-lg font-semibold text-slate-700">{profile.statusCounts.missing}</p><p className="text-[0.68rem] text-slate-600">Unmapped</p></div>
+                </div>
+                <p className="mt-3 text-xs text-slate-600">{profile.sourceBundle.length} source{profile.sourceBundle.length === 1 ? "" : "s"} in this reusable bundle · {profile.sourceBundle.filter((item) => item.collectionMode === "automated").length} automated</p>
               </div>
+
+              <details className="group">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[color:var(--navy)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--navy)]">
+                  <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="transition group-open:rotate-90">›</span> Coverage areas</span>
+                </summary>
+                <div className="divide-y divide-[color:var(--line)] border-t border-[color:var(--line)]">
+                  {profile.areas.map((area) => {
+                    const badge = PROFILE_BADGE[area.status];
+                    return <div key={area.id} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-800">{area.label}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+                      </div>
+                      <div className="mt-1 space-y-1 text-xs text-slate-500">
+                        {area.sources.length === 0 ? <p>No source mapped</p> : area.sources.map(({ sourceName, role, collectionMode, source }) => (
+                          <p key={`${sourceName}-${role}`}><span className="font-medium text-slate-700">{sourceName}</span> · {role} · {collectionMode}{source ? <> · last success {source.lastSuccessfulAt ? formatTimestamp(source.lastSuccessfulAt) : "never"}</> : " · needs source setup"}</p>
+                        ))}
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              </details>
+
+              <details className="group border-t border-[color:var(--line)]">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[color:var(--navy)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--navy)]">
+                  <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="transition group-open:rotate-90">›</span> Source and scraper bundle</span>
+                </summary>
+                <div className="space-y-3 border-t border-[color:var(--line)] px-4 py-3">
+                  {profile.sourceBundle.map((item) => (
+                    <div key={item.sourceName} className="rounded-xl bg-slate-50 p-3 text-xs">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="font-semibold text-slate-800">{item.sourceName}</p>
+                        <span className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-600">{item.collectionMode}</span>
+                      </div>
+                      <p className="mt-1 text-slate-500">{item.areas.map((area) => COVERAGE_AREA_LABELS[area.areaId]).join(" · ")}</p>
+                      {item.source ? <div className="mt-2 flex flex-wrap gap-2">
+                        {item.source.hasAutomatedScraper && <a href={`/admin/sources/${item.source.id}/preview`} className="font-semibold text-[color:var(--navy)] hover:underline">Preview</a>}
+                        <a href={`/admin?tab=sources&editSource=${item.source.id}`} className="font-semibold text-[color:var(--navy)] hover:underline">Edit</a>
+                        <a href={`/admin?tab=logs&logSrc=${encodeURIComponent(item.source.name)}`} className="font-semibold text-[color:var(--navy)] hover:underline">Logs</a>
+                      </div> : <p className="mt-2 font-medium text-amber-700">Source record needs setup</p>}
+                    </div>
+                  ))}
+                </div>
+              </details>
             </article>
           ))}
-        </div>
+        </HorizontalCardCarousel>
+        <p className="mt-2 text-xs text-slate-500">Profiles currently describe source assignments; they do not bulk activate or pause shared scrapers. Profile-level switching will require persisted assignments and an atomic server action.</p>
       </section>
 
       <section className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5">

@@ -5,6 +5,8 @@ import {
   type AlertBannerItem,
 } from "@/components/collapsible-alert-banner";
 import { HubEventCard } from "@/components/hub-event-card";
+import { groupEventsForDisplay } from "@/lib/hub-event-grouping";
+import { getDeliveredImageUrl } from "@/lib/cloudinary-image";
 import {
   COUNTY_FILTERS,
   DIGEST_INTEREST_OPTIONS,
@@ -31,29 +33,38 @@ export default async function HomePage({ searchParams }: PageProps) {
   const data = await getHomepageData();
   const subscribed = readSearchParam(params, "subscribed");
   const heroEvent = data.upcomingEvents.find((event) => event.imageUrl);
+  const heroImageUrl = getDeliveredImageUrl(heroEvent?.imageUrl, {
+    width: 1600,
+    height: 800,
+  });
+  const groupedUpcomingEvents = groupEventsForDisplay(data.upcomingEvents);
+  const urgentAlerts = data.activeAlerts.filter(
+    (alert) => alert.severity === "HIGH" || alert.severity === "EMERGENCY",
+  );
+  const nonUrgentAlerts = data.activeAlerts.filter(
+    (alert) => alert.severity !== "HIGH" && alert.severity !== "EMERGENCY",
+  );
+  const toBannerItems = (alerts: typeof data.activeAlerts): AlertBannerItem[] =>
+    alerts.map((alert) => ({
+      id: alert.id,
+      title: alert.title,
+      severity: alert.severity,
+      severityLabel: getAlertSeverityLabel(alert.severity),
+      alertTypeLabel: getAlertTypeLabel(alert.alertType),
+      sourceUrl: alert.sourceUrl,
+      description: alert.description,
+    }));
 
   return (
     <div className="space-y-8">
-      <CollapsibleAlertBanner
-        alerts={data.activeAlerts.map(
-          (a): AlertBannerItem => ({
-            id: a.id,
-            title: a.title,
-            severity: a.severity,
-            severityLabel: getAlertSeverityLabel(a.severity),
-            alertTypeLabel: getAlertTypeLabel(a.alertType),
-            sourceUrl: a.sourceUrl,
-            description: a.description,
-          }),
-        )}
-      />
+      <CollapsibleAlertBanner alerts={toBannerItems(urgentAlerts)} />
 
       <section
         className="relative isolate min-h-[34rem] overflow-hidden rounded-[2rem] bg-[color:var(--navy)] text-white shadow-[0_32px_90px_-45px_rgba(20,44,68,0.8)] sm:min-h-[38rem]"
         style={
-          heroEvent?.imageUrl
+          heroImageUrl
             ? {
-                backgroundImage: `url(${heroEvent.imageUrl})`,
+                backgroundImage: `url(${heroImageUrl})`,
                 backgroundPosition: "center",
                 backgroundSize: "cover",
               }
@@ -91,16 +102,20 @@ export default async function HomePage({ searchParams }: PageProps) {
               </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
-              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming events</p>
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming listings</p>
               <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventCount}</p>
+              <p className="mt-1 text-xs leading-5 text-white/75">Approved events currently scheduled for future dates.</p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
-              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Communities covered</p>
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Cities represented</p>
               <p className="mt-2 font-serif text-3xl text-white">{data.communitiesCovered}</p>
+              <p className="mt-1 text-xs leading-5 text-white/75">Cities with at least one approved upcoming event.</p>
             </div>
           </div>
         </div>
       </section>
+
+      <CollapsibleAlertBanner alerts={toBannerItems(nonUrgentAlerts)} />
 
       <section className="space-y-6">
         <div className="space-y-6">
@@ -121,8 +136,12 @@ export default async function HomePage({ searchParams }: PageProps) {
             </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {data.upcomingEvents.map((event) => (
-              <HubEventCard key={event.id} event={event} />
+            {groupedUpcomingEvents.map(({ event, additionalOccurrences }) => (
+              <HubEventCard
+                key={event.id}
+                event={event}
+                additionalOccurrences={additionalOccurrences}
+              />
             ))}
           </div>
         </div>
@@ -339,30 +358,42 @@ export default async function HomePage({ searchParams }: PageProps) {
           ) : null}
 
           <form action={subscribeDigestAction} className="mt-5 grid gap-3">
-            <input
-              name="email"
-              type="email"
-              placeholder="Email address"
-              required
-              className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm"
-            />
-            <input
-              name="city"
-              placeholder="Preferred city (optional)"
-              className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm"
-            />
-            <select
-              name="county"
-              className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm"
-            >
-              <option value="">Any county</option>
-              {COUNTY_FILTERS.map((county) => (
-                <option key={county} value={county}>
-                  {county}
-                </option>
-              ))}
-            </select>
-            <div className="flex flex-wrap gap-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Email address
+              <input
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Preferred city <span className="font-normal text-slate-500">(optional)</span>
+              <input
+                name="city"
+                autoComplete="address-level2"
+                className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              County
+              <select
+                name="county"
+                className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal"
+              >
+                <option value="">Any county</option>
+                {COUNTY_FILTERS.map((county) => (
+                  <option key={county} value={county}>
+                    {county}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="flex flex-wrap gap-2">
+              <legend className="mb-2 w-full text-sm font-medium text-slate-700">
+                Interests
+              </legend>
               {DIGEST_INTEREST_OPTIONS.map((interest) => (
                 <label
                   key={interest}
@@ -372,7 +403,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                   {interest}
                 </label>
               ))}
-            </div>
+            </fieldset>
             <button type="submit" className="mt-2 btn btn-primary btn-md">
               Save digest preferences
             </button>
@@ -404,11 +435,12 @@ export default async function HomePage({ searchParams }: PageProps) {
             ) : null}
             <div className="rounded-2xl bg-stone-50 p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Design approach
+                Corrections and freshness
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                Warm, mobile-first, easy to read, and built to feel more like a
-                community center bulletin board than a campaign site.
+                Refresh times show when our collectors last completed a run.
+                Event details can change, so each listing retains a link to its
+                original source for corrections and the latest information.
               </p>
             </div>
           </div>

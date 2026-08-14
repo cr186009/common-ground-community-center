@@ -2,9 +2,11 @@ import { format } from "date-fns";
 
 import { HubCalendarGrid } from "@/components/hub-calendar-grid";
 import { HubEventCard } from "@/components/hub-event-card";
+import { EventMapPrototype } from "@/components/event-map-prototype";
 import { HubFilterForm } from "@/components/hub-filter-form";
 import { groupEventsForDisplay } from "@/lib/hub-event-grouping";
 import { formatTimestamp } from "@/lib/hub-format";
+import { mapEventsToApproximatePoints } from "@/lib/event-map";
 import {
   parsePublicFilters,
   readSearchParam,
@@ -47,6 +49,9 @@ export default async function EventsPage({
     ]);
 
   const groupedEvents = groupEventsForDisplay(events);
+  const mapPoints = mapEventsToApproximatePoints(
+    groupedEvents.map(({ event }) => event),
+  );
 
   return (
     <div className="space-y-6">
@@ -91,6 +96,12 @@ export default async function EventsPage({
         isKidFriendly={filters.isKidFriendly}
         isOutdoor={filters.isOutdoor}
       />
+
+      {view === "list" ? (
+        <EventMapPrototype
+          points={mapPoints}
+        />
+      ) : null}
 
       {view === "calendar" ? (
         <HubCalendarGrid
