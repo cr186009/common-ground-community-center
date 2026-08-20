@@ -1,0 +1,75 @@
+{
+  "generatedAt": "2026-08-20T15:41:46.816Z",
+  "safety": "Read-only aggregate report; no event titles, URLs, addresses, emails, or subscriber data are emitted.",
+  "totals": {
+    "events": 751,
+    "upcomingApprovedEvents": 556,
+    "meetings": 549,
+    "alerts": 4,
+    "sources": 85,
+    "activeSources": 11
+  },
+  "events": {
+    "byStatus": {
+      "APPROVED": 739,
+      "ARCHIVED": 11,
+      "PENDING": 1
+    },
+    "byDateVerificationStatus": {
+      "MISSING_EVIDENCE": 751
+    },
+    "byTimeVerificationStatus": {
+      "MISSING_EVIDENCE": 751
+    },
+    "bySource": {
+      "Visit Woodstock events": 213,
+      "City of Hiram official site": 5,
+      "Visit Marietta events": 1,
+      "Paulding County Parks calendar": 1,
+      "City of Rockmart official site": 2,
+      "City of Dallas official events page": 1,
+      "City of Adairsville events": 1,
+      "City of Acworth events": 5,
+      "Polk County Chamber events": 1,
+      "City of Kennesaw events": 367,
+      "Rockmart Cultural Arts Center": 5,
+      "Downtown Dallas / MyDallasGA": 12,
+      "Paulding County Public Calendar": 11,
+      "Downtown Cedartown events page": 1,
+      "Pizza Shack Facebook": 1,
+      "City of Woodstock special events": 1,
+      "The Mill on Etowah events": 1,
+      "Explore Canton events": 54,
+      "City of Marietta calendar": 68
+    },
+    "invalidOrZeroLengthRanges": 19,
+    "missingEndTime": 32,
+    "invalidConfidence": 0,
+    "missingConfidence": 0,
+    "staleUpcomingApproved": 556,
+    "malformedTagPayloads": 0,
+    "tagPayloadsWithDuplicates": 0,
+    "descriptionsEndingWithoutSentencePunctuation": 230,
+    "exactDuplicateCandidates": {
+      "groupCount": 0,
+      "redundantRecordCount": 0
+    },
+    "recurringSeriesCandidates": {
+      "groupCount": 49,
+      "redundantRecordCount": 381
+    }
+  },
+  "meetings": {
+    "invalidOrZeroLengthRanges": 1,
+    "missingEndTime": 114
+  },
+  "alerts": {
+    "active": 0,
+    "activeExpired": 0,
+    "activeMissingExpiry": 0
+  },
+  "sources": {
+    "activeNeverScraped": 0,
+    "activeStaleSevenDays": 11
+  }
+}
