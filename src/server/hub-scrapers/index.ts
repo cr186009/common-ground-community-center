@@ -59,6 +59,7 @@ import {
 import { finalizeScrapeOutcome } from "@/server/scrape-health";
 import { verifyEventDateTime } from "@/server/hub-scrapers/date-verification";
 import { evaluateKidFriendlySafety } from "@/server/hub-scrapers/kid-friendly-classifier";
+import { getSourceItemIdentity } from "@/server/hub-scrapers/source-item-identity";
 import {
   classifyPreviewItem,
   type ExistingComparableItem,
@@ -434,15 +435,17 @@ async function upsertScrapedEvent(
   if (!existing && event.originalUrl && event.originalUrl !== event.sourceUrl) {
     const identityCandidates = await prisma.event.findMany({
       where: {
-        sourceName: event.sourceName,
-        originalUrl: event.originalUrl,
+        sourceId: source.id,
         city: event.city,
       },
-      take: 10,
+      take: 100,
     });
     const normalizedIncomingTitle = normalizeTitle(event.title);
+    const incomingIdentity = getSourceItemIdentity(event.originalUrl);
     existing = identityCandidates.find(
-      (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
+      (candidate) =>
+        normalizeTitle(candidate.title) === normalizedIncomingTitle &&
+        getSourceItemIdentity(candidate.originalUrl) === incomingIdentity,
     );
   }
   const isCrossSourceDuplicate =
@@ -680,14 +683,16 @@ async function upsertScrapedMeeting(
   if (!existing && meeting.originalUrl && meeting.originalUrl !== meeting.sourceUrl) {
     const identityCandidates = await prisma.meeting.findMany({
       where: {
-        sourceName: meeting.sourceName,
-        originalUrl: meeting.originalUrl,
+        sourceId: source.id,
         city: meeting.city ?? null,
       },
-      take: 10,
+      take: 100,
     });
+    const incomingIdentity = getSourceItemIdentity(meeting.originalUrl);
     existing = identityCandidates.find(
-      (candidate) => normalizeTitle(candidate.title) === normalizedIncomingTitle,
+      (candidate) =>
+        normalizeTitle(candidate.title) === normalizedIncomingTitle &&
+        getSourceItemIdentity(candidate.originalUrl) === incomingIdentity,
     );
   }
 

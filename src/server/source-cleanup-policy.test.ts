@@ -45,6 +45,26 @@ test("merges spacing duplicates into the canonical managed source", () => {
   });
 });
 
+test("keeps an active populated duplicate and canonicalizes it after merging an inactive shell", () => {
+  const actions = planSourceCleanup([
+    source({ id: "inactive-canonical", name: "Paulding County Public Calendar", active: false }),
+    source({
+      id: "active-source",
+      name: "Paulding County public calendar",
+      active: true,
+      counts: { alerts: 0, events: 42, meetings: 3, logs: 8, volunteer: 0 },
+    }),
+  ]);
+  const merge = actions.find((action) => action.action === "merge");
+  const keep = actions.find((action) => action.action === "keep");
+  assert.deepEqual(merge && { sourceId: merge.sourceId, targetId: merge.targetId }, {
+    sourceId: "inactive-canonical",
+    targetId: "active-source",
+  });
+  assert.equal(keep?.sourceId, "active-source");
+  assert.equal(keep?.action === "keep" ? keep.canonicalName : null, "Paulding County Public Calendar");
+});
+
 test("always retires the held Cedartown integration", () => {
   const [action] = planSourceCleanup([
     source({ id: "cedartown", name: "Downtown Cedartown events page" }),

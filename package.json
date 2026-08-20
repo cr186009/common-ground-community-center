@@ -21,6 +21,7 @@
     "cleanup:mvp": "node --import tsx scripts/cleanup-mvp-data.ts",
     "cleanup:production": "node --import tsx scripts/cleanup-production-data.ts",
     "meetings:backfill": "node --import tsx scripts/backfill-government-meetings.ts",
+    "meetings:repair-paulding-times": "node --import tsx scripts/repair-paulding-meeting-times.ts",
     "events:audit": "node --import tsx scripts/audit-event-quality.ts",
     "events:audit-dates": "node --import tsx scripts/audit-event-dates.ts",
     "events:audit-verification": "node --import tsx scripts/audit-event-dates.ts",

@@ -23,6 +23,14 @@ The preview does not change the database. Review every `merge`, `retire`, and `d
 
 ```bash
 DATABASE_URL="$PRODUCTION_DATABASE_URL" npm run sources:cleanup -- --apply
+
+To merge only case/spacing duplicates without retiring or deleting any other
+source, run the guarded duplicate-only workflow:
+
+```bash
+DATABASE_URL="$PRODUCTION_DATABASE_URL" node --import tsx scripts/cleanup-sources.ts --duplicates-only
+DATABASE_URL="$PRODUCTION_DATABASE_URL" node --import tsx scripts/cleanup-sources.ts --duplicates-only --apply --expected-merges=REVIEWED_COUNT
+```
 DATABASE_URL="$PRODUCTION_DATABASE_URL" npm run sources:sync
 ```
 

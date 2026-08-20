@@ -18,10 +18,31 @@ release only after the Sprint 5 production health and cleanup dry runs pass.
 
 ## Next — useful follow-up
 
+- Rename the homepage metric from “Upcoming event series” to “Upcoming events,”
+  with supporting copy that reads “Across X scheduled dates.”
 - Monitor one-time event reminder delivery and retry failures safely.
 - Add organizer-facing engagement totals without exposing resident emails.
 - Add share links and track privacy-safe referral counts.
 - Group recurring events and preserve interest per occurrence.
+
+### Sprint 6 — engagement safety and clarity
+
+1. Make the homepage event-count language resident-friendly: “Upcoming events”
+   with “Across X scheduled dates,” while retaining recurrence-aware counting.
+2. Protect public submission and engagement forms with CAPTCHA and rate limits.
+3. Notify administrators about event submissions, digest registrations, and new
+   event interest without exposing resident contact details publicly.
+4. Validate reminder delivery, failure logging, and safe retries.
+5. Add privacy-safe share/referral measurement and organizer-facing engagement
+   totals.
+
+Exit criteria:
+
+- Homepage counts are understandable without knowing the difference between an
+  event series and an occurrence.
+- Automated abuse is constrained on every public write endpoint.
+- Administrators can act on new submissions and failed notifications.
+- Resident emails and subscriber details remain private.
 
 ## Soon — digest delivery
 

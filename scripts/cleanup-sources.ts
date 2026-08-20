@@ -5,6 +5,11 @@ import { retireSource } from "../src/server/source-lifecycle";
 
 const prisma = new PrismaClient();
 const apply = process.argv.includes("--apply");
+const duplicatesOnly = process.argv.includes("--duplicates-only");
+const expectedMergesArgument = process.argv.find((argument) => argument.startsWith("--expected-merges="));
+const expectedMerges = expectedMergesArgument
+  ? Number(expectedMergesArgument.split("=", 2)[1])
+  : null;
 
 async function loadSources() {
   const sources = await prisma.source.findMany({
@@ -19,7 +24,19 @@ async function loadSources() {
 
 async function main() {
   const sources = await loadSources();
-  const actions = planSourceCleanup(sources);
+  const plannedActions = planSourceCleanup(sources);
+  const duplicateTargets = new Set(
+    plannedActions
+      .filter((entry) => entry.action === "merge")
+      .map((entry) => entry.targetId),
+  );
+  const actions = duplicatesOnly
+    ? plannedActions.filter(
+        (entry) => entry.action === "merge" ||
+          (entry.action === "keep" && duplicateTargets.has(entry.sourceId)),
+      )
+    : plannedActions;
+  const mergeCount = actions.filter((entry) => entry.action === "merge").length;
   const summary = Object.fromEntries(
     ["keep", "merge", "retire", "delete"].map((kind) => [
       kind,
@@ -27,10 +44,13 @@ async function main() {
     ]),
   );
 
-  console.info(JSON.stringify({ mode: apply ? "apply" : "dry-run", sourceCount: sources.length, summary, actions }, null, 2));
+  console.info(JSON.stringify({ mode: apply ? "apply" : "dry-run", scope: duplicatesOnly ? "duplicates-only" : "full-cleanup", sourceCount: sources.length, summary, actions }, null, 2));
   if (!apply) {
-    console.error("No changes made. Review this report, then re-run with --apply.");
+    console.error(`No changes made. Review this report, then re-run with --apply --expected-merges=${mergeCount}.`);
     return;
+  }
+  if (!Number.isSafeInteger(expectedMerges) || expectedMerges !== mergeCount) {
+    throw new Error(`Refusing to apply: expected ${expectedMergesArgument ? expectedMerges : "an explicit merge count"}, but the current plan contains ${mergeCount} merge(s).`);
   }
 
   await prisma.$transaction(async (tx) => {

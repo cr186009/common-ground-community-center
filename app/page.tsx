@@ -8,6 +8,7 @@ import {
 import { HubEventCard } from "@/components/hub-event-card";
 import { HomeDiscoveryControls } from "@/components/home-discovery-controls";
 import { getDeliveredImageUrl } from "@/lib/cloudinary-image";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
   COUNTY_FILTERS,
   DIGEST_INTEREST_OPTIONS,
@@ -46,6 +47,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       : { sort: "asc" },
   );
   const subscribed = readSearchParam(params, "subscribed");
+  const digestError = readSearchParam(params, "digestError");
   const heroEvent = data.upcomingEvents.find((event) => event.imageUrl);
   const heroImageUrl = getDeliveredImageUrl(heroEvent?.imageUrl, {
     width: 1600,
@@ -148,10 +150,10 @@ export default async function HomePage({ searchParams }: PageProps) {
               </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
-              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming event series</p>
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming events</p>
               <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventSeriesCount}</p>
               <p className="mt-1 text-xs leading-5 text-white/75">
-                {data.upcomingDateCount} scheduled {data.upcomingDateCount === 1 ? "date" : "dates"} in this view
+                Across {data.upcomingDateCount} scheduled {data.upcomingDateCount === 1 ? "date" : "dates"}
               </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
@@ -349,7 +351,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <section id="digest" className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
           <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Weekly digest</p>
           <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Join the digest early-access list</h2>
@@ -360,6 +362,12 @@ export default async function HomePage({ searchParams }: PageProps) {
           {subscribed ? (
             <div className="mt-4 rounded-2xl border border-[color:var(--forest)]/20 bg-[color:var(--forest-soft)] p-4 text-sm text-[color:var(--forest)]">
               Your digest preferences were saved.
+            </div>
+          ) : null}
+
+          {digestError === "captcha" ? (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              Please complete the CAPTCHA and save your preferences again.
             </div>
           ) : null}
 
@@ -410,6 +418,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                 </label>
               ))}
             </fieldset>
+            <TurnstileWidget />
             <button type="submit" className="mt-2 btn btn-primary btn-md">
               Save digest preferences
             </button>
