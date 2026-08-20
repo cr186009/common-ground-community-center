@@ -49,6 +49,8 @@ export function getOwnedContentCount(source: CleanupSource) {
 function selectDuplicateWinner(sources: CleanupSource[]) {
   const canonicalName = managedNames.get(normalizeSourceName(sources[0].name));
   return [...sources].sort((left, right) => {
+    const activeDifference = Number(right.active) - Number(left.active);
+    if (activeDifference !== 0) return activeDifference;
     const leftCanonical = left.name === canonicalName ? 1 : 0;
     const rightCanonical = right.name === canonicalName ? 1 : 0;
     if (leftCanonical !== rightCanonical) return rightCanonical - leftCanonical;

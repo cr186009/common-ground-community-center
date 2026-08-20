@@ -387,6 +387,9 @@ export async function submitCommunityItemAction(formData: FormData) {
 }
 
 export async function subscribeDigestAction(formData: FormData) {
+  const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
+  if (!captchaValid) redirect("/?digestError=captcha#digest");
+
   const base = subscriberSchema.parse({
     email: getString(formData, "email"),
     city: getString(formData, "city") || undefined,
