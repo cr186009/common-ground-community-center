@@ -1,0 +1,1 @@
+ALTER TYPE "DateVerificationStatus" ADD VALUE IF NOT EXISTS 'SOURCE_LISTED';

@@ -5,6 +5,7 @@
   "description": "Local civic and community hub for Paulding County and Polk County, Georgia.",
   "scripts": {
     "sources:sync": "tsx scripts/sync-scraper-sources.ts",
+    "sources:rescan-plan": "node --import tsx scripts/plan-managed-rescan.ts",
     "sources:cleanup": "tsx scripts/cleanup-sources.ts",
     "dev": "next dev",
     "build": "next build",
@@ -21,6 +22,7 @@
     "events:audit": "node --import tsx scripts/audit-event-quality.ts",
     "events:audit-dates": "node --import tsx scripts/audit-event-dates.ts",
     "events:audit-verification": "node --import tsx scripts/audit-event-dates.ts",
+    "events:backfill-trust": "node --import tsx scripts/backfill-event-trust.ts",
     "qa:baseline": "node --import tsx scripts/audit-qa-baseline.ts",
     "test:meetings": "node --import tsx --test src/server/hub-scrapers/content-classifier.test.ts",
     "postinstall": "prisma generate"

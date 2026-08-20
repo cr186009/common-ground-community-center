@@ -28,7 +28,7 @@ export function summarizeVerificationStatuses(
 }
 
 export function needsVerificationReview(status: string) {
-  return status !== "VERIFIED" && status !== "MANUALLY_VERIFIED";
+  return status !== "VERIFIED" && status !== "MANUALLY_VERIFIED" && status !== "SOURCE_LISTED";
 }
 
 const PRIORITY_ORDER: Record<AuditPriority, number> = {

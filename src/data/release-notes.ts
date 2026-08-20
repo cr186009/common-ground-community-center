@@ -12,6 +12,20 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "clearer-source-listed-event-times",
+    publishedOn: "2026-08-20",
+    title: "Clearer confidence labels for event schedules",
+    summary:
+      "Common Ground now distinguishes a valid date and time published by an identifiable source from a schedule that has been independently confirmed.",
+    highlights: [
+      "Added a neutral source-listed status so valid legacy calendar dates no longer receive an unnecessary warning.",
+      "Kept independently confirmed and manually confirmed schedules clearly distinct from source-listed information.",
+      "Added a guarded backfill that previews every eligible record before any change can be applied.",
+      "Kept malformed ranges, cancellation or postponement language, invalid source links, and existing conflicts in the review queue.",
+      "Added a read-only managed-source rescan plan so administrators can review source coverage before refreshing records.",
+    ],
+  },
+  {
     slug: "county-first-discovery-and-safer-listings",
     publishedOn: "2026-08-19",
     title: "More local discovery and safer event labels",

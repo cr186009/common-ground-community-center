@@ -5,7 +5,8 @@ type VerificationStatus =
   | "MANUALLY_VERIFIED"
   | "CONFLICT"
   | "AMBIGUOUS"
-  | "MISSING_EVIDENCE";
+  | "MISSING_EVIDENCE"
+  | "SOURCE_LISTED";
 
 type Props = {
   dateStatus: VerificationStatus;
@@ -15,16 +16,16 @@ type Props = {
   compact?: boolean;
 };
 
-function isVerified(status: VerificationStatus) {
-  return status === "VERIFIED" || status === "MANUALLY_VERIFIED";
+function isSafeToDisplayWithoutWarning(status: VerificationStatus) {
+  return status === "VERIFIED" || status === "MANUALLY_VERIFIED" || status === "SOURCE_LISTED";
 }
 
 export function getVerificationNoticeLabel(
   dateStatus: VerificationStatus,
   timeStatus: VerificationStatus,
 ) {
-  const dateUnverified = !isVerified(dateStatus);
-  const timeUnverified = !isVerified(timeStatus);
+  const dateUnverified = !isSafeToDisplayWithoutWarning(dateStatus);
+  const timeUnverified = !isSafeToDisplayWithoutWarning(timeStatus);
   if (dateUnverified && timeUnverified) {
     return "Date not yet verified. Time listed by source; not independently verified";
   }

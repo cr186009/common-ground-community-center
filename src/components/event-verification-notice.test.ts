@@ -5,6 +5,7 @@ import { getVerificationNoticeLabel } from "./event-verification-notice";
 
 test("verified source times do not show a verification notice", () => {
   assert.equal(getVerificationNoticeLabel("VERIFIED", "VERIFIED"), null);
+  assert.equal(getVerificationNoticeLabel("SOURCE_LISTED", "SOURCE_LISTED"), null);
 });
 
 test("unverified source times are described without contradicting the listed time", () => {
