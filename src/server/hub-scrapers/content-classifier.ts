@@ -11,18 +11,39 @@ export type CanonicalContentType =
   | "alert"
   | "volunteer";
 
-const MEETING_TITLE_PATTERN =
-  /\b(?:board of commissioners|city council|county commission|planning (?:and|&) zoning|planning commission|zoning (?:board|hearing)|public hearing|work session|called meeting|regular meeting|special meeting|committee meeting|authority meeting)\b/i;
+const PUBLIC_BODY_TITLE_PATTERN =
+  /\b(?:board of commissioners|county commission(?:ers)?|city council|mayor and council|school board|board of education|planning (?:and|&) zoning|planning commission|zoning (?:board|hearing)|public hearing|(?:development|housing|airport|water(?: and sewer)?) authority meeting)\b/i;
+
+const EXPLICIT_MEETING_TITLE_PATTERN =
+  /\b(?:meeting|work session|public hearing)\b/i;
+
+const GOVERNMENT_MEETING_SOURCE_PATTERN =
+  /\b(?:public meetings?|city council|county commission(?:ers)?|board of (?:commissioners|education)|county government|planning (?:and|&) zoning)\b/i;
 
 export function classifyEventContent(
-  event: Pick<NormalizedScrapedEvent, "category" | "title" | "description">,
+  event: Pick<
+    NormalizedScrapedEvent,
+    "category" | "title" | "description" | "meetingDetails"
+  > & Partial<Pick<NormalizedScrapedEvent, "sourceName">>,
 ): CanonicalContentType {
-  if (event.category === "GOVERNMENT_MEETING") {
+  // A scraper can explicitly declare a normalized meeting either by assigning
+  // the canonical category or by supplying structured meeting metadata.
+  if (event.category === "GOVERNMENT_MEETING" || event.meetingDetails) {
     return "meeting";
   }
 
-  const text = `${event.title} ${event.description ?? ""}`;
-  return MEETING_TITLE_PATTERN.test(text) ? "meeting" : "event";
+  // Fall back only for titles that name a recognized public body/proceeding.
+  // Descriptions are deliberately excluded: community listings routinely use
+  // words such as board, commission, and meeting in unrelated senses.
+  if (PUBLIC_BODY_TITLE_PATTERN.test(event.title)) {
+    return "meeting";
+  }
+
+  const hasMeetingTitle = EXPLICIT_MEETING_TITLE_PATTERN.test(event.title);
+  const hasGovernmentSource = GOVERNMENT_MEETING_SOURCE_PATTERN.test(
+    event.sourceName ?? "",
+  );
+  return hasMeetingTitle && hasGovernmentSource ? "meeting" : "event";
 }
 
 export function inferMeetingType(text: string): MeetingType {

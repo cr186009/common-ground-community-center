@@ -5,6 +5,11 @@ export type GroupedEvent = {
   additionalOccurrences: Event[];
 };
 
+export type EventDiscoveryCounts = {
+  eventSeries: number;
+  upcomingDates: number;
+};
+
 function normalizeGroupingText(value: string | null | undefined) {
   return (value || "")
     .toLowerCase()
@@ -119,4 +124,13 @@ export function groupEventsForDisplay(
       first.event.startDateTime.getTime() -
       second.event.startDateTime.getTime(),
   );
+}
+
+export function countEventDiscoveryResults(
+  events: Event[],
+): EventDiscoveryCounts {
+  return {
+    eventSeries: groupEventsForDisplay(events).length,
+    upcomingDates: events.length,
+  };
 }

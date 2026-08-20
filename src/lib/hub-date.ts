@@ -86,11 +86,44 @@ export function parseCommunityDateTime(value: string) {
   const firstPass = new Date(civilAsUtc - timeZoneOffsetMilliseconds(initial));
   const result = new Date(civilAsUtc - timeZoneOffsetMilliseconds(firstPass));
 
-  if (dateKey(getCommunityParts(result)) !== `${year}-${month}-${day}`) {
+  const resultParts = getCommunityParts(result);
+  if (
+    dateKey(resultParts) !== `${year}-${month}-${day}` ||
+    resultParts.hour !== Number(hour) ||
+    resultParts.minute !== Number(minute) ||
+    resultParts.second !== Number(second)
+  ) {
     throw new Error(`Invalid local date and time: ${value}`);
   }
 
   return result;
+}
+
+/** Parse source-supplied calendar fields that represent Eastern civil time. */
+export function parseCommunityCivilDateTime(
+  date: string,
+  time = "00:00",
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+    throw new Error(`Invalid community civil date/time: ${date} ${time}`);
+  }
+
+  return parseCommunityDateTime(`${date}T${time}`);
+}
+
+/** Parse ISO-like source values, treating values without an offset as Eastern civil time. */
+export function parseCommunitySourceDateTime(value: string) {
+  const normalized = value.trim();
+  const local = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::(\d{2}))?)?$/.exec(normalized);
+  if (local) {
+    return parseCommunityCivilDateTime(local[1], `${local[2] ?? "00:00"}:${local[3] ?? "00"}`);
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid source date and time: ${value}`);
+  }
+  return parsed;
 }
 
 export function getCommunityDateKey(value: Date) {

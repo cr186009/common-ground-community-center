@@ -7,6 +7,7 @@ import {
   getMeetingStatus,
   inferMeetingType,
 } from "./content-classifier";
+import { inferCategory } from "./helpers";
 
 test("explicit government meeting category routes to meetings", () => {
   assert.equal(
@@ -35,6 +36,87 @@ test("strong civic titles route without relying on scraper category", () => {
       description: null,
     }),
     "event",
+  );
+});
+
+test("ordinary meeting and board language remains event content", () => {
+  for (const title of [
+    "Community board game night",
+    "Small business club meeting",
+    "Car show planning committee meeting",
+    "TTRPG special meeting at the library",
+  ]) {
+    assert.notEqual(inferCategory(title), "GOVERNMENT_MEETING", title);
+    assert.equal(
+      classifyEventContent({ category: "OTHER", title, description: null }),
+      "event",
+      title,
+    );
+  }
+});
+
+test("generic description language cannot promote an ordinary event", () => {
+  assert.equal(
+    classifyEventContent({
+      category: "OTHER",
+      title: "Neighborhood car show",
+      description: "The planning committee meeting will happen beforehand.",
+    }),
+    "event",
+  );
+});
+
+test("structured meeting metadata is an explicit meeting declaration", () => {
+  assert.equal(
+    classifyEventContent({
+      category: "OTHER",
+      title: "Monthly session",
+      description: null,
+      meetingDetails: {
+        governmentBody: "City of Dallas",
+        meetingType: "CITY_COUNCIL",
+      },
+    }),
+    "meeting",
+  );
+});
+
+test("explicit meeting title plus a government-meeting source remains a meeting", () => {
+  assert.equal(
+    classifyEventContent({
+      category: "OTHER",
+      title: "Regular Meeting",
+      description: null,
+      sourceName: "City of Hiram public meetings",
+    }),
+    "meeting",
+  );
+});
+
+test("a government source alone cannot promote an ordinary event", () => {
+  assert.equal(
+    classifyEventContent({
+      category: "OTHER",
+      title: "Community board game night",
+      description: null,
+      sourceName: "Paulding County Government calendar",
+    }),
+    "event",
+  );
+});
+
+test("canonical public bodies still infer government meeting category", () => {
+  assert.equal(
+    inferCategory("Paulding County Board of Commissioners Work Session"),
+    "GOVERNMENT_MEETING",
+  );
+  assert.equal(
+    inferCategory("Dallas City Council Regular Meeting"),
+    "GOVERNMENT_MEETING",
+  );
+  assert.equal(
+    inferCategory("Planning & Zoning public hearing"),
+    "GOVERNMENT_MEETING",
   );
 });
 

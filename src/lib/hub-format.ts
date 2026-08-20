@@ -145,15 +145,22 @@ export function createCalendarUrl(input: {
   location?: string | null;
   start: Date;
   end?: Date | null;
+  isAllDay?: boolean;
 }) {
-  const start = compactUtcDateTime(input.start);
+  const start = input.isAllDay
+    ? getCommunityDateKey(input.start).replace(/-/g, "")
+    : compactUtcDateTime(input.start);
   // Calendar providers expect a real interval. Source feeds frequently omit an
   // end time (or repeat the start time), so use a conservative one-hour default.
   const providedEnd = input.end;
   const effectiveEnd = providedEnd && providedEnd.getTime() > input.start.getTime()
     ? providedEnd
     : new Date(input.start.getTime() + 60 * 60 * 1000);
-  const end = compactUtcDateTime(effectiveEnd);
+  const end = input.isAllDay
+    ? (providedEnd && getCommunityDateKey(providedEnd) > getCommunityDateKey(input.start)
+      ? getCommunityDateKey(providedEnd)
+      : getTomorrowCommunityDateKey(input.start)).replace(/-/g, "")
+    : compactUtcDateTime(effectiveEnd);
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: input.title,

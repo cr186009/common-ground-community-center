@@ -16,6 +16,10 @@ import {
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
 import { classifyCommunityCoverage } from "@/lib/geographic-coverage";
 import {
+  countEventDiscoveryResults,
+  groupEventsForDisplay,
+} from "@/lib/hub-event-grouping";
+import {
   endOfCommunityDay,
   getCommunityDateKey,
   getCommunityWeekendRange,
@@ -138,7 +142,14 @@ export async function expireElapsedAlerts() {
   });
 }
 
-export async function getHomepageData() {
+/**
+ * Homepage discovery deliberately uses the public event filter contract. This
+ * keeps county and intent links aligned with /events instead of introducing a
+ * second filtering system for the homepage.
+ */
+export async function getHomepageData(
+  filters: PublicEventFilters = { sort: "asc" },
+) {
   await expireElapsedAlerts();
 
   const now = new Date();
@@ -146,8 +157,7 @@ export async function getHomepageData() {
 
   const [
     topAlert,
-    upcomingEvents,
-    upcomingEventCount,
+    matchingUpcomingEvents,
     coveredCommunities,
     lastSuccessfulScrape,
     weekendEvents,
@@ -155,25 +165,24 @@ export async function getHomepageData() {
     kidFriendlyEvents,
     upcomingMeetings,
     volunteerOpportunities,
+    worthTheDriveCandidates,
   ] = await Promise.all([
     prisma.alert.findMany({
-      where: { status: "ACTIVE" },
+      where: buildAlertWhere(
+        { county: filters.county },
+        "ACTIVE",
+      ),
       orderBy: [{ severity: "desc" }, { startsAt: "desc" }],
       take: 10,
     }),
 
     prisma.event.findMany({
-      where: buildEventWhere({ sort: "asc" }),
+      where: buildEventWhere(filters),
       orderBy: { startDateTime: "asc" },
-      take: 6,
-    }),
-
-    prisma.event.count({
-      where: buildEventWhere({ sort: "asc" }),
     }),
 
     prisma.event.findMany({
-      where: buildEventWhere({ sort: "asc" }),
+      where: buildEventWhere(filters),
       select: {
         city: true,
       },
@@ -194,7 +203,7 @@ export async function getHomepageData() {
 
     prisma.event.findMany({
       where: {
-        ...buildEventWhere({ sort: "asc" }),
+        ...buildEventWhere(filters),
         startDateTime: {
           gte: now > weekendStart ? now : weekendStart,
           lte: weekendEnd,
@@ -206,7 +215,7 @@ export async function getHomepageData() {
 
     prisma.event.findMany({
       where: {
-        ...buildEventWhere({ sort: "asc" }),
+        ...buildEventWhere(filters),
         OR: [
           { isFree: true },
           { cost: { contains: "cheap" } },
@@ -219,7 +228,7 @@ export async function getHomepageData() {
 
     prisma.event.findMany({
       where: {
-        ...buildEventWhere({ sort: "asc" }),
+        ...buildEventWhere(filters),
         isKidFriendly: true,
       },
       orderBy: { startDateTime: "asc" },
@@ -230,6 +239,7 @@ export async function getHomepageData() {
       where: {
         status: "UPCOMING",
         startDateTime: { gte: now },
+        ...(filters.county ? { county: filters.county } : {}),
       },
       orderBy: { startDateTime: "asc" },
       take: 4,
@@ -238,17 +248,53 @@ export async function getHomepageData() {
     prisma.volunteerOpportunity.findMany({
       where: {
         status: "OPEN",
+        ...(filters.county ? { county: filters.county } : {}),
         OR: [{ dateTime: null }, { dateTime: { gte: startOfCommunityDay(now) } }],
       },
       orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
       take: 4,
     }),
+
+    filters.county
+      ? prisma.event.findMany({
+          where: {
+            ...buildEventWhere({ ...filters, county: undefined }),
+            county: { not: filters.county },
+          },
+          orderBy: { startDateTime: "asc" },
+          // Fetch enough occurrences to avoid one recurring series crowding
+          // every other nearby suggestion out of this small secondary list.
+          take: 20,
+        })
+      : Promise.resolve([]),
   ]);
+
+  const upcomingEventGroups = groupEventsForDisplay(
+    matchingUpcomingEvents,
+  );
+  const upcomingEvents = upcomingEventGroups
+    .slice(0, 6)
+    .map((group) => group.event);
+  const discoveryCounts = countEventDiscoveryResults(
+    matchingUpcomingEvents,
+  );
+  const worthTheDriveEventGroups = groupEventsForDisplay(
+    worthTheDriveCandidates,
+  ).slice(0, 4);
 
   return {
     activeAlerts: topAlert,
     upcomingEvents,
-    upcomingEventCount,
+    // Keep the legacy name as the raw date count until all consumers migrate.
+    upcomingEventCount: discoveryCounts.upcomingDates,
+    upcomingDateCount: discoveryCounts.upcomingDates,
+    upcomingEventSeriesCount: discoveryCounts.eventSeries,
+    upcomingEventGroups,
+    worthTheDriveEventGroups,
+    worthTheDriveEvents: worthTheDriveEventGroups.map(
+      (group) => group.event,
+    ),
+    selectedCounty: filters.county ?? null,
     communitiesCovered: coveredCommunities.filter(
       (community) => community.city.trim().length > 0,
     ).length,

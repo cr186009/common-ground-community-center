@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 
+import { parseCommunitySourceDateTime } from "@/lib/hub-date";
+
 import {
   cleanText,
   dedupeNormalizedEvents,
@@ -96,31 +98,18 @@ function isDateOnlyValue(value?: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
 }
 
-function parseDate(value?: string) {
+export function parseHiramDate(value?: string) {
   if (!value) {
     return null;
   }
 
   const normalized = value.trim();
 
-  /*
-   * A date-only value is a calendar date rather than a specific
-   * moment. Store it at UTC noon so converting it to Eastern time
-   * cannot move it onto the previous calendar day.
-   */
-  if (isDateOnlyValue(normalized)) {
-    const [year, month, day] = normalized.split("-").map(Number);
-
-    const parsed = new Date(
-      Date.UTC(year, month - 1, day, 12, 0, 0),
-    );
-
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  try {
+    return parseCommunitySourceDateTime(normalized);
+  } catch {
+    return null;
   }
-
-  const parsed = new Date(normalized);
-
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function isUpcoming(date: Date, now: Date) {
@@ -169,7 +158,7 @@ export const hiramOfficialScraper: SourceScraper = {
 
     for (const item of calendarItems) {
       const title = cleanText(item.title);
-      const startDateTime = parseDate(item.start);
+      const startDateTime = parseHiramDate(item.start);
       const isAllDay =
         isDateOnlyValue(item.start) ||
         (Boolean(startDateTime) &&
@@ -191,7 +180,7 @@ export const hiramOfficialScraper: SourceScraper = {
         continue;
       }
 
-      const endDateTime = parseDate(item.end);
+      const endDateTime = parseHiramDate(item.end);
       const description = decodeDescription(item.desc);
       const locationName =
         cleanText(item.location) || "City of Hiram";

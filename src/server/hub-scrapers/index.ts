@@ -58,6 +58,7 @@ import {
 } from "@/server/hub-scrapers/quality";
 import { finalizeScrapeOutcome } from "@/server/scrape-health";
 import { verifyEventDateTime } from "@/server/hub-scrapers/date-verification";
+import { evaluateKidFriendlySafety } from "@/server/hub-scrapers/kid-friendly-classifier";
 import {
   classifyPreviewItem,
   type ExistingComparableItem,
@@ -158,6 +159,19 @@ export function normalizeSourceName(name: string) {
     .toLocaleLowerCase("en-US")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function parseStoredTags(value: string | null | undefined): string[] {
+  if (!value) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((tag): tag is string => typeof tag === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function buildScraperRegistry(scrapers: SourceScraper[]) {
@@ -458,11 +472,25 @@ async function upsertScrapedEvent(
    * Preserve a reviewed status when an existing event has already
    * been approved, rejected, or archived.
    */
-  const status = verification.date.status === "CONFLICT" || verification.time.status === "CONFLICT" || verification.hardConflict
-    ? "PENDING"
-    : existing && existing.status !== "PENDING"
-      ? existing.status
-      : eventStatusForConfidence(event.confidenceScore, event.status);
+  const kidFriendlySafety = evaluateKidFriendlySafety({
+    title: event.title,
+    description:
+      event.description !== undefined
+        ? event.description
+        : existing?.description,
+    tags:
+      event.tags !== undefined ? event.tags : parseStoredTags(existing?.tags),
+    isKidFriendly: event.isKidFriendly ?? existing?.isKidFriendly ?? false,
+  });
+  const status =
+    verification.date.status === "CONFLICT" ||
+    verification.time.status === "CONFLICT" ||
+    verification.hardConflict ||
+    kidFriendlySafety.hasConflict
+      ? "PENDING"
+      : existing && existing.status !== "PENDING"
+        ? existing.status
+        : eventStatusForConfidence(event.confidenceScore, event.status);
 
   const data = {
     title: applyKnownTitleCorrections(
@@ -487,7 +515,7 @@ async function upsertScrapedEvent(
         : (existing?.tags ?? "[]"),
     cost: event.cost ?? existing?.cost ?? null,
     isFree: event.isFree ?? existing?.isFree ?? false,
-    isKidFriendly: event.isKidFriendly ?? existing?.isKidFriendly ?? false,
+    isKidFriendly: kidFriendlySafety.decision,
     isOutdoor: event.isOutdoor ?? existing?.isOutdoor ?? false,
     // When two calendars publish the same event, retain the attribution of the
     // record that reached the hub first instead of creating or relabeling it.

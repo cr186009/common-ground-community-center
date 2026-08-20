@@ -1,9 +1,12 @@
 import * as cheerio from "cheerio";
 import {
   addMonths,
-  isValid,
-  parse,
 } from "date-fns";
+
+import {
+  getCommunityDateKey,
+  parseCommunityCivilDateTime,
+} from "@/lib/hub-date";
 
 import {
   cleanText,
@@ -61,10 +64,11 @@ function findEventDate(text: string): Date | null {
   );
 
   if (isoMatch) {
-    const parsedIso = new Date(isoMatch[1]);
-
-    if (!Number.isNaN(parsedIso.getTime())) {
-      return parsedIso;
+    const [, value] = isoMatch;
+    try {
+      return parseCommunityCivilDateTime(value.slice(0, 10), value.slice(11));
+    } catch {
+      return null;
     }
   }
 
@@ -77,24 +81,39 @@ function findEventDate(text: string): Date | null {
     /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+20\d{2},?\s+\d{1,2}:\d{2}\s*(?:AM|PM)\b/i,
   );
 
-  if (!readableMatch) {
-    return null;
+  if (readableMatch) {
+    const parts = /^(\w+)\s+(\d{1,2}),\s+(20\d{2}),?\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(readableMatch[0]);
+    if (!parts) return null;
+    const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    const month = months.indexOf(parts[1].toLowerCase()) + 1;
+    let hour = Number(parts[4]) % 12;
+    if (parts[6].toUpperCase() === "PM") hour += 12;
+    try {
+      return parseCommunityCivilDateTime(
+        `${parts[3]}-${String(month).padStart(2, "0")}-${parts[2].padStart(2, "0")}`,
+        `${String(hour).padStart(2, "0")}:${parts[5]}`,
+      );
+    } catch {
+      return null;
+    }
   }
 
-  const dateText = readableMatch[0].replace(
-    /,\s+(?=\d{1,2}:\d{2})/,
-    " ",
+  const dateOnlyMatch = normalizedText.match(
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(20\d{2})\b/i,
   );
+  if (!dateOnlyMatch) return null;
+  const month = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(dateOnlyMatch[1].toLowerCase()) + 1;
+  try {
+    return parseCommunityCivilDateTime(`${dateOnlyMatch[3]}-${String(month).padStart(2, "0")}-${dateOnlyMatch[2].padStart(2, "0")}`);
+  } catch {
+    return null;
+  }
+}
 
-  const parsedDate = parse(
-    dateText,
-    "MMMM d, yyyy h:mm a",
-    new Date(),
-  );
-
-  return isValid(parsedDate)
-    ? parsedDate
-    : null;
+function isAllDayDate(text: string) {
+  const normalized = normalizeDateText(text);
+  return !/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i.test(normalized) &&
+    /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+20\d{2}\b/i.test(normalized);
 }
 
 function findEventEndDate(
@@ -111,40 +130,25 @@ function findEventEndDate(
     return null;
   }
 
-  const endTime = parse(
-    timeRangeMatch[1],
-    "h:mm a",
-    startDateTime,
-  );
-
-  if (!isValid(endTime)) {
+  const time = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(timeRangeMatch[1]);
+  if (!time) return null;
+  let hour = Number(time[1]) % 12;
+  if (time[3].toUpperCase() === "PM") hour += 12;
+  try {
+    return parseCommunityCivilDateTime(
+      getCommunityDateKey(startDateTime),
+      `${String(hour).padStart(2, "0")}:${time[2]}`,
+    );
+  } catch {
     return null;
   }
-
-  /*
-   * Preserve the event's calendar date because date-fns parse()
-   * uses the provided start date as its reference.
-   */
-  return new Date(
-    startDateTime.getFullYear(),
-    startDateTime.getMonth(),
-    startDateTime.getDate(),
-    endTime.getHours(),
-    endTime.getMinutes(),
-  );
 }
 
 function isPastEvent(
   date: Date,
   now: Date,
 ): boolean {
-  const today = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-
-  return date < today;
+  return getCommunityDateKey(date) < getCommunityDateKey(now);
 }
 
 function getEventIdFromHref(
@@ -451,6 +455,7 @@ export function parseCalendarPage(
       containerText,
       startDateTime,
     );
+    const isAllDay = isAllDayDate(containerText);
 
     const description = findDescription(
       eventContainer,
@@ -479,6 +484,8 @@ export function parseCalendarPage(
       description,
       startDateTime,
       endDateTime,
+      isAllDay,
+      timeZone: "America/New_York",
       locationName,
       address: null,
       city: "Dallas",

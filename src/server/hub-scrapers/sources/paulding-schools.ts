@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 
+import { parseCommunitySourceDateTime } from "@/lib/hub-date";
+
 import { cleanText, dedupeNormalizedEvents, fetchSourceHtml } from "@/server/hub-scrapers/helpers";
 import type { NormalizedScrapedEvent, SourceScraper } from "@/server/hub-scrapers/types";
 
@@ -20,11 +22,16 @@ export function parsePauldingSchoolsHomepage(
       ?? root.find("time.fsDate").attr("datetime");
     if (!title || !occurrenceId || !startText) return;
 
-    const startDateTime = new Date(startText);
-    const endText = root.find("time.fsEndTime").attr("datetime");
-    const endDateTime = endText ? new Date(endText) : null;
-    if (Number.isNaN(startDateTime.getTime()) || startDateTime < now) return;
-    if (endDateTime && Number.isNaN(endDateTime.getTime())) return;
+    let startDateTime: Date;
+    let endDateTime: Date | null;
+    try {
+      startDateTime = parseCommunitySourceDateTime(startText);
+      const endText = root.find("time.fsEndTime").attr("datetime");
+      endDateTime = endText ? parseCommunitySourceDateTime(endText) : null;
+    } catch {
+      return;
+    }
+    if (startDateTime < now) return;
 
     const locationName = cleanText(root.find(".fsLocation").text()) || null;
     const isAllDay = root.find(".fsAllDay").length > 0;

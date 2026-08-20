@@ -12,6 +12,21 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    slug: "county-first-discovery-and-safer-listings",
+    publishedOn: "2026-08-19",
+    title: "More local discovery and safer event labels",
+    summary:
+      "Common Ground now makes it easier to start with your county while applying stronger safeguards to event times, public meetings, and family-friendly recommendations.",
+    highlights: [
+      "Added county-first homepage browsing for Paulding, Polk, Cobb, Bartow, and Cherokee, with an easy way to return to all nearby counties.",
+      "Added shortcuts for tonight, this weekend, the next seven days, free events, kids’ activities, music, outdoor plans, food and drink, and public meetings.",
+      "Separated local results from a new “Worth the drive” section and clarified the difference between event series and upcoming dates.",
+      "Corrected Eastern Time and all-day handling for key Paulding-area calendars and improved calendar-link accuracy.",
+      "Strengthened safeguards so ordinary clubs and entertainment do not appear as government meetings and mature-content events are not promoted as kid-friendly.",
+      "Made it easier to submit a missing event or volunteer opportunity with the selected community carried into the review form.",
+    ],
+  },
+  {
     slug: "modular-community-coverage-profiles",
     publishedOn: "2026-08-14",
     title: "Reusable coverage profiles for more communities",

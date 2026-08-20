@@ -142,6 +142,7 @@ export function HubEventCard({
                           .join(", "),
                         start: occurrence.startDateTime,
                         end: occurrence.endDateTime,
+                        isAllDay: occurrence.isAllDay,
                       })}
                       target="_blank"
                       rel="noreferrer"
@@ -221,6 +222,7 @@ export function HubEventCard({
                   .join(", "),
                 start: event.startDateTime,
                 end: event.endDateTime,
+                isAllDay: event.isAllDay,
               })}
               target="_blank"
               rel="noreferrer"

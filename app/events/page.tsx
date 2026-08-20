@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import Link from "next/link";
 
 import { HubCalendarGrid } from "@/components/hub-calendar-grid";
 import { HubEventCard } from "@/components/hub-event-card";
@@ -7,6 +8,7 @@ import { HubFilterForm } from "@/components/hub-filter-form";
 import { groupEventsForDisplay } from "@/lib/hub-event-grouping";
 import { formatTimestamp } from "@/lib/hub-format";
 import { mapEventsToApproximatePoints } from "@/lib/event-map";
+import { buildSubmissionHref } from "@/lib/submission-context";
 import {
   parsePublicFilters,
   readSearchParam,
@@ -125,11 +127,43 @@ export default async function EventsPage({
       )}
 
       {events.length === 0 ? (
-        <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8 text-sm text-slate-600">
-          No approved events matched the current filters.
-          Try broadening the search or checking the
-          activities page too.
+        <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8">
+          <p className="text-sm text-slate-600">
+            No approved events matched the current filters. Try broadening the
+            search or checking the activities page too.
+          </p>
+          <p className="mt-4 text-sm font-medium text-[color:var(--navy)]">
+            Something missing?{" "}
+            <Link
+              href={buildSubmissionHref({
+                city: filters.city,
+                county: filters.county,
+                submissionType: "EVENT",
+              })}
+              className="underline decoration-[color:var(--amber)] decoration-2 underline-offset-4"
+            >
+              Submit an event for review.
+            </Link>
+          </p>
         </div>
+      ) : null}
+
+      {events.length > 0 && filters.county ? (
+        <aside className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 text-sm text-slate-700">
+          <span className="font-semibold text-[color:var(--navy)]">
+            Something missing in {filters.county} County?
+          </span>{" "}
+          <Link
+            href={buildSubmissionHref({
+              city: filters.city,
+              county: filters.county,
+              submissionType: "EVENT",
+            })}
+            className="font-medium underline decoration-[color:var(--amber)] decoration-2 underline-offset-4"
+          >
+            Add it to the community review queue.
+          </Link>
+        </aside>
       ) : null}
     </div>
   );

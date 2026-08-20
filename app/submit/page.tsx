@@ -4,6 +4,7 @@ import {
   SUBMISSION_TYPE_OPTIONS,
 } from "@/lib/hub-constants";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
+import { parseSubmissionContext } from "@/lib/submission-context";
 import { submitCommunityItemAction } from "@/server/hub-actions";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 
@@ -15,6 +16,7 @@ export default async function SubmitPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const success = readSearchParam(params, "success");
   const error = readSearchParam(params, "error");
+  const context = parseSubmissionContext(params);
 
   return (
     <div className="space-y-6">
@@ -41,7 +43,7 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         <input name="submitterName" placeholder="Your name" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
         <input name="submitterEmail" type="email" placeholder="Your email" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
 
-        <select name="submissionType" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
+        <select name="submissionType" defaultValue={context.submissionType ?? "EVENT"} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
           {SUBMISSION_TYPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -63,8 +65,8 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         <input name="endDateTime" type="datetime-local" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
         <input name="locationName" placeholder="Location name" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
         <input name="address" placeholder="Street address" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
-        <input name="city" placeholder="City" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
-        <select name="county" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required>
+        <input name="city" defaultValue={context.city} placeholder="City" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
+        <select name="county" defaultValue={context.county ?? COUNTY_FILTERS[0]} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required>
           {COUNTY_FILTERS.map((county) => (
             <option key={county} value={county}>
               {county}

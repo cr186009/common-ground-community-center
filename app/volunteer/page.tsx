@@ -1,6 +1,9 @@
+import Link from "next/link";
+
 import { CITY_FILTERS, COUNTY_FILTERS } from "@/lib/hub-constants";
 import { formatDateTimeRange } from "@/lib/hub-format";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
+import { buildSubmissionHref } from "@/lib/submission-context";
 import { getVolunteerOpportunities } from "@/server/hub-data";
 
 type PageProps = {
@@ -54,8 +57,27 @@ export default async function VolunteerPage({ searchParams }: PageProps) {
           <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Open opportunities</h2>
         </div>
         {current.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8 text-sm text-slate-600">
-            No current volunteer opportunities match these filters.
+          <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8">
+            <p className="text-sm text-slate-600">
+              No current volunteer opportunities match these filters.
+            </p>
+            <h3 className="mt-3 font-serif text-2xl text-[color:var(--navy)]">
+              Know somewhere that needs volunteers?
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Share the need with neighbors. Submissions are reviewed before
+              they appear publicly.
+            </p>
+            <Link
+              href={buildSubmissionHref({
+                city,
+                county,
+                submissionType: "VOLUNTEER",
+              })}
+              className="mt-4 inline-flex btn btn-primary btn-md"
+            >
+              Submit a volunteer opportunity
+            </Link>
           </div>
         ) : null}
         <div className="grid gap-4 md:grid-cols-2">

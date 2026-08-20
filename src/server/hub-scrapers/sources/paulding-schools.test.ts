@@ -31,3 +31,13 @@ test("Paulding Schools preserves all-day district calendar items", () => {
   assert.equal(event.isAllDay, true);
   assert.equal(event.category, "SCHOOL");
 });
+
+test("Paulding Schools treats offset-free timestamps as Eastern civil time", () => {
+  const [event] = parsePauldingSchoolsHomepage(`<div class="fsCalendar"><div class="fsListItems"><article>
+    <div class="fsTitle"><a class="fsCalendarEventLink" data-occur-id="3">Open House</a></div>
+    <time class="fsStartTime" datetime="2026-08-20T08:30:00"></time>
+    <time class="fsEndTime" datetime="2026-08-20T10:00:00"></time>
+  </article></div></div>`, source, new Date("2026-08-14T00:00:00Z"));
+  assert.equal(event.startDateTime.toISOString(), "2026-08-20T12:30:00.000Z");
+  assert.equal(event.endDateTime?.toISOString(), "2026-08-20T14:00:00.000Z");
+});

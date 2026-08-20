@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { addDays } from "date-fns";
 
 import {
   CollapsibleAlertBanner,
   type AlertBannerItem,
 } from "@/components/collapsible-alert-banner";
 import { HubEventCard } from "@/components/hub-event-card";
-import { groupEventsForDisplay } from "@/lib/hub-event-grouping";
+import { HomeDiscoveryControls } from "@/components/home-discovery-controls";
 import { getDeliveredImageUrl } from "@/lib/cloudinary-image";
 import {
   COUNTY_FILTERS,
@@ -15,11 +16,14 @@ import {
 } from "@/lib/hub-constants";
 import {
   formatDateTimeRange,
-  formatFriendlyDate,
   formatTimestamp,
   getAlertSeverityLabel,
   getAlertTypeLabel,
 } from "@/lib/hub-format";
+import {
+  getCommunityDateKey,
+  getCommunityWeekendRange,
+} from "@/lib/hub-date";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
 import { subscribeDigestAction } from "@/server/hub-actions";
 import { getHomepageData } from "@/server/hub-data";
@@ -30,14 +34,56 @@ type PageProps = {
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const data = await getHomepageData();
+  const requestedCounty = readSearchParam(params, "county") || "";
+  const selectedCounty = COUNTY_FILTERS.includes(
+    requestedCounty as (typeof COUNTY_FILTERS)[number],
+  )
+    ? requestedCounty
+    : "";
+  const data = await getHomepageData(
+    selectedCounty
+      ? { county: selectedCounty, sort: "asc" }
+      : { sort: "asc" },
+  );
   const subscribed = readSearchParam(params, "subscribed");
   const heroEvent = data.upcomingEvents.find((event) => event.imageUrl);
   const heroImageUrl = getDeliveredImageUrl(heroEvent?.imageUrl, {
     width: 1600,
     height: 800,
   });
-  const groupedUpcomingEvents = groupEventsForDisplay(data.upcomingEvents);
+  const allLocalEventGroups = data.upcomingEventGroups;
+  const localEventGroups = allLocalEventGroups.slice(0, 6);
+  const worthTheDriveGroups = selectedCounty
+    ? data.worthTheDriveEventGroups.slice(0, 3)
+    : [];
+  const localDateCount = data.upcomingDateCount;
+  const now = new Date();
+  const today = getCommunityDateKey(now);
+  const nextWeek = getCommunityDateKey(addDays(now, 7));
+  const weekend = getCommunityWeekendRange(now);
+  const countyQuery = selectedCounty
+    ? `county=${encodeURIComponent(selectedCounty)}&`
+    : "";
+  const intentOptions = [
+    {
+      label: "Tonight",
+      href: `/events?${countyQuery}from=${encodeURIComponent(now.toISOString())}&to=${today}`,
+    },
+    {
+      label: "This Weekend",
+      href: `/events?${countyQuery}from=${getCommunityDateKey(weekend.start)}&to=${getCommunityDateKey(weekend.end)}`,
+    },
+    { label: "Next 7 Days", href: `/events?${countyQuery}from=${today}&to=${nextWeek}` },
+    { label: "Free", href: `/events?${countyQuery}free=1` },
+    { label: "Kids", href: `/events?${countyQuery}kids=1` },
+    { label: "Live Music", href: `/events?${countyQuery}category=MUSIC` },
+    { label: "Outdoors", href: `/events?${countyQuery}outdoor=1` },
+    { label: "Food & Drink", href: `/events?${countyQuery}category=FOOD_DRINK` },
+    {
+      label: "Public Meetings",
+      href: `/meetings${selectedCounty ? `?county=${encodeURIComponent(selectedCounty)}` : ""}`,
+    },
+  ];
   const urgentAlerts = data.activeAlerts.filter(
     (alert) => alert.severity === "HIGH" || alert.severity === "EMERGENCY",
   );
@@ -103,8 +149,10 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
               <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming listings</p>
-              <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventCount}</p>
-              <p className="mt-1 text-xs leading-5 text-white/75">Approved events currently scheduled for future dates.</p>
+              <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventSeriesCount}</p>
+              <p className="mt-1 text-xs leading-5 text-white/75">
+                Event series · {data.upcomingDateCount} upcoming dates
+              </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
               <p className="text-sm uppercase tracking-[0.14em] text-white/70">Cities represented</p>
@@ -117,26 +165,55 @@ export default async function HomePage({ searchParams }: PageProps) {
 
       <CollapsibleAlertBanner alerts={toBannerItems(nonUrgentAlerts)} />
 
-      <section className="space-y-6">
+      <section className="space-y-8" id="discover">
+        <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-[color:var(--gold-soft)]/30 p-6 sm:p-8">
+          <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
+            Find something nearby
+          </p>
+          <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)] sm:text-4xl">
+            What do you want to do?
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Pick your county, then jump straight to the time or kind of outing you have in mind.
+          </p>
+          <div className="mt-6">
+            <HomeDiscoveryControls
+              selectedCounty={selectedCounty}
+              counties={[
+                { label: "All", value: "", href: "/#discover" },
+                ...COUNTY_FILTERS.map((county) => ({
+                  label: county,
+                  value: county,
+                  href: `/?county=${encodeURIComponent(county)}#discover`,
+                })),
+              ]}
+              intents={intentOptions}
+            />
+          </div>
+        </div>
+
         <div className="space-y-6">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
-                Upcoming events
+                {selectedCounty ? `${selectedCounty} County` : "All nearby counties"}
               </p>
               <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">
-                Coming up soon
+                Coming up near you
               </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                {allLocalEventGroups.length} event series · {localDateCount} upcoming {localDateCount === 1 ? "date" : "dates"}
+              </p>
             </div>
             <Link
-              href="/events"
+              href={`/events${selectedCounty ? `?county=${encodeURIComponent(selectedCounty)}` : ""}`}
               className="text-sm font-semibold text-[color:var(--forest)] hover:text-[color:var(--forest-dark)]"
             >
               View all events
             </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {groupedUpcomingEvents.map(({ event, additionalOccurrences }) => (
+            {localEventGroups.map(({ event, additionalOccurrences }) => (
               <HubEventCard
                 key={event.id}
                 event={event}
@@ -144,113 +221,36 @@ export default async function HomePage({ searchParams }: PageProps) {
               />
             ))}
           </div>
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.14em] text-slate-500">
-                  This weekend
-                </p>
-                <h2 className="mt-2 font-serif text-2xl text-[color:var(--navy)]">
-                  Quick family plans
-                </h2>
-              </div>
-              <Link
-                href="/activities"
-                className="text-sm font-semibold text-[color:var(--forest)]"
-              >
-                Activities
+          {localEventGroups.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white p-6 text-sm text-slate-600">
+              No upcoming listings are available for this county yet. Know about one?{" "}
+              <Link href={`/submit${selectedCounty ? `?county=${encodeURIComponent(selectedCounty)}` : ""}`} className="font-semibold text-[color:var(--forest)]">
+                Add it.
               </Link>
             </div>
-            <div className="mt-5 space-y-3">
-              {data.weekendEvents.length === 0 ? (
-                <p className="text-sm text-slate-600">
-                  Weekend picks will appear here as new events are added.
-                </p>
-              ) : (
-                data.weekendEvents.map((event) => (
-                  <div key={event.id} className="rounded-2xl bg-stone-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      {formatFriendlyDate(event.startDateTime, event.isAllDay)}
-                    </p>
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="mt-2 block font-semibold text-[color:var(--navy)]"
-                    >
-                      {event.title}
-                    </Link>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {[event.locationName, event.city]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
-            <h2 className="font-serif text-2xl text-[color:var(--navy)]">
-              Free & cheap
-            </h2>
-            <div className="mt-5 space-y-3">
-              {data.freeEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-start justify-between gap-3 rounded-2xl bg-[color:var(--gold-soft)]/50 p-4"
-                >
-                  <div>
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="font-semibold text-[color:var(--navy)]"
-                    >
-                      {event.title}
-                    </Link>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {formatDateTimeRange(
-                        event.startDateTime,
-                        event.endDateTime,
-                        event.isAllDay,
-                      )}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                    {event.cost || "Free"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6">
-            <h2 className="font-serif text-2xl text-[color:var(--navy)]">
-              Kid-friendly picks
-            </h2>
-            <div className="mt-5 space-y-3">
-              {data.kidFriendlyEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-2xl bg-[color:var(--forest-soft)]/55 p-4"
-                >
-                  <Link
-                    href={`/events/${event.id}`}
-                    className="font-semibold text-[color:var(--navy)]"
-                  >
-                    {event.title}
-                  </Link>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {[event.locationName, event.city]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+          ) : null}
         </div>
+
+        {selectedCounty ? (
+          <div className="rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6 sm:p-8">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Nearby counties</p>
+                <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Worth the drive</h2>
+              </div>
+              <Link href="/events" className="text-sm font-semibold text-[color:var(--forest)]">See all nearby</Link>
+            </div>
+            {worthTheDriveGroups.length > 0 ? (
+              <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {worthTheDriveGroups.map(({ event, additionalOccurrences }) => (
+                  <HubEventCard key={event.id} event={event} additionalOccurrences={additionalOccurrences} />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-600">Explore all counties to see more events across the region.</p>
+            )}
+          </div>
+        ) : null}
       </section>
 
       {data.upcomingMeetings.length > 0 ||

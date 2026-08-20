@@ -163,7 +163,15 @@ export function toAbsoluteUrl(baseUrl: string, input: string | null | undefined)
 export function inferCategory(text: string): Category {
   const value = text.toLowerCase();
 
-  if (/(meeting|council|commission|board|hearing|zoning)/.test(value)) {
+  // Do not treat generic uses of "meeting" or "board" as government evidence.
+  // Those words are common in business clubs, tabletop games, and community
+  // events. Only infer this category from a named public body or a civic
+  // proceeding that is unambiguous without source-specific context.
+  if (
+    /\b(?:board of commissioners|county commission(?:ers)?|city council|mayor and council|school board|board of education|planning (?:and|&) zoning|planning commission|zoning (?:board|hearing)|public hearing|(?:development|housing|airport|water(?: and sewer)?) authority meeting)\b/.test(
+      value,
+    )
+  ) {
     return "GOVERNMENT_MEETING";
   }
 

@@ -3,7 +3,10 @@ import test from "node:test";
 
 import type { Event } from "@prisma/client";
 
-import { groupEventsForDisplay } from "./hub-event-grouping";
+import {
+  countEventDiscoveryResults,
+  groupEventsForDisplay,
+} from "./hub-event-grouping";
 
 function event(overrides: Partial<Event> = {}): Event {
   const now = new Date("2026-08-14T12:00:00.000Z");
@@ -53,4 +56,17 @@ test("collapses duplicate records for the same recurring occurrence", () => {
 
   assert.equal(group.event.id, "one");
   assert.deepEqual(group.additionalOccurrences.map((item) => item.id), ["later"]);
+});
+
+test("distinguishes event series from upcoming date records", () => {
+  const events = [
+    event(),
+    event({ id: "later", startDateTime: new Date("2026-08-22T22:00:00.000Z") }),
+    event({ id: "different", title: "Farmers Market" }),
+  ];
+
+  assert.deepEqual(countEventDiscoveryResults(events), {
+    eventSeries: 2,
+    upcomingDates: 3,
+  });
 });
