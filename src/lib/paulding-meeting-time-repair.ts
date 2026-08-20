@@ -27,6 +27,11 @@ export function planPauldingMeetingTimeRepair(
   const actions: PauldingMeetingRepairAction[] = [];
   for (const record of records) {
     if (record.lastSeenAt >= correctedParserDeployedAt) continue;
+    // The broken parser stored the official local wall-clock hour directly as
+    // UTC. Once repaired, these known morning meetings have UTC afternoon
+    // instants. This guard makes the one-time repair idempotent even though a
+    // data correction should not pretend the source was freshly scraped.
+    if (record.startDateTime.getUTCHours() >= 12) continue;
     const identity = getSourceItemIdentity(record.originalUrl);
     if (!identity) continue;
 

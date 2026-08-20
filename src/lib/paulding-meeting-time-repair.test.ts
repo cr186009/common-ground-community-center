@@ -24,3 +24,10 @@ test("corrects an unmatched stale winter row using the Eastern standard-time off
     assert.equal(action.endDateTime?.toISOString(), "2026-11-18T15:00:00.000Z");
   }
 });
+
+test("does not shift an already repaired row a second time", () => {
+  const actions = planPauldingMeetingTimeRepair([
+    { id: "repaired", title: "WSAB Meeting", startDateTime: new Date("2026-11-18T13:30:00Z"), endDateTime: new Date("2026-11-18T15:00:00Z"), originalUrl: "https://www.paulding.gov/Calendar.aspx?EID=1840&day=13", lastSeenAt: new Date("2026-08-13T20:00:00Z") },
+  ], cutoff);
+  assert.deepEqual(actions, []);
+});
