@@ -1,5 +1,7 @@
 import type { AlertType, Category, MeetingType, SourceType } from "@prisma/client";
 
+import { parseCommunityDateTime } from "@/lib/hub-date";
+
 const CATEGORY_VALUES = new Set([
   "FAMILY",
   "PARKS_RECREATION",
@@ -103,7 +105,9 @@ function parseDate(value: string | undefined) {
     return undefined;
   }
 
-  const date = new Date(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? parseCommunityDateTime(`${value}T00:00`)
+    : new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 

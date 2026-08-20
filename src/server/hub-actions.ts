@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { parseCommunityDateTime } from "@/lib/hub-date";
 import {
   clearAdminSession,
   createAdminSession,
@@ -27,10 +28,19 @@ import {
   scrapeSingleSourceById,
 } from "@/server/hub-scrapers";
 import {
+  pauseSource,
+  restoreSource,
+  retireSource,
+} from "@/server/source-lifecycle";
+import {
   assignFallbackImageToEvent,
   assignFallbackImagesToMissingEvents,
 } from "@/server/pexels";
 import { generateMeetingPlainEnglishSummary } from "@/services/meeting-summary-service";
+import { cleanExactEventDuplicates } from "@/server/event-deduplication";
+import { verifyCaptcha } from "@/server/captcha";
+import { notifyOwnerSafely } from "@/server/notifications";
+import { normalizeInterestEmail, normalizePublicFirstName } from "@/lib/event-interest";
 
 const CATEGORY_VALUES = [
   "FAMILY",
@@ -182,7 +192,9 @@ function parseDate(value?: string) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)
+    ? parseCommunityDateTime(value)
+    : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     throw new Error(`Invalid date: ${value}`);
   }
@@ -324,6 +336,11 @@ function revalidateAll() {
 }
 
 export async function submitCommunityItemAction(formData: FormData) {
+  const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
+  if (!captchaValid) {
+    redirect("/submit?error=captcha");
+  }
+
   const payload = parseEventPayload(formData);
   const submitterName = getString(formData, "submitterName");
   const submitterEmail = getString(formData, "submitterEmail");
@@ -333,8 +350,9 @@ export async function submitCommunityItemAction(formData: FormData) {
     throw new Error("Submitter information is required.");
   }
 
-  await prisma.submittedEvent.create({
+  const submission = await prisma.submittedEvent.create({
     data: {
+      
       submitterName,
       submitterEmail,
       submissionType: submissionType as SubmissionType,
@@ -352,6 +370,18 @@ export async function submitCommunityItemAction(formData: FormData) {
     },
   });
 
+  await notifyOwnerSafely({
+    subject: `New community submission: ${submission.title}`,
+    text: [
+      `A new ${submission.submissionType.toLocaleLowerCase("en-US")} was submitted for moderation.`,
+      `Title: ${submission.title}`,
+      `Submitted by: ${submission.submitterName} <${submission.submitterEmail}>`,
+      `Starts: ${submission.startDateTime.toISOString()}`,
+      `Location: ${[submission.locationName, submission.city, submission.county].filter(Boolean).join(", ")}`,
+      `Submission ID: ${submission.id}`,
+    ].join("\n"),
+  });
+
   revalidatePath("/admin");
   redirect("/submit?success=1");
 }
@@ -364,7 +394,8 @@ export async function subscribeDigestAction(formData: FormData) {
   });
   const interests = formData.getAll("interests").map((entry) => String(entry));
 
-  await prisma.subscriber.upsert({
+  const existing = await prisma.subscriber.findUnique({ where: { email: base.email } });
+  const subscriber = await prisma.subscriber.upsert({
     where: { email: base.email },
     update: {
       city: base.city ?? null,
@@ -381,8 +412,61 @@ export async function subscribeDigestAction(formData: FormData) {
     },
   });
 
+  await notifyOwnerSafely({
+    subject: `${existing ? "Updated" : "New"} weekly digest registration`,
+    text: [
+      `Email: ${subscriber.email}`,
+      `City: ${subscriber.city || "Any"}`,
+      `County: ${subscriber.county || "Any"}`,
+      `Interests: ${interests.length ? interests.join(", ") : "All"}`,
+      `Subscriber ID: ${subscriber.id}`,
+    ].join("\n"),
+  });
+
   revalidatePath("/");
   redirect("/?subscribed=1");
+}
+
+export async function registerEventInterestAction(formData: FormData) {
+  const eventId = getString(formData, "eventId");
+  const email = normalizeInterestEmail(getString(formData, "email"));
+  const displayName = normalizePublicFirstName(getString(formData, "displayName"));
+  const showNamePublicly = getBoolean(formData, "showNamePublicly") && Boolean(displayName);
+  const reminderRequested = getBoolean(formData, "reminderRequested");
+  const captchaValid = await verifyCaptcha(getString(formData, "cf-turnstile-response"));
+
+  if (!captchaValid) redirect(`/events/${encodeURIComponent(eventId)}?interestError=captcha`);
+
+  const parsed = z.object({ eventId: z.string().min(1), email: z.string().email() }).parse({ eventId, email });
+  const event = await prisma.event.findFirst({
+    where: {
+      id: parsed.eventId,
+      status: "APPROVED",
+      dateVerificationStatus: { not: "CONFLICT" },
+      timeVerificationStatus: { not: "CONFLICT" },
+    },
+    select: { id: true, title: true },
+  });
+  if (!event) redirect("/events");
+
+  const existing = await prisma.eventInterest.findUnique({
+    where: { eventId_email: { eventId: event.id, email: parsed.email } },
+  });
+  await prisma.eventInterest.upsert({
+    where: { eventId_email: { eventId: event.id, email: parsed.email } },
+    update: { displayName: displayName || null, showNamePublicly, reminderRequested },
+    create: { eventId: event.id, email: parsed.email, displayName: displayName || null, showNamePublicly, reminderRequested },
+  });
+
+  if (!existing) {
+    await notifyOwnerSafely({
+      subject: `New event interest: ${event.title}`,
+      text: [`Event: ${event.title}`, `Email: ${parsed.email}`, `Name: ${displayName || "Not provided"}`, `Event ID: ${event.id}`].join("\n"),
+    });
+  }
+
+  revalidatePath(`/events/${event.id}`);
+  redirect(`/events/${event.id}?interested=1`);
 }
 
 export async function adminLoginAction(formData: FormData) {
@@ -483,6 +567,9 @@ export async function approveSubmittedEventAction(formData: FormData) {
           sourceUrl: submission.sourceUrl || "/submit",
           originalUrl: submission.sourceUrl || "/submit",
           status: "APPROVED",
+          dateVerificationStatus: "MANUALLY_VERIFIED",
+          dateVerificationReason: "An administrator approved the resident-submitted date against its provided source.",
+          dateVerifiedAt: new Date(),
           confidenceScore: 0.9,
         },
       }),
@@ -533,7 +620,9 @@ export async function createManualEventAction(formData: FormData) {
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
       imageUrl: payload.imageUrl ?? null,
-      status: "APPROVED",
+      status: "PENDING",
+      dateVerificationStatus: "MISSING_EVIDENCE",
+      dateVerificationReason: "Manual event requires an administrator to compare its date with the original source.",
       confidenceScore: 1,
     },
   });
@@ -546,6 +635,11 @@ export async function updateEventAction(formData: FormData) {
   await requireAdmin();
   const payload = parseEventPayload(formData);
   const eventId = getString(formData, "eventId");
+  const existing = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { startDateTime: true },
+  });
+  const dateChanged = existing?.startDateTime.getTime() !== payload.startDateTime.getTime();
 
   await prisma.event.update({
     where: { id: eventId },
@@ -567,6 +661,12 @@ export async function updateEventAction(formData: FormData) {
       sourceUrl: payload.sourceUrl || "/admin",
       originalUrl: payload.sourceUrl || "/admin",
       imageUrl: payload.imageUrl ?? null,
+      ...(dateChanged ? {
+        status: "PENDING" as const,
+        dateVerificationStatus: "MISSING_EVIDENCE" as const,
+        dateVerificationReason: "The event date was edited and must be checked against the original source.",
+        dateVerifiedAt: null,
+      } : {}),
     },
   });
 
@@ -584,6 +684,13 @@ export async function archiveEventAction(formData: FormData) {
 
   revalidateAll();
   redirect("/admin?archived=1");
+}
+
+export async function cleanExactEventDuplicatesAction() {
+  await requireAdmin();
+  const result = await cleanExactEventDuplicates();
+  revalidateAll();
+  redirect(`/admin?tab=events&duplicatesCleaned=1&duplicateGroups=${result.groupCount}&duplicatesRemoved=${result.removedCount}`);
 }
 
 export async function createManualAlertAction(formData: FormData) {
@@ -735,6 +842,65 @@ export async function toggleSourceActiveAction(formData: FormData) {
   redirect("/admin?sourceUpdated=1");
 }
 
+export async function retireSourceAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceId = getString(formData, "sourceId");
+  const source = await prisma.source.findUniqueOrThrow({
+    where: { id: sourceId },
+    select: { notes: true },
+  });
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: retireSource({ active: false, notes: source.notes }),
+  });
+
+  revalidateAll();
+  redirect("/admin?tab=sources&sourceRetired=1");
+}
+
+export async function restoreSourceAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceId = getString(formData, "sourceId");
+  const source = await prisma.source.findUniqueOrThrow({
+    where: { id: sourceId },
+    select: { notes: true },
+  });
+
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: restoreSource({ active: false, notes: source.notes }),
+  });
+
+  revalidateAll();
+  redirect("/admin?tab=sources&sourceRestored=1");
+}
+
+export async function bulkPauseSourcesAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceIds = formData
+    .getAll("sourceId")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  if (sourceIds.length === 0) {
+    redirect("/admin?tab=sources&noSourcesSelected=1");
+  }
+
+  const sources = await prisma.source.findMany({
+    where: { id: { in: sourceIds } },
+    select: { id: true, active: true, notes: true },
+  });
+  const updates = await prisma.$transaction(
+    sources.map((source) =>
+      prisma.source.update({ where: { id: source.id }, data: pauseSource(source) }),
+    ),
+  );
+
+  revalidateAll();
+  redirect(`/admin?tab=sources&sourcesPaused=${updates.length}`);
+}
+
 export async function deactivateAllSourcesAction() {
   await requireAdmin();
 
@@ -756,9 +922,10 @@ export async function runScrapersNowAction() {
 
 export async function runSingleScraperAction(formData: FormData) {
   await requireAdmin();
-  await scrapeSingleSourceById(getString(formData, "sourceId"));
+  const sourceId = getString(formData, "sourceId");
+  await scrapeSingleSourceById(sourceId);
   revalidateAll();
-  redirect("/admin?scraped=1");
+  redirect(`/admin?tab=sources&usage=ALL&scraped=1#source-${encodeURIComponent(sourceId)}`);
 }
 
 export async function generateMeetingSummaryAction(formData: FormData) {
@@ -789,12 +956,90 @@ export async function generateMeetingSummaryAction(formData: FormData) {
 export async function approveEventAction(formData: FormData) {
   await requireAdmin();
   const eventId = getString(formData, "eventId");
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { dateVerificationStatus: true, timeVerificationStatus: true },
+  });
+  if (
+    !event ||
+    event.dateVerificationStatus === "CONFLICT" ||
+    event.timeVerificationStatus === "CONFLICT"
+  ) {
+    redirect("/admin?tab=events&dateReviewRequired=1");
+  }
   await prisma.event.update({
     where: { id: eventId },
     data: { status: "APPROVED" },
   });
   revalidateAll();
   redirect("/admin?tab=events&approved=1");
+}
+
+export async function manuallyVerifyEventDateAction(formData: FormData) {
+  return manuallyVerifyEventDetailsAction(formData);
+}
+
+export async function manuallyVerifyEventDetailsAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = getString(formData, "eventId");
+  const field = getString(formData, "field") || "date";
+  if (!["date", "time", "both"].includes(field)) {
+    redirect("/admin?tab=events&verificationInvalid=1");
+  }
+  const verifyDate = field === "date" || field === "both";
+  const verifyTime = field === "time" || field === "both";
+  const note = getString(formData, "verificationNote").trim();
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      status: "APPROVED",
+      ...(verifyDate
+        ? {
+            dateVerificationStatus: "MANUALLY_VERIFIED" as const,
+            dateVerificationReason: note || "An administrator compared the date with its original source.",
+            dateVerifiedAt: new Date(),
+          }
+        : {}),
+      ...(verifyTime
+        ? {
+            timeVerificationStatus: "MANUALLY_VERIFIED" as const,
+            timeVerificationReason: note || "An administrator compared the time with its original source.",
+            timeVerifiedAt: new Date(),
+          }
+        : {}),
+    },
+  });
+  revalidateAll();
+  redirect(`/admin?tab=events&verified=${field}`);
+}
+
+export async function rescrapeEventSourceAction(formData: FormData) {
+  await requireAdmin();
+  const sourceId = getString(formData, "sourceId");
+  if (!sourceId) redirect("/admin?tab=events&rescrapeUnavailable=1");
+  await scrapeSingleSourceById(sourceId);
+  revalidateAll();
+  redirect("/admin?tab=events&rescraped=1");
+}
+
+export async function rejectEventDateAction(formData: FormData) {
+  await requireAdmin();
+  await prisma.event.update({
+    where: { id: getString(formData, "eventId") },
+    data: { status: "REJECTED" },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&dateRejected=1");
+}
+
+export async function unpublishEventAction(formData: FormData) {
+  await requireAdmin();
+  await prisma.event.update({
+    where: { id: getString(formData, "eventId") },
+    data: { status: "PENDING" },
+  });
+  revalidateAll();
+  redirect("/admin?tab=events&unpublished=1");
 }
 
 // -------------------------------------------------------------------------

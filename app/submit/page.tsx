@@ -4,7 +4,9 @@ import {
   SUBMISSION_TYPE_OPTIONS,
 } from "@/lib/hub-constants";
 import { readSearchParam, type SearchParamsRecord } from "@/lib/hub-search";
+import { parseSubmissionContext } from "@/lib/submission-context";
 import { submitCommunityItemAction } from "@/server/hub-actions";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 type PageProps = {
   searchParams: Promise<SearchParamsRecord>;
@@ -13,6 +15,8 @@ type PageProps = {
 export default async function SubmitPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const success = readSearchParam(params, "success");
+  const error = readSearchParam(params, "error");
+  const context = parseSubmissionContext(params);
 
   return (
     <div className="space-y-6">
@@ -29,12 +33,17 @@ export default async function SubmitPage({ searchParams }: PageProps) {
           Your submission is in the moderation queue. Thanks for helping keep the community informed.
         </div>
       ) : null}
+      {error === "captcha" ? (
+        <div className="rounded-[1.75rem] border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Please complete the CAPTCHA and submit the form again.
+        </div>
+      ) : null}
 
       <form action={submitCommunityItemAction} className="grid gap-4 rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6 md:grid-cols-2">
         <input name="submitterName" placeholder="Your name" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
         <input name="submitterEmail" type="email" placeholder="Your email" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
 
-        <select name="submissionType" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
+        <select name="submissionType" defaultValue={context.submissionType ?? "EVENT"} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
           {SUBMISSION_TYPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -56,8 +65,8 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         <input name="endDateTime" type="datetime-local" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
         <input name="locationName" placeholder="Location name" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
         <input name="address" placeholder="Street address" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" />
-        <input name="city" placeholder="City" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
-        <select name="county" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required>
+        <input name="city" defaultValue={context.city} placeholder="City" className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required />
+        <select name="county" defaultValue={context.county ?? COUNTY_FILTERS[0]} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm" required>
           {COUNTY_FILTERS.map((county) => (
             <option key={county} value={county}>
               {county}
@@ -85,9 +94,10 @@ export default async function SubmitPage({ searchParams }: PageProps) {
         </div>
 
         <div className="md:col-span-2">
+          <TurnstileWidget />
           <button
             type="submit"
-            className="btn btn-primary btn-md"
+            className="mt-4 btn btn-primary btn-md"
           >
             Submit for review
           </button>

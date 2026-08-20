@@ -31,6 +31,21 @@ export type NormalizedScrapedEvent = {
   imageUrl?: string | null;
   status?: EventStatus;
   confidenceScore?: number | null;
+  isAllDay?: boolean;
+  timeZone?: string | null;
+  /** Independent date/time signals retained for audit and comparison. */
+  dateEvidence?: {
+    listingDate?: Date | string | null;
+    structuredDate?: Date | string | null;
+    sourcePublishedText?: string | null;
+  };
+  meetingDetails?: {
+    governmentBody?: string;
+    meetingType?: MeetingType;
+    agendaUrl?: string | null;
+    minutesUrl?: string | null;
+    videoUrl?: string | null;
+  };
 };
 
 export type NormalizedScrapedAlert = {
@@ -46,6 +61,8 @@ export type NormalizedScrapedAlert = {
   sourceName: string;
   sourceUrl: string;
   originalUrl?: string | null;
+  /** Stable identifier supplied by the source (for example, an NWS feature URL). */
+  externalId?: string | null;
   startsAt?: Date | null;
   expiresAt?: Date | null;
   status?: AlertStatus;

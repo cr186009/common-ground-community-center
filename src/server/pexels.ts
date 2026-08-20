@@ -1,203 +1,172 @@
 /**
- * Pexels photo API service — server-side only.
- * Never import this in client code.
+ * High-level Pexels helpers used by hub-actions.ts.
+ * Low-level API client lives in src/server/images/pexels.ts.
  */
 
-const PEXELS_API_BASE = "https://api.pexels.com/v1";
+import { prisma } from "@/lib/prisma";
+import {
+  buildPexelsSearchQuery,
+  searchPexelsImage,
+} from "@/server/images/pexels";
 
-const CATEGORY_QUERIES: Record<string, string> = {
-  FAMILY: "community family festival",
-  MUSIC: "outdoor live music community",
-  FOOD_DRINK: "community food festival",
-  FESTIVAL: "community street festival",
-  PARKS_RECREATION: "community park outdoor recreation",
-  SPORTS: "community sports event",
-  LIBRARY: "community library books",
-  SCHOOL: "school community event",
-  VOLUNTEER: "community volunteers",
-  GOVERNMENT_MEETING: "community town hall meeting",
-  TRIVIA: "friends trivia night",
-  KARAOKE: "community karaoke music",
-  OTHER: "local community gathering",
-};
-
-export type PexelsPhoto = {
-  id: number;
-  photographer: string;
-  url: string;
-  alt: string;
-  src: {
-    landscape: string;
-    large: string;
-  };
-};
-
-type PexelsSearchResponse = {
-  photos?: PexelsPhoto[];
-  total_results?: number;
-  error?: string;
-};
-
-export async function searchPexelsPhotos(
-  query: string,
-  options: { perPage?: number } = {},
-): Promise<PexelsPhoto[]> {
-  const apiKey = process.env.PEXELS_API_KEY;
-  if (!apiKey) return [];
-
-  try {
-    const url = new URL(`${PEXELS_API_BASE}/search`);
-    url.searchParams.set("query", query);
-    url.searchParams.set("orientation", "landscape");
-    url.searchParams.set("per_page", String(options.perPage ?? 15));
-
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: apiKey },
-      cache: "no-store",
-    });
-
-    if (response.status === 429) {
-      console.warn("[Pexels] Rate limit reached");
-      return [];
-    }
-
-    if (!response.ok) {
-      console.error(`[Pexels] API error: ${response.status} ${response.statusText}`);
-      return [];
-    }
-
-    const data = (await response.json()) as PexelsSearchResponse;
-
-    if (data.error) {
-      console.error(`[Pexels] API returned error: ${data.error}`);
-      return [];
-    }
-
-    return data.photos ?? [];
-  } catch (error) {
-    console.error("[Pexels] Fetch failed:", error);
-    return [];
-  }
-}
-
-export async function findFallbackImageForEvent(event: {
-  category: string;
-  title: string;
-}): Promise<PexelsPhoto | null> {
-  if (!process.env.PEXELS_API_KEY) return null;
-
-  const query = CATEGORY_QUERIES[event.category] ?? CATEGORY_QUERIES.OTHER;
-  const photos = await searchPexelsPhotos(query, { perPage: 15 });
-
-  if (photos.length === 0) return null;
-
-  // Choose randomly from results; caller persists the selected photo so it
-  // doesn't change on every page load.
-  return photos[Math.floor(Math.random() * photos.length)];
-}
-
+/**
+ * Assign a Pexels fallback image to a single event.
+ *
+ * @param eventId - Prisma Event.id
+ * @param options.force - When true, replaces the existing event image.
+ *                        When false, skips an event that already has an image.
+ */
 export async function assignFallbackImageToEvent(
   eventId: string,
-  options: { force?: boolean } = {},
-): Promise<{ success: boolean; message: string }> {
-  if (!process.env.PEXELS_API_KEY) {
-    return { success: false, message: "PEXELS_API_KEY is not configured" };
+  options?: { force?: boolean },
+): Promise<{ success: boolean; reason?: string }> {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  });
+
+  if (!event) {
+    return {
+      success: false,
+      reason: "Event not found",
+    };
   }
 
-  try {
-    const { prisma } = await import("@/lib/prisma");
-
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        title: true,
-        category: true,
-        imageUrl: true,
-        imageIsFallback: true,
-      },
-    });
-
-    if (!event) return { success: false, message: "Event not found" };
-
-    // Never overwrite a real (non-fallback) image unless forced
-    if (event.imageUrl && !event.imageIsFallback && !options.force) {
-      return { success: false, message: "Event already has a real image" };
-    }
-
-    const photo = await findFallbackImageForEvent(event);
-    if (!photo) return { success: false, message: "No Pexels photos returned" };
-
-    await prisma.event.update({
-      where: { id: eventId },
-      data: {
-        imageUrl: photo.src.landscape || photo.src.large,
-        imageSource: "Pexels",
-        imageCredit: photo.photographer,
-        imageCreditUrl: photo.url,
-        imageAlt: photo.alt || event.title,
-        imageIsFallback: true,
-      },
-    });
-
-    return { success: true, message: `Image assigned (${photo.photographer})` };
-  } catch (error) {
-    console.error("[Pexels] assignFallbackImageToEvent failed:", error);
-    return { success: false, message: "Internal error assigning image" };
+  if (event.imageUrl && !options?.force) {
+    return {
+      success: false,
+      reason: "Event already has an image",
+    };
   }
+
+  const query = buildPexelsSearchQuery({
+    title: event.title,
+    category: event.category ?? null,
+    description: event.description ?? null,
+  });
+
+  /*
+   * Initial assignment uses the event ID as the selection seed.
+   * This prevents every event with the same query from getting the same image.
+   *
+   * Replacement adds the current time and excludes the current URL.
+   * This makes the Replace button return a different image.
+   */
+  const selectionSeed = options?.force ? `${event.id}:${Date.now()}` : event.id;
+
+  const result = await searchPexelsImage(query, {
+    excludeImageUrl: options?.force ? event.imageUrl : null,
+    selectionSeed,
+  });
+
+  if (!result) {
+    return {
+      success: false,
+      reason: "No Pexels image found for query",
+    };
+  }
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      imageUrl: result.imageUrl,
+      imageSource: result.imageSource,
+      imageCredit: result.imageCredit,
+      imageCreditUrl: result.imageCreditUrl,
+      imageAlt: result.imageAlt,
+      imageIsFallback: true,
+    },
+  });
+
+  return {
+    success: true,
+  };
 }
 
-export async function assignFallbackImagesToMissingEvents(
-  options: { limit?: number } = {},
-): Promise<{ assigned: number; skipped: number; failed: number }> {
-  if (!process.env.PEXELS_API_KEY) {
-    return { assigned: 0, skipped: 0, failed: 0 };
-  }
+/**
+ * Bulk-assign Pexels fallback images to events that have no imageUrl.
+ */
+export async function assignFallbackImagesToMissingEvents(options?: {
+  limit?: number;
+}): Promise<{
+  assigned: number;
+  skipped: number;
+  failed: number;
+}> {
+  const limit = options?.limit ?? 25;
 
-  const limit = Math.min(options.limit ?? 25, 25);
-  let assigned = 0,
-    skipped = 0,
-    failed = 0;
+  const events = await prisma.event.findMany({
+    where: {
+      imageUrl: null,
+    },
+    orderBy: {
+      startDateTime: "asc",
+    },
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      category: true,
+      description: true,
+    },
+  });
 
-  try {
-    const { prisma } = await import("@/lib/prisma");
+  let assigned = 0;
+  let skipped = 0;
+  let failed = 0;
 
-    const events = await prisma.event.findMany({
-      where: {
-        status: "APPROVED",
-        imageUrl: null,
-        startDateTime: { gte: new Date() },
-      },
-      select: {
-        id: true,
-        title: true,
-        category: true,
-        imageUrl: true,
-        imageIsFallback: true,
-      },
-      take: limit,
-      orderBy: { startDateTime: "asc" },
+  for (const event of events) {
+    const query = buildPexelsSearchQuery({
+      title: event.title,
+      category: event.category ?? null,
+      description: event.description ?? null,
     });
 
-    for (const event of events) {
-      if (event.imageUrl && !event.imageIsFallback) {
-        skipped++;
-        continue;
-      }
+    /*
+     * Use the event ID as the seed so events with the same search query
+     * receive different photos from the returned result pool.
+     */
+    const result = await searchPexelsImage(query, {
+      selectionSeed: event.id,
+    });
 
-      const result = await assignFallbackImageToEvent(event.id);
-      if (result.success) {
-        assigned++;
-      } else {
-        failed++;
-      }
-
-      // Brief delay to be polite to the Pexels API
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    if (!result) {
+      failed++;
+      continue;
     }
-  } catch (error) {
-    console.error("[Pexels] Bulk assign failed:", error);
+
+    try {
+      const updateResult = await prisma.event.updateMany({
+        where: {
+          id: event.id,
+          imageUrl: null,
+        },
+        data: {
+          imageUrl: result.imageUrl,
+          imageSource: result.imageSource,
+          imageCredit: result.imageCredit,
+          imageCreditUrl: result.imageCreditUrl,
+          imageAlt: result.imageAlt,
+          imageIsFallback: true,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        skipped++;
+      } else {
+        assigned++;
+      }
+    } catch (error) {
+      console.error(
+        `Failed to assign Pexels image to event ${event.id}:`,
+        error,
+      );
+      failed++;
+    }
   }
 
-  return { assigned, skipped, failed };
+  return {
+    assigned,
+    skipped,
+    failed,
+  };
 }

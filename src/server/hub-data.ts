@@ -9,15 +9,23 @@ import {
 import {
   addMonths,
   endOfDay,
-  endOfMonth,
-  endOfWeek,
   startOfDay,
-  startOfMonth,
-  startOfWeek,
   subDays,
 } from "date-fns";
 
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
+import { classifyCommunityCoverage } from "@/lib/geographic-coverage";
+import {
+  countEventDiscoveryResults,
+  groupEventsForDisplay,
+} from "@/lib/hub-event-grouping";
+import {
+  endOfCommunityDay,
+  getCommunityDateKey,
+  getCommunityWeekendRange,
+  parseCommunityDateTime,
+  startOfCommunityDay,
+} from "@/lib/hub-date";
 import type {
   AlertFilters,
   GlobalSearchFilters,
@@ -25,17 +33,38 @@ import type {
   PublicEventFilters,
 } from "@/lib/hub-search";
 import { prisma } from "@/lib/prisma";
+import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
+import { expiredAlertArchiveCutoff } from "@/server/alert-lifecycle";
+import {
+  assessSourceHealth,
+  isRetiredSource,
+  summarizeSourceRuns,
+  type SourceHealthStatus,
+} from "@/server/scrape-health";
+import {
+  auditScraperInventory,
+  getInventoryMismatch,
+  normalizeInventoryName,
+  type ScraperInventoryMismatch,
+} from "@/server/scraper-inventory";
 
-function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Prisma.EventWhereInput {
+export type { SourceHealthStatus } from "@/server/scrape-health";
+
+function buildEventWhere(
+  filters: PublicEventFilters,
+  activityOnly = false,
+): Prisma.EventWhereInput {
   const query = filters.query?.trim();
-  const dateFrom = filters.dateFrom ?? startOfDay(new Date());
+  const dateFrom = filters.dateFrom ?? startOfCommunityDay();
 
   return {
     status: "APPROVED",
+    dateVerificationStatus: { not: "CONFLICT" },
+    timeVerificationStatus: { not: "CONFLICT" },
     startDateTime: {
       gte: dateFrom,
-      ...(filters.dateTo ? { lte: endOfDay(filters.dateTo) } : {}),
+      ...(filters.dateTo ? { lte: endOfCommunityDay(filters.dateTo) } : {}),
     },
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.county ? { county: filters.county } : {}),
@@ -57,9 +86,16 @@ function buildEventWhere(filters: PublicEventFilters, activityOnly = false): Pri
   };
 }
 
-function buildAlertWhere(filters: AlertFilters, status?: AlertStatus | AlertStatus[]) {
+function buildAlertWhere(
+  filters: AlertFilters,
+  status?: AlertStatus | AlertStatus[],
+) {
   const where: Prisma.AlertWhereInput = {
-    ...(Array.isArray(status) ? { status: { in: status } } : status ? { status } : {}),
+    ...(Array.isArray(status)
+      ? { status: { in: status } }
+      : status
+        ? { status }
+        : {}),
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.alertType ? { alertType: filters.alertType } : {}),
   };
@@ -78,93 +114,196 @@ function buildMeetingWhere(filters: MeetingFilters): Prisma.MeetingWhereInput {
   return {
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.county ? { county: filters.county } : {}),
-    ...(filters.governmentBody ? { governmentBody: filters.governmentBody } : {}),
+    ...(filters.governmentBody
+      ? { governmentBody: filters.governmentBody }
+      : {}),
     ...(filters.meetingType ? { meetingType: filters.meetingType } : {}),
   };
 }
 
 export async function expireElapsedAlerts() {
+  const now = new Date();
+  const archiveBefore = expiredAlertArchiveCutoff(now);
+
   await prisma.alert.updateMany({
     where: {
       status: "ACTIVE",
-      expiresAt: { lt: new Date() },
+      expiresAt: { lt: now },
     },
     data: { status: "EXPIRED" },
   });
+
+  await prisma.alert.updateMany({
+    where: {
+      status: "EXPIRED",
+      expiresAt: { lt: archiveBefore },
+    },
+    data: { status: "ARCHIVED" },
+  });
 }
 
-export async function getHomepageData() {
+/**
+ * Homepage discovery deliberately uses the public event filter contract. This
+ * keeps county and intent links aligned with /events instead of introducing a
+ * second filtering system for the homepage.
+ */
+export async function getHomepageData(
+  filters: PublicEventFilters = { sort: "asc" },
+) {
   await expireElapsedAlerts();
+
   const now = new Date();
-  const weekendStart = startOfWeek(now, { weekStartsOn: 5 });
-  const weekendEnd = endOfWeek(now, { weekStartsOn: 5 });
+  const { start: weekendStart, end: weekendEnd } = getCommunityWeekendRange(now);
 
   const [
     topAlert,
-    upcomingEvents,
+    matchingUpcomingEvents,
+    coveredCommunities,
+    lastSuccessfulScrape,
     weekendEvents,
     freeEvents,
     kidFriendlyEvents,
     upcomingMeetings,
     volunteerOpportunities,
-    pendingSubmissions,
-    activeSubscriberCount,
+    worthTheDriveCandidates,
   ] = await Promise.all([
     prisma.alert.findMany({
-      where: { status: "ACTIVE" },
+      where: buildAlertWhere(
+        { county: filters.county },
+        "ACTIVE",
+      ),
       orderBy: [{ severity: "desc" }, { startsAt: "desc" }],
       take: 10,
     }),
+
     prisma.event.findMany({
-      where: buildEventWhere({ sort: "asc" }),
+      where: buildEventWhere(filters),
       orderBy: { startDateTime: "asc" },
-      take: 6,
     }),
+
+    prisma.event.findMany({
+      where: buildEventWhere(filters),
+      select: {
+        city: true,
+      },
+      distinct: ["city"],
+    }),
+
+    prisma.scrapeLog.findFirst({
+      where: {
+        status: "SUCCESS",
+      },
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+
     prisma.event.findMany({
       where: {
-        ...buildEventWhere({ sort: "asc" }),
-        startDateTime: { gte: weekendStart, lte: weekendEnd },
+        ...buildEventWhere(filters),
+        startDateTime: {
+          gte: now > weekendStart ? now : weekendStart,
+          lte: weekendEnd,
+        },
       },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.event.findMany({
       where: {
-        ...buildEventWhere({ sort: "asc" }),
-        OR: [{ isFree: true }, { cost: { contains: "cheap" } }, { cost: { contains: "$5" } }],
+        ...buildEventWhere(filters),
+        OR: [
+          { isFree: true },
+          { cost: { contains: "cheap" } },
+          { cost: { contains: "$5" } },
+        ],
       },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.event.findMany({
-      where: { ...buildEventWhere({ sort: "asc" }), isKidFriendly: true },
+      where: {
+        ...buildEventWhere(filters),
+        isKidFriendly: true,
+      },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.meeting.findMany({
-      where: { status: "UPCOMING", startDateTime: { gte: now } },
+      where: {
+        status: "UPCOMING",
+        startDateTime: { gte: now },
+        ...(filters.county ? { county: filters.county } : {}),
+      },
       orderBy: { startDateTime: "asc" },
       take: 4,
     }),
+
     prisma.volunteerOpportunity.findMany({
-      where: { status: "OPEN" },
+      where: {
+        status: "OPEN",
+        ...(filters.county ? { county: filters.county } : {}),
+        OR: [{ dateTime: null }, { dateTime: { gte: startOfCommunityDay(now) } }],
+      },
       orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
       take: 4,
     }),
-    prisma.submittedEvent.count({ where: { status: "PENDING" } }),
-    prisma.subscriber.count({ where: { active: true } }),
+
+    filters.county
+      ? prisma.event.findMany({
+          where: {
+            ...buildEventWhere({ ...filters, county: undefined }),
+            county: { not: filters.county },
+          },
+          orderBy: { startDateTime: "asc" },
+          // Fetch enough occurrences to avoid one recurring series crowding
+          // every other nearby suggestion out of this small secondary list.
+          take: 20,
+        })
+      : Promise.resolve([]),
   ]);
+
+  const upcomingEventGroups = groupEventsForDisplay(
+    matchingUpcomingEvents,
+  );
+  const upcomingEvents = upcomingEventGroups
+    .slice(0, 6)
+    .map((group) => group.event);
+  const discoveryCounts = countEventDiscoveryResults(
+    matchingUpcomingEvents,
+  );
+  const worthTheDriveEventGroups = groupEventsForDisplay(
+    worthTheDriveCandidates,
+  ).slice(0, 4);
 
   return {
     activeAlerts: topAlert,
     upcomingEvents,
+    // Keep the legacy name as the raw date count until all consumers migrate.
+    upcomingEventCount: discoveryCounts.upcomingDates,
+    upcomingDateCount: discoveryCounts.upcomingDates,
+    upcomingEventSeriesCount: discoveryCounts.eventSeries,
+    upcomingEventGroups,
+    worthTheDriveEventGroups,
+    worthTheDriveEvents: worthTheDriveEventGroups.map(
+      (group) => group.event,
+    ),
+    selectedCounty: filters.county ?? null,
+    communitiesCovered: coveredCommunities.filter(
+      (community) => community.city.trim().length > 0,
+    ).length,
+    lastUpdatedAt: lastSuccessfulScrape?.createdAt ?? null,
     weekendEvents,
     freeEvents,
     kidFriendlyEvents,
     upcomingMeetings,
     volunteerOpportunities,
-    pendingSubmissions,
-    activeSubscriberCount,
   };
 }
 
@@ -187,9 +326,13 @@ export async function getEventsForCalendar(
   monthValue?: string,
   activityOnly = false,
 ) {
-  const baseDate = monthValue ? new Date(`${monthValue}-01T00:00:00`) : new Date();
-  const monthStart = startOfMonth(baseDate);
-  const monthEnd = endOfMonth(baseDate);
+  const baseDate = monthValue ? new Date(`${monthValue}-01T12:00:00Z`) : new Date();
+  const monthStartKey = monthValue ?? getCommunityDateKey(baseDate).slice(0, 7);
+  const [year, month] = monthStartKey.split("-").map(Number);
+  const nextMonth = new Date(Date.UTC(year, month, 1, 12));
+  const nextMonthKey = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthStart = parseCommunityDateTime(`${monthStartKey}-01T00:00`);
+  const monthEnd = new Date(parseCommunityDateTime(`${nextMonthKey}-01T00:00`).getTime() - 1);
 
   return prisma.event.findMany({
     where: {
@@ -204,7 +347,18 @@ export async function getEventsForCalendar(
 }
 
 export async function getEventById(id: string) {
-  return prisma.event.findUnique({ where: { id } });
+  return prisma.event.findUnique({
+    where: { id },
+    include: {
+      _count: { select: { interests: true } },
+      interests: {
+        where: { showNamePublicly: true, displayName: { not: null } },
+        select: { displayName: true },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      },
+    },
+  });
 }
 
 export async function getAlerts(filters: AlertFilters) {
@@ -225,6 +379,7 @@ export async function getAlerts(filters: AlertFilters) {
 }
 
 export async function getMeetings(filters: MeetingFilters) {
+  await completeElapsedMeetings();
   const now = new Date();
   const [upcomingMeetings, completedMeetings] = await Promise.all([
     prisma.meeting.findMany({
@@ -251,7 +406,11 @@ export async function getMeetings(filters: MeetingFilters) {
     orderBy: { governmentBody: "asc" },
   });
 
-  return { upcomingMeetings, completedMeetings, governmentBodies: governmentBodies.map((item) => item.governmentBody) };
+  return {
+    upcomingMeetings,
+    completedMeetings,
+    governmentBodies: governmentBodies.map((item) => item.governmentBody),
+  };
 }
 
 export async function getMeetingById(id: string) {
@@ -259,19 +418,42 @@ export async function getMeetingById(id: string) {
 }
 
 export async function getVolunteerOpportunities(filters?: { city?: string; county?: string }) {
-  return prisma.volunteerOpportunity.findMany({
-    where: {
-      status: "OPEN",
-      ...(filters?.city ? { city: filters.city } : {}),
-      ...(filters?.county ? { county: filters.county } : {}),
-    },
-    orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
-  });
+  const today = startOfCommunityDay();
+  const locationFilters = {
+    ...(filters?.city ? { city: filters.city } : {}),
+    ...(filters?.county ? { county: filters.county } : {}),
+  };
+  const [current, past] = await Promise.all([
+    prisma.volunteerOpportunity.findMany({
+      where: {
+        status: "OPEN",
+        ...locationFilters,
+        OR: [{ dateTime: null }, { dateTime: { gte: today } }],
+      },
+      orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.volunteerOpportunity.findMany({
+      where: {
+        status: { in: ["OPEN", "ARCHIVED"] },
+        ...locationFilters,
+        dateTime: { lt: today },
+      },
+      orderBy: { dateTime: "desc" },
+      take: 24,
+    }),
+  ]);
+
+  return { current, past };
 }
 
 export async function getPublicSources() {
   return prisma.source.findMany({
-    orderBy: [{ section: "asc" }, { county: "asc" }, { city: "asc" }, { name: "asc" }],
+    orderBy: [
+      { section: "asc" },
+      { county: "asc" },
+      { city: "asc" },
+      { name: "asc" },
+    ],
     include: {
       _count: {
         select: {
@@ -296,18 +478,24 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
         }
       : undefined;
 
-  const sourceFilter = filters.sourceType ? { source: { is: { type: filters.sourceType } } } : {};
+  const sourceFilter = filters.sourceType
+    ? { source: { is: { type: filters.sourceType } } }
+    : {};
 
   const [events, alerts, meetings, volunteer] = await Promise.all([
     prisma.event.findMany({
       where: {
         status: "APPROVED",
+        dateVerificationStatus: { not: "CONFLICT" },
+        timeVerificationStatus: { not: "CONFLICT" },
         ...(filters.city ? { city: filters.city } : {}),
         ...(filters.county ? { county: filters.county } : {}),
         ...(filters.category ? { category: filters.category } : {}),
         ...(filters.isFree ? { isFree: true } : {}),
         ...(filters.isKidFriendly ? { isKidFriendly: true } : {}),
-        ...(dateClause ? { startDateTime: dateClause } : { startDateTime: { gte: startOfDay(new Date()) } }),
+        ...(dateClause
+          ? { startDateTime: dateClause }
+          : { startDateTime: { gte: startOfDay(new Date()) } }),
         ...sourceFilter,
         ...(query
           ? {
@@ -329,7 +517,10 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
         ...sourceFilter,
         ...(query
           ? {
-              OR: [{ title: { contains: query } }, { description: { contains: query } }],
+              OR: [
+                { title: { contains: query } },
+                { description: { contains: query } },
+              ],
             }
           : {}),
       },
@@ -390,6 +581,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
     logs,
     sources,
     subscribers,
+    eventInterests,
     editEvent,
   ] = await Promise.all([
     prisma.submittedEvent.findMany({
@@ -425,15 +617,17 @@ export async function getAdminDashboardData(editEventId?: string | null) {
 
     // ✅ Only show active sources on the admin dashboard
     prisma.source.findMany({
-      
-      orderBy: [
-        { section: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ section: "asc" }, { name: "asc" }],
     }),
 
     prisma.subscriber.findMany({
       orderBy: { createdAt: "desc" },
+    }),
+
+    prisma.eventInterest.findMany({
+      include: { event: { select: { id: true, title: true, startDateTime: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 25,
     }),
 
     editEventId
@@ -452,6 +646,7 @@ export async function getAdminDashboardData(editEventId?: string | null) {
     logs,
     sources,
     subscribers,
+    eventInterests,
     editEvent,
   };
 }
@@ -552,9 +747,17 @@ export async function getDigestPreview(subscriberId?: string | null) {
   const [subscriber, events, alerts, meetings, volunteer] = await Promise.all([
     subscriberId
       ? prisma.subscriber.findUnique({ where: { id: subscriberId } })
-      : prisma.subscriber.findFirst({ where: { active: true }, orderBy: { createdAt: "asc" } }),
+      : prisma.subscriber.findFirst({
+          where: { active: true },
+          orderBy: { createdAt: "asc" },
+        }),
     prisma.event.findMany({
-      where: { status: "APPROVED", startDateTime: { gte: startOfDay(new Date()) } },
+      where: {
+        status: "APPROVED",
+        dateVerificationStatus: { not: "CONFLICT" },
+        timeVerificationStatus: { not: "CONFLICT" },
+        startDateTime: { gte: startOfDay(new Date()) },
+      },
       orderBy: { startDateTime: "asc" },
       take: 8,
     }),
@@ -564,7 +767,10 @@ export async function getDigestPreview(subscriberId?: string | null) {
       take: 5,
     }),
     prisma.meeting.findMany({
-      where: { status: "UPCOMING", startDateTime: { gte: startOfDay(new Date()) } },
+      where: {
+        status: "UPCOMING",
+        startDateTime: { gte: startOfDay(new Date()) },
+      },
       orderBy: { startDateTime: "asc" },
       take: 6,
     }),
@@ -575,7 +781,13 @@ export async function getDigestPreview(subscriberId?: string | null) {
     }),
   ]);
 
-  return buildWeeklyDigestPreview({ subscriber, events, alerts, meetings, volunteer });
+  return buildWeeklyDigestPreview({
+    subscriber,
+    events,
+    alerts,
+    meetings,
+    volunteer,
+  });
 }
 
 export async function getSourceHealthData() {
@@ -600,16 +812,12 @@ export async function getSourceHealthData() {
 
   return sources.map((source) => {
     const logs = source.logs;
-    
+
     const lastLog = logs[0];
 
-    const failures = logs.filter(
-      (log) => log.status === "FAILED"
-    ).length;
+    const failures = logs.filter((log) => log.status === "FAILED").length;
 
-    const successes = logs.filter(
-      (log) => log.status === "SUCCESS"
-    ).length;
+    const successes = logs.filter((log) => log.status === "SUCCESS").length;
 
     return {
       id: source.id,
@@ -683,8 +891,6 @@ export async function getAdminExtendedCounts() {
 // Enhanced source health for admin
 // -------------------------------------------------------------------------
 
-export type SourceHealthStatus = "HEALTHY" | "WARNING" | "FAILED" | "MANUAL" | "INACTIVE";
-
 export type AdminSourceHealth = {
   id: string;
   name: string;
@@ -697,10 +903,28 @@ export type AdminSourceHealth = {
   scrapeFrequency: string | null;
   notes: string | null;
   lastScrapedAt: Date | null;
+  /** Timestamp of the latest run regardless of outcome. */
+  lastAttemptAt: Date | null;
+  /** Timestamp of the latest fully successful run. */
+  lastSuccessfulAt: Date | null;
   health: SourceHealthStatus;
   consecutiveFailures: number;
   eventCount: number;
+  verifiedEventCount: number;
+  verificationRate: number | null;
+  ownedRecordCounts: {
+    events: number;
+    meetings: number;
+    alerts: number;
+    volunteer: number;
+    total: number;
+  };
+  publishedContentCount: number;
+  healthWarning: string | null;
   hasAutomatedScraper: boolean;
+  inventoryMismatch: ScraperInventoryMismatch;
+  coverage: ReturnType<typeof classifyCommunityCoverage>;
+  runMetrics: ReturnType<typeof summarizeSourceRuns>;
   lastLog: {
     status: string;
     message: string;
@@ -711,78 +935,106 @@ export type AdminSourceHealth = {
   } | null;
 };
 
-function computeSourceHealthStatus(
-  source: { active: boolean; lastScrapedAt: Date | null; scrapeFrequency: string | null },
-  lastLogStatus: string | null,
-  recentLogs: Array<{ status: string; itemsFound: number }>,
-  hasAutomatedScraper: boolean,
-  sourceSection: string,
-): SourceHealthStatus {
-  if (!source.active) return "INACTIVE";
-  if (!hasAutomatedScraper) return "MANUAL";
-  if (!source.lastScrapedAt || !lastLogStatus) return "WARNING";
-  if (lastLogStatus === "FAILED") return "FAILED";
-
-  const ageMs = Date.now() - source.lastScrapedAt.getTime();
-  const freq = (source.scrapeFrequency ?? "").toLowerCase();
-  let staleMs = 10 * 24 * 60 * 60 * 1000;
-  if (freq.includes("hour")) staleMs = 4 * 60 * 60 * 1000;
-  else if (freq.includes("daily") || freq.includes("day")) staleMs = 2 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("week")) staleMs = 10 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("month")) staleMs = 40 * 24 * 60 * 60 * 1000;
-
-  if (ageMs > staleMs) return "WARNING";
-
-  // Repeated zero-results for event sources (alerts legitimately can return zero)
-  if (sourceSection !== "ALERTS" && recentLogs.length >= 3) {
-    const recent = recentLogs.slice(0, 3);
-    if (recent.every((l) => l.itemsFound === 0 && l.status === "SUCCESS")) {
-      return "WARNING";
-    }
-  }
-
-  return "HEALTHY";
-}
-
 export async function getAdminSourceHealth(
   scraperNames: string[] = [],
 ): Promise<AdminSourceHealth[]> {
-  const sources = await prisma.source.findMany({
-    include: {
-      logs: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          status: true,
-          message: true,
-          itemsFound: true,
-          itemsCreated: true,
-          itemsUpdated: true,
-          createdAt: true,
+  const [sources, approvedEvents, eventVerification, scheduledMeetings, activeAlerts, openVolunteer] =
+    await Promise.all([
+      prisma.source.findMany({
+        include: {
+          logs: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+              status: true,
+              message: true,
+              itemsFound: true,
+              itemsCreated: true,
+              itemsUpdated: true,
+              createdAt: true,
+            },
+          },
+          _count: { select: { events: true, meetings: true, alerts: true, volunteer: true } },
         },
-      },
-      _count: { select: { events: true } },
-    },
-    orderBy: [{ section: "asc" }, { name: "asc" }],
-  });
+        orderBy: [{ section: "asc" }, { name: "asc" }],
+      }),
+      prisma.event.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "APPROVED" },
+        _count: { _all: true },
+      }),
+      prisma.event.findMany({
+        where: { sourceId: { not: null }, status: "APPROVED" },
+        select: { sourceId: true, dateVerificationStatus: true, timeVerificationStatus: true },
+      }),
+      prisma.meeting.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "UPCOMING" },
+        _count: { _all: true },
+      }),
+      prisma.alert.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "ACTIVE" },
+        _count: { _all: true },
+      }),
+      prisma.volunteerOpportunity.groupBy({
+        by: ["sourceId"],
+        where: { sourceId: { not: null }, status: "OPEN" },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const publishedBySource = new Map<string, number>();
+  const addPublishedCounts = (rows: Array<{ sourceId: string | null; count: number }>) => {
+    for (const row of rows) {
+      if (row.sourceId) {
+        publishedBySource.set(
+          row.sourceId,
+          (publishedBySource.get(row.sourceId) ?? 0) + row.count,
+        );
+      }
+    }
+  };
+  addPublishedCounts(approvedEvents.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(scheduledMeetings.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(activeAlerts.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+  addPublishedCounts(openVolunteer.map((row) => ({ sourceId: row.sourceId, count: row._count._all })));
+
+  const normalizedScraperNames = new Set(scraperNames.map(normalizeInventoryName));
+  const verifiedBySource = new Map<string, number>();
+  for (const event of eventVerification) {
+    if (event.sourceId && event.dateVerificationStatus === "VERIFIED" && event.timeVerificationStatus === "VERIFIED") {
+      verifiedBySource.set(event.sourceId, (verifiedBySource.get(event.sourceId) ?? 0) + 1);
+    }
+  }
 
   return sources.map((source) => {
     const lastLog = source.logs[0] ?? null;
-    const hasAutomatedScraper = scraperNames.includes(source.name);
+    const hasAutomatedScraper = normalizedScraperNames.has(normalizeInventoryName(source.name));
+    const runMetrics = summarizeSourceRuns(source.logs);
 
-    let consecutiveFailures = 0;
-    for (const log of source.logs) {
-      if (log.status === "FAILED") consecutiveFailures++;
-      else break;
-    }
-
-    const health = computeSourceHealthStatus(
-      source,
-      lastLog?.status ?? null,
-      source.logs,
+    const publishedContentCount = publishedBySource.get(source.id) ?? 0;
+    const approvedEventCount = approvedEvents.find((row) => row.sourceId === source.id)?._count._all ?? 0;
+    const verifiedEventCount = verifiedBySource.get(source.id) ?? 0;
+    const ownedRecordCounts = {
+      events: source._count.events,
+      meetings: source._count.meetings,
+      alerts: source._count.alerts,
+      volunteer: source._count.volunteer,
+      total:
+        source._count.events +
+        source._count.meetings +
+        source._count.alerts +
+        source._count.volunteer,
+    };
+    const healthAssessment = assessSourceHealth({
+      ...source,
+      retired: isRetiredSource(source.notes),
       hasAutomatedScraper,
-      source.section,
-    );
+      sourceSection: source.section,
+      recentLogs: source.logs,
+      publishedContentCount,
+    });
 
     return {
       id: source.id,
@@ -796,10 +1048,20 @@ export async function getAdminSourceHealth(
       scrapeFrequency: source.scrapeFrequency,
       notes: source.notes,
       lastScrapedAt: source.lastScrapedAt,
-      health,
-      consecutiveFailures,
+      lastAttemptAt: lastLog?.createdAt ?? null,
+      lastSuccessfulAt: runMetrics.lastSuccessfulAt,
+      health: healthAssessment.status,
+      healthWarning: healthAssessment.warning,
+      consecutiveFailures: runMetrics.consecutiveFailures,
       eventCount: source._count.events,
+      verifiedEventCount,
+      verificationRate: approvedEventCount === 0 ? null : verifiedEventCount / approvedEventCount,
+      ownedRecordCounts,
+      publishedContentCount,
       hasAutomatedScraper,
+      inventoryMismatch: getInventoryMismatch(source.name, scraperNames),
+      coverage: classifyCommunityCoverage({ city: source.city, county: source.county }),
+      runMetrics,
       lastLog: lastLog
         ? {
             status: lastLog.status,
@@ -812,6 +1074,15 @@ export async function getAdminSourceHealth(
         : null,
     };
   });
+}
+
+/** Includes code-only registrations, which cannot appear in a source-row list. */
+export async function getScraperInventoryAudit(scraperNames: string[]) {
+  const sources = await prisma.source.findMany({
+    select: { name: true },
+    orderBy: { name: "asc" },
+  });
+  return auditScraperInventory(sources.map((source) => source.name), scraperNames);
 }
 
 // -------------------------------------------------------------------------
@@ -834,6 +1105,7 @@ export type AdminEventRow = {
   id: string;
   title: string;
   startDateTime: Date;
+  isAllDay: boolean;
   city: string;
   county: string;
   category: string;
@@ -849,7 +1121,12 @@ export type AdminEventRow = {
 
 export async function getAdminEventManagement(
   filters: AdminEventFilters = {},
-): Promise<{ events: AdminEventRow[]; total: number; page: number; totalPages: number }> {
+): Promise<{
+  events: AdminEventRow[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> {
   const PAGE_SIZE = 25;
   const page = Math.max(1, filters.page ?? 1);
   const skip = (page - 1) * PAGE_SIZE;
@@ -866,7 +1143,9 @@ export async function getAdminEventManagement(
     ...(filters.city ? { city: { contains: filters.city } } : {}),
     ...(filters.county ? { county: { contains: filters.county } } : {}),
     ...(filters.category ? { category: filters.category as Category } : {}),
-    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
+    ...(filters.sourceName
+      ? { sourceName: { contains: filters.sourceName } }
+      : {}),
     ...(filters.upcoming
       ? { startDateTime: { gte: startOfDay(new Date()) } }
       : {}),
@@ -909,6 +1188,7 @@ export async function getAdminEventManagement(
         id: true,
         title: true,
         startDateTime: true,
+        isAllDay: true,
         city: true,
         county: true,
         category: true,
@@ -931,6 +1211,58 @@ export async function getAdminEventManagement(
     page,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
   };
+}
+
+export async function getAdminDateReviewQueue() {
+  const events = await prisma.event.findMany({
+    where: {
+      OR: [
+        { dateVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] } },
+        { timeVerificationStatus: { in: ["CONFLICT", "AMBIGUOUS", "MISSING_EVIDENCE"] } },
+      ],
+    },
+    orderBy: [{ startDateTime: "asc" }, { updatedAt: "desc" }],
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startDateTime: true,
+      timeZone: true,
+      sourceName: true,
+      originalUrl: true,
+      sourceUrl: true,
+      sourceId: true,
+      dateVerificationStatus: true,
+      dateVerificationReason: true,
+      dateEvidence: true,
+      dateVerifiedAt: true,
+      timeVerificationStatus: true,
+      timeVerificationReason: true,
+      timeEvidence: true,
+      timeVerifiedAt: true,
+      sourcePublishedText: true,
+      lastSeenAt: true,
+      updatedAt: true,
+      source: {
+        select: { lastScrapedAt: true },
+      },
+    },
+  });
+  const sourceNames = [...new Set(events.map((event) => event.sourceName))];
+  const logs = await prisma.scrapeLog.findMany({
+    where: { sourceName: { in: sourceNames } },
+    orderBy: { createdAt: "desc" },
+    select: { sourceName: true, status: true, createdAt: true },
+  });
+  return events.map((event) => ({
+    ...event,
+    lastScrapeAttemptAt: logs.find((log) => log.sourceName === event.sourceName)?.createdAt ?? null,
+    lastSuccessfulScrapeAt:
+      logs.find((log) => log.sourceName === event.sourceName && log.status === "SUCCESS")?.createdAt ??
+      event.source?.lastScrapedAt ??
+      null,
+  }));
 }
 
 // -------------------------------------------------------------------------
@@ -969,11 +1301,25 @@ export async function getAdminImageData(): Promise<AdminImageDataResult> {
   const [total, missingUpcoming, missingUpcomingEvents] = await Promise.all([
     prisma.event.count({ where: { status: "APPROVED" } }),
     prisma.event.count({
-      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
+      where: {
+        status: "APPROVED",
+        startDateTime: { gte: now },
+        imageUrl: null,
+      },
     }),
     prisma.event.findMany({
-      where: { status: "APPROVED", startDateTime: { gte: now }, imageUrl: null },
-      select: { id: true, title: true, startDateTime: true, category: true, city: true },
+      where: {
+        status: "APPROVED",
+        startDateTime: { gte: now },
+        imageUrl: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        startDateTime: true,
+        category: true,
+        city: true,
+      },
       orderBy: { startDateTime: "asc" },
       take: 50,
     }),
@@ -987,7 +1333,9 @@ export async function getAdminImageData(): Promise<AdminImageDataResult> {
   try {
     [withFallback, withSource, fallbackEvents] = await Promise.all([
       prisma.event.count({ where: { imageIsFallback: true } }),
-      prisma.event.count({ where: { imageUrl: { not: null }, imageIsFallback: false } }),
+      prisma.event.count({
+        where: { imageUrl: { not: null }, imageIsFallback: false },
+      }),
       prisma.event.findMany({
         where: { imageIsFallback: true, status: "APPROVED" },
         select: {
@@ -1035,8 +1383,12 @@ export async function getAdminScrapeLogs(filters: AdminLogFilters = {}) {
   const skip = (page - 1) * PAGE_SIZE;
 
   const where: Prisma.ScrapeLogWhereInput = {
-    ...(filters.sourceName ? { sourceName: { contains: filters.sourceName } } : {}),
-    ...(filters.status ? { status: filters.status as "SUCCESS" | "PARTIAL" | "FAILED" } : {}),
+    ...(filters.sourceName
+      ? { sourceName: { contains: filters.sourceName } }
+      : {}),
+    ...(filters.status
+      ? { status: filters.status as "SUCCESS" | "PARTIAL" | "FAILED" }
+      : {}),
     ...(filters.zeros ? { itemsFound: 0 } : {}),
     ...(filters.created ? { itemsCreated: { gt: 0 } } : {}),
   };
@@ -1051,7 +1403,12 @@ export async function getAdminScrapeLogs(filters: AdminLogFilters = {}) {
     prisma.scrapeLog.count({ where }),
   ]);
 
-  return { logs, total, page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+  return {
+    logs,
+    total,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  };
 }
 
 // -------------------------------------------------------------------------
@@ -1107,4 +1464,18 @@ export async function getAdminPossibleDuplicates(): Promise<DuplicateGroup[]> {
   return Array.from(groups.values())
     .filter((g) => g.length >= 2)
     .slice(0, 30);
+}
+
+export async function getAdminExactDuplicateSummary() {
+  const { groupExactDuplicateEvents } = await import("@/server/event-deduplication");
+  const events = await prisma.event.findMany({
+    where: { status: "APPROVED", startDateTime: { gte: new Date() } },
+    select: { id: true, title: true, startDateTime: true, city: true, county: true, locationName: true, address: true },
+    orderBy: { startDateTime: "asc" },
+  });
+  const groups = groupExactDuplicateEvents(events);
+  return {
+    groupCount: groups.length,
+    redundantEventCount: groups.reduce((count, group) => count + group.length - 1, 0),
+  };
 }

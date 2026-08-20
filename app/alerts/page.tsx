@@ -27,30 +27,39 @@ export default async function AlertsPage({ searchParams }: PageProps) {
       </section>
 
       <form className="grid gap-4 rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 md:grid-cols-3">
-        <select name="city" defaultValue={filters.city ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          City
+          <select name="city" defaultValue={filters.city ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
           <option value="">All cities</option>
           {CITY_FILTERS.map((entry) => (
             <option key={entry} value={entry}>
               {entry}
             </option>
           ))}
-        </select>
-        <select name="county" defaultValue={filters.county ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          County
+          <select name="county" defaultValue={filters.county ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
           <option value="">All counties</option>
           {COUNTY_FILTERS.map((entry) => (
             <option key={entry} value={entry}>
               {entry}
             </option>
           ))}
-        </select>
-        <select name="type" defaultValue={filters.alertType ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          Alert type
+          <select name="type" defaultValue={filters.alertType ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
           <option value="">All alert types</option>
           {ALERT_TYPE_OPTIONS.map((entry) => (
             <option key={entry.value} value={entry.value}>
               {entry.label}
             </option>
           ))}
-        </select>
+          </select>
+        </label>
         <button
           type="submit"
           className="btn btn-primary btn-md md:col-span-3 md:justify-self-end"

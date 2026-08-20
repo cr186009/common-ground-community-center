@@ -1,6 +1,14 @@
 import type { Event } from "@prisma/client";
-import { eachDayOfInterval, endOfMonth, format, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
+import {
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
 import Link from "next/link";
+import { getVerificationNoticeLabel } from "@/components/event-verification-notice";
 
 export function HubCalendarGrid({
   events,
@@ -33,14 +41,21 @@ export function HubCalendarGrid({
           <div key={weekIndex} className="grid grid-cols-7 gap-px">
             {week.map((day) => {
               const dayEvents = events.filter(
-                (event) => format(event.startDateTime, "yyyy-MM-dd") === format(day, "yyyy-MM-dd"),
+                (event) =>
+                  format(event.startDateTime, "yyyy-MM-dd") ===
+                  format(day, "yyyy-MM-dd"),
               );
 
               return (
-                <div key={day.toISOString()} className="min-h-36 bg-white p-3 align-top">
+                <div
+                  key={day.toISOString()}
+                  className="min-h-36 bg-white p-3 align-top"
+                >
                   <div
                     className={`text-sm font-semibold ${
-                      isSameMonth(day, monthDate) ? "text-[color:var(--navy)]" : "text-slate-400"
+                      isSameMonth(day, monthDate)
+                        ? "text-[color:var(--navy)]"
+                        : "text-slate-400"
                     }`}
                   >
                     {format(day, "d")}
@@ -53,11 +68,22 @@ export function HubCalendarGrid({
                         className="block rounded-2xl bg-[color:var(--forest-soft)] px-3 py-2 text-xs font-medium text-[color:var(--forest)]"
                       >
                         <span className="block truncate">{event.title}</span>
-                        <span className="mt-1 block text-[0.7rem] opacity-80">{format(event.startDateTime, "h:mm a")}</span>
+                        <span className="mt-1 block text-[0.7rem] opacity-80">
+                          {event.isAllDay
+                            ? "All day"
+                            : format(event.startDateTime, "h:mm a")}
+                        </span>
+                        {getVerificationNoticeLabel(event.dateVerificationStatus, event.timeVerificationStatus) ? (
+                          <span className="mt-1 block text-[0.65rem] font-semibold text-amber-800">
+                            {getVerificationNoticeLabel(event.dateVerificationStatus, event.timeVerificationStatus)}
+                          </span>
+                        ) : null}
                       </Link>
                     ))}
                     {dayEvents.length > 3 ? (
-                      <p className="text-[0.7rem] font-semibold text-slate-500">+{dayEvents.length - 3} more</p>
+                      <p className="text-[0.7rem] font-semibold text-slate-500">
+                        +{dayEvents.length - 3} more
+                      </p>
                     ) : null}
                   </div>
                 </div>

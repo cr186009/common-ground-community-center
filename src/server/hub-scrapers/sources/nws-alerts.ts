@@ -5,6 +5,7 @@ import type {
   ScrapeOutput,
   SourceScraper,
 } from "@/server/hub-scrapers/types";
+import { cleanPublicText } from "@/server/hub-scrapers/helpers";
 
 const SOURCE_NAME = "National Weather Service alerts";
 
@@ -122,8 +123,9 @@ export const nwsAlertsScraper: SourceScraper = {
 
       const title = (p.headline?.trim() || p.event).trim();
 
-      const description =
-        [p.description, p.instruction].filter(Boolean).join("\n\n") || null;
+      const description = cleanPublicText(
+        [p.description, p.instruction].filter(Boolean).join("\n\n"),
+      ) || null;
 
       const startsAt =
         p.onset     ? new Date(p.onset)     :
@@ -149,6 +151,7 @@ export const nwsAlertsScraper: SourceScraper = {
         sourceName: SOURCE_NAME,
         sourceUrl:  source.url,
         originalUrl: feature.id,
+        externalId: feature.id,
         startsAt,
         expiresAt,
         status: "ACTIVE",

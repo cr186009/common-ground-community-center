@@ -32,42 +32,45 @@ export function HubFilterForm({
 }) {
   return (
     <form className="grid gap-4 rounded-[1.75rem] border border-[color:var(--line)] bg-white p-5 md:grid-cols-2 xl:grid-cols-4">
-      <input
-        name="query"
-        defaultValue={query}
-        placeholder="Search title, tags, location..."
-        className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm"
-      />
-      <select name="city" defaultValue={city ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
-        <option value="">All cities</option>
-        {CITY_FILTERS.map((entry) => (
-          <option key={entry} value={entry}>
-            {entry}
-          </option>
-        ))}
-      </select>
-      <select name="county" defaultValue={county ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
-        <option value="">All counties</option>
-        {COUNTY_FILTERS.map((entry) => (
-          <option key={entry} value={entry}>
-            {entry}
-          </option>
-        ))}
-      </select>
-      <select
-        name="category"
-        defaultValue={category ?? ""}
-        className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm"
-      >
-        <option value="">All categories</option>
-        {CATEGORY_OPTIONS.map((entry) => (
-          <option key={entry.value} value={entry.value}>
-            {entry.label}
-          </option>
-        ))}
-      </select>
+      <label className="grid gap-2 text-sm font-medium text-slate-700">
+        Search events
+        <input
+          name="query"
+          defaultValue={query}
+          placeholder="Title, tags, or location"
+          className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal"
+        />
+      </label>
+      <label className="grid gap-2 text-sm font-medium text-slate-700">
+        City
+        <select name="city" defaultValue={city ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
+          <option value="">All cities</option>
+          {CITY_FILTERS.map((entry) => (
+            <option key={entry} value={entry}>{entry}</option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-2 text-sm font-medium text-slate-700">
+        County
+        <select name="county" defaultValue={county ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
+          <option value="">All counties</option>
+          {COUNTY_FILTERS.map((entry) => (
+            <option key={entry} value={entry}>{entry}</option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-2 text-sm font-medium text-slate-700">
+        Category
+        <select name="category" defaultValue={category ?? ""} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
+          <option value="">All categories</option>
+          {CATEGORY_OPTIONS.map((entry) => (
+            <option key={entry.value} value={entry.value}>{entry.label}</option>
+          ))}
+        </select>
+      </label>
 
-      <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-2">
+      <fieldset className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-2">
+        <legend className="mb-2 w-full text-sm font-medium text-slate-700">Quick filters</legend>
         <label className="inline-flex items-center gap-2 rounded-full border border-[color:var(--line)] px-4 py-2 text-sm text-slate-700">
           <input type="checkbox" name="free" value="1" defaultChecked={isFree} />
           Free
@@ -80,20 +83,24 @@ export function HubFilterForm({
           <input type="checkbox" name="outdoor" value="1" defaultChecked={isOutdoor} />
           Outdoor
         </label>
-      </div>
+      </fieldset>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <select name="view" defaultValue={view} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
-          <option value="list">List view</option>
-          <option value="calendar">Calendar view</option>
-        </select>
-        <select name="month" defaultValue={month} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm">
-          {monthOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          View
+          <select name="view" defaultValue={view} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
+            <option value="list">List view</option>
+            <option value="calendar">Calendar view</option>
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          Month
+          <select name="month" defaultValue={month} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
+            {monthOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap justify-end gap-3">

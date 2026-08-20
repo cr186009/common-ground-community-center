@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 
+import { parseCommunitySourceDateTime } from "@/lib/hub-date";
+
 import {
   cleanText,
   dedupeNormalizedEvents,
@@ -88,16 +90,26 @@ function extractImageUrl(
   return toAbsoluteUrl(sourceUrl, src) ?? null;
 }
 
-function parseDate(value?: string) {
+function isDateOnlyValue(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+export function parseHiramDate(value?: string) {
   if (!value) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const normalized = value.trim();
 
-  return Number.isNaN(parsed.getTime())
-    ? null
-    : parsed;
+  try {
+    return parseCommunitySourceDateTime(normalized);
+  } catch {
+    return null;
+  }
 }
 
 function isUpcoming(date: Date, now: Date) {
@@ -140,21 +152,19 @@ export const hiramOfficialScraper: SourceScraper = {
         `Unable to parse Hiram calendar JSON: ${message}`,
       );
     }
-    
-    console.log(
-      calendarItems.map((i) => ({
-        title: i.title,
-        calendar: i.primary_calendar_name,
-        start: i.start,
-      }))
-    );
-    
+
     const now = new Date();
     const events: NormalizedScrapedEvent[] = [];
 
     for (const item of calendarItems) {
       const title = cleanText(item.title);
-      const startDateTime = parseDate(item.start);
+      const startDateTime = parseHiramDate(item.start);
+      const isAllDay =
+        isDateOnlyValue(item.start) ||
+        (Boolean(startDateTime) &&
+          /^Office Closed\b/i.test(title) &&
+          Boolean(item.end) &&
+          new Date(item.end!).getTime() - startDateTime!.getTime() > 24 * 60 * 60 * 1000);
 
       /*
        * Only import public City Events. City Meetings and
@@ -170,7 +180,7 @@ export const hiramOfficialScraper: SourceScraper = {
         continue;
       }
 
-      const endDateTime = parseDate(item.end);
+      const endDateTime = parseHiramDate(item.end);
       const description = decodeDescription(item.desc);
       const locationName =
         cleanText(item.location) || "City of Hiram";
@@ -188,6 +198,8 @@ export const hiramOfficialScraper: SourceScraper = {
         description,
         startDateTime,
         endDateTime,
+        isAllDay,
+        timeZone: "America/New_York",
         locationName,
         address: null,
         city: "Hiram",

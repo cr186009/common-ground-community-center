@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
-
-const STORAGE_KEY = "community-alert-banner-state-v1";
-const SEEN_HIGH_KEY = "community-alert-banner-seen-high-v1";
 
 export type AlertBannerItem = {
   id: string;
@@ -55,71 +52,27 @@ const SEVERITY_STYLES: Record<
   },
 };
 
-function getTopSeverity(alerts: AlertBannerItem[]): AlertBannerItem["severity"] {
-  return alerts.reduce<AlertBannerItem["severity"]>(
-    (best, a) => (SEVERITY_RANK[a.severity] > SEVERITY_RANK[best] ? a.severity : best),
-    "LOW",
+export function getHighestRankedAlert(alerts: AlertBannerItem[]) {
+  return alerts.reduce<AlertBannerItem | null>(
+    (best, alert) =>
+      !best || SEVERITY_RANK[alert.severity] > SEVERITY_RANK[best.severity]
+        ? alert
+        : best,
+    null,
   );
 }
 
 export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }) {
-  // Always start expanded so server and client first-render agree (no hydration mismatch).
-  // useEffect then applies the stored preference / mobile default.
-  const [mounted, setMounted] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  useEffect(() => {
-    // Compute the sorted IDs of all HIGH/EMERGENCY alerts for "new alert" detection
-    const urgentIds = alerts
-      .filter((a) => a.severity === "HIGH" || a.severity === "EMERGENCY")
-      .map((a) => a.id)
-      .sort()
-      .join(",");
-
-    let nextExpanded: boolean;
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const lastSeenUrgent = localStorage.getItem(SEEN_HIGH_KEY) ?? "";
-    const hasNewUrgent = urgentIds !== "" && urgentIds !== lastSeenUrgent;
-
-    if (hasNewUrgent) {
-      // A new HIGH or EMERGENCY alert arrived — force expand once
-      nextExpanded = true;
-      localStorage.setItem(STORAGE_KEY, "expanded");
-    } else if (stored === "minimized") {
-      nextExpanded = false;
-    } else if (stored === "expanded") {
-      nextExpanded = true;
-    } else {
-      // No saved preference — expanded on md+, minimized on mobile
-      nextExpanded = window.innerWidth >= 768;
-    }
-
-    // Always keep the seen-high record current so the next page load won't re-expand
-    if (urgentIds) {
-      localStorage.setItem(SEEN_HIGH_KEY, urgentIds);
-    }
-
-    setIsExpanded(nextExpanded);
-    setMounted(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [isExpanded, setIsExpanded] = useState(false);
 
   function toggle() {
-    const next = !isExpanded;
-    setIsExpanded(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next ? "expanded" : "minimized");
-    } catch {
-      // localStorage unavailable (private browsing, storage full, etc.) — silent
-    }
+    setIsExpanded((expanded) => !expanded);
   }
 
   if (alerts.length === 0) return null;
 
-  const topSeverity = getTopSeverity(alerts);
-  const topStyles = SEVERITY_STYLES[topSeverity] ?? SEVERITY_STYLES.LOW;
-  // Before hydration renders expanded (server default). After mount uses real preference.
-  const expanded = mounted ? isExpanded : true;
+  const topAlert = getHighestRankedAlert(alerts)!;
+  const topStyles = SEVERITY_STYLES[topAlert.severity] ?? SEVERITY_STYLES.LOW;
   const count = alerts.length;
 
   return (
@@ -128,7 +81,7 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
       aria-label="Active community alerts"
     >
       {/* ── Minimized compact row ─────────────────────────────── */}
-      {!expanded && (
+      {!isExpanded && (
         <div className="flex min-h-0 items-center gap-3 px-5 py-3">
           <AlertTriangle
             className={`h-4 w-4 shrink-0 ${topStyles.icon}`}
@@ -137,14 +90,14 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
           <span
             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${topStyles.badge}`}
           >
-            {alerts[0].severityLabel}
+            {topAlert.severityLabel}
           </span>
           <span className="min-w-0 truncate text-sm font-semibold text-slate-800">
             {count === 1 ? "1 active alert" : `${count} active alerts`}
           </span>
           {count === 1 && (
             <span className="hidden min-w-0 truncate text-sm text-slate-600 sm:block">
-              — {alerts[0].title}
+              — {topAlert.title}
             </span>
           )}
           <button
@@ -161,7 +114,7 @@ export function CollapsibleAlertBanner({ alerts }: { alerts: AlertBannerItem[] }
       )}
 
       {/* ── Expanded full view ────────────────────────────────── */}
-      {expanded && (
+      {isExpanded && (
         <div>
           {/* Header row */}
           <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-4">

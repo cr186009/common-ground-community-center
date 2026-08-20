@@ -1,8 +1,8 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "postgresql-16", "python-3.11", "web"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["psmisc"]
+packages = ["psmisc", "nano"]
 
 [[ports]]
 localPort = 3000
@@ -19,6 +19,18 @@ externalPort = 3000
 [[ports]]
 localPort = 5556
 externalPort = 3001
+
+[[ports]]
+localPort = 5557
+externalPort = 3003
+
+[[ports]]
+localPort = 5558
+externalPort = 4200
+
+[[ports]]
+localPort = 5559
+externalPort = 5000
 
 [workflows]
 runButton = "Community Center"
