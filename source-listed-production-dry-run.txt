@@ -1,0 +1,36 @@
+
+> paulding-polk-digital-community-center@0.1.0 events:backfill-trust /home/runner/workspace
+> node --import tsx scripts/backfill-event-trust.ts
+
+{
+  "mode": "dry-run",
+  "approvedMissingEvidenceRecords": 1291,
+  "sourceListedCandidates": 1269,
+  "heldForReview": 22,
+  "heldByReason": {
+    "End date is not after start date": 22
+  },
+  "candidatesBySource": {
+    "City of Acworth events": 17,
+    "City of Adairsville events": 1,
+    "City of Dallas official events page": 1,
+    "City of Hiram official site": 5,
+    "City of Kennesaw events": 560,
+    "City of Marietta calendar": 431,
+    "City of Rockmart official site": 1,
+    "City of Woodstock special events": 1,
+    "Downtown Cedartown events page": 1,
+    "Explore Canton events": 37,
+    "Paulding County Parks calendar": 1,
+    "Paulding County Public Calendar": 40,
+    "Paulding County public calendar": 1,
+    "Polk County Chamber events": 1,
+    "Rockmart Cultural Arts Center": 3,
+    "The Mill on Etowah events": 1,
+    "Visit Marietta events": 1,
+    "Visit Woodstock events": 166
+  }
+}
+
+No changes made. After reviewing this report, apply exactly this set with:
+npm run events:backfill-trust -- --apply-source-listed --expected-candidates=1269
