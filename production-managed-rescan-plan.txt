@@ -1,0 +1,343 @@
+
+> paulding-polk-digital-community-center@0.1.0 sources:rescan-plan /home/runner/workspace
+> node --import tsx scripts/plan-managed-rescan.ts
+
+{
+  "mode": "read-only rescan plan",
+  "databaseSources": 92,
+  "registeredScrapers": 47,
+  "matchedManagedSources": 46,
+  "runnableManagedSources": 18,
+  "totalManagedEvents": 1455,
+  "sources": [
+    {
+      "id": "cmreilawe0012d7hzx9x3q60s",
+      "name": "Bartow County Parks and Recreation Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:16.718Z"
+    },
+    {
+      "id": "cmreilasf000nd7hz4ktcsq32",
+      "name": "Cedartown Police Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:16.718Z"
+    },
+    {
+      "id": "cmsrz5odw0003d7kef8tg1mes",
+      "name": "Cherokee County Chamber events",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmsrz5oc00002d7kepyrrelzp",
+      "name": "Cherokee Recreation & Parks events",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilaxd0016d7hz78q894sp",
+      "name": "Cherokee Recreation and Parks Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:16.718Z"
+    },
+    {
+      "id": "cms3ix77z0000d7om101iyw2x",
+      "name": "City of Acworth Events",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilb2k001rd7hzl1go09a5",
+      "name": "City of Acworth events",
+      "active": true,
+      "eventCount": 22,
+      "lastScrapedAt": "2026-08-13T20:56:10.481Z"
+    },
+    {
+      "id": "cmreilb18001md7hz6bgk2h6f",
+      "name": "City of Adairsville Facebook",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-08-13T21:36:33.104Z"
+    },
+    {
+      "id": "cmreilaq3000ed7hzfa8qjo9v",
+      "name": "City of Cedartown Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:17.050Z"
+    },
+    {
+      "id": "cmreilao10006d7hzolaz7p4q",
+      "name": "City of Dallas Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-26T22:56:44.369Z"
+    },
+    {
+      "id": "cmreilanc0003d7hzpidg0a1o",
+      "name": "City of Dallas official events page",
+      "active": false,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-07-17T21:00:17.513Z"
+    },
+    {
+      "id": "cmreilan30002d7hzooe8bupd",
+      "name": "City of Hiram Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:17.137Z"
+    },
+    {
+      "id": "cmreilamk0000d7hzcfbda3la",
+      "name": "City of Hiram official site",
+      "active": true,
+      "eventCount": 5,
+      "lastScrapedAt": "2026-08-13T20:55:47.975Z"
+    },
+    {
+      "id": "cms3ix7f50002d7omuy1hm7ee",
+      "name": "City of Kennesaw events",
+      "active": true,
+      "eventCount": 653,
+      "lastScrapedAt": "2026-08-13T20:56:44.807Z"
+    },
+    {
+      "id": "cmreilb1h001nd7hzngc55p0v",
+      "name": "City of Marietta calendar",
+      "active": true,
+      "eventCount": 450,
+      "lastScrapedAt": "2026-08-13T20:56:37.028Z"
+    },
+    {
+      "id": "cmreilb6g0026d7hz2tggopp1",
+      "name": "City of Powder Springs Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.223Z"
+    },
+    {
+      "id": "cmreilap0000ad7hzbyijze64",
+      "name": "City of Rockmart Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.223Z"
+    },
+    {
+      "id": "cmreilaoi0008d7hzz7837qzk",
+      "name": "City of Rockmart official site",
+      "active": true,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-08-13T20:56:11.372Z"
+    },
+    {
+      "id": "cmreilb5i0022d7hz9823djom",
+      "name": "City of Smyrna Instagram/manual source",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.630Z"
+    },
+    {
+      "id": "cmreilav2000xd7hzrghy3i53",
+      "name": "Cobb County Government Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.630Z"
+    },
+    {
+      "id": "cmreilavc000yd7hzxoo2vkjc",
+      "name": "Cobb PARKS Instagram/manual source",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.630Z"
+    },
+    {
+      "id": "cmsrz5nz90000d7keoofi6s6i",
+      "name": "Cobb Schools — Kennesaw campuses",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilarx000ld7hz2zg352rq",
+      "name": "Dallas Police Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.690Z"
+    },
+    {
+      "id": "cmreilapk000cd7hz3rj0smrq",
+      "name": "Downtown Cedartown events page",
+      "active": false,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-07-17T21:00:18.908Z"
+    },
+    {
+      "id": "cmreilank0004d7hzuvtzeunn",
+      "name": "Downtown Dallas / MyDallasGA",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilayd001ad7hz8o8ns5ye",
+      "name": "Downtown Woodstock Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.690Z"
+    },
+    {
+      "id": "cmreilb09001id7hzsg0nfy2s",
+      "name": "Explore Canton Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.966Z"
+    },
+    {
+      "id": "cmreilb01001hd7hzrwkfoniv",
+      "name": "Explore Canton events",
+      "active": true,
+      "eventCount": 54,
+      "lastScrapedAt": "2026-08-13T20:56:59.622Z"
+    },
+    {
+      "id": "cmreilazc001ed7hze4x9kief",
+      "name": "Georgia’s Rome Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.966Z"
+    },
+    {
+      "id": "cmreilarn000kd7hz83jgpsrv",
+      "name": "Hiram Police Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:18.966Z"
+    },
+    {
+      "id": "cmsrz5o220001d7kehzkwmp0e",
+      "name": "Kennesaw State University public events",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilaoa0007d7hzs55ec3u1",
+      "name": "MyDallasGA Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:19.025Z"
+    },
+    {
+      "id": "cmrze6fz90000s610fxpkh147",
+      "name": "National Weather Service alerts",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-08-14T13:50:17.115Z"
+    },
+    {
+      "id": "cmreilar5000id7hzk4d1m93q",
+      "name": "Paulding County Parks Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:19.025Z"
+    },
+    {
+      "id": "cmreilaql000gd7hz8ue7x08m",
+      "name": "Paulding County Public Calendar",
+      "active": false,
+      "eventCount": 43,
+      "lastScrapedAt": "2026-07-27T01:42:54.455Z"
+    },
+    {
+      "id": "cmreilard000jd7hzvsy43ybx",
+      "name": "Paulding County Sheriff Facebook",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:21.666Z"
+    },
+    {
+      "id": "cms2ekh6o000ns60zhts55qub",
+      "name": "Paulding County public calendar",
+      "active": true,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-08-13T20:56:50.094Z"
+    },
+    {
+      "id": "cmreilat6000qd7hz5qij1y0u",
+      "name": "Pizza Shack Facebook",
+      "active": false,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-07-17T21:00:21.666Z"
+    },
+    {
+      "id": "cmsas8bd30000d79ug5tciuz4",
+      "name": "Polk County Chamber events",
+      "active": true,
+      "eventCount": 1,
+      "lastScrapedAt": "2026-08-13T20:57:00.955Z"
+    },
+    {
+      "id": "cmsas8bfm0001d79uu54z94e2",
+      "name": "Polk County official calendar",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-08-13T20:57:01.132Z"
+    },
+    {
+      "id": "cmsas8bh90002d79udg0sfkoj",
+      "name": "Rockmart Cultural Arts Center",
+      "active": true,
+      "eventCount": 5,
+      "lastScrapedAt": "2026-08-13T20:57:00.520Z"
+    },
+    {
+      "id": "cmreilas6000md7hzsu79j45y",
+      "name": "Rockmart Police Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:21.666Z"
+    },
+    {
+      "id": "cmreilasx000pd7hz351mphkj",
+      "name": "The Hopp Frogg Music Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:21.723Z"
+    },
+    {
+      "id": "cmreilay30019d7hzrj50nmcf",
+      "name": "Visit Woodstock events",
+      "active": true,
+      "eventCount": 217,
+      "lastScrapedAt": "2026-08-13T20:57:14.120Z"
+    },
+    {
+      "id": "cmsrz5ofp0004d7kegr0wqbw9",
+      "name": "West Georgia Regional Library events",
+      "active": true,
+      "eventCount": 0,
+      "lastScrapedAt": null
+    },
+    {
+      "id": "cmreilasn000od7hzjtw3621p",
+      "name": "What’s Happening in Dallas, Georgia Facebook",
+      "active": false,
+      "eventCount": 0,
+      "lastScrapedAt": "2026-07-17T21:00:21.723Z"
+    }
+  ],
+  "unmatchedRegisteredNames": [
+    "Cherokee County School District — Canton coverage",
+    "North Cobb Regional Library events",
+    "Paulding County School District events"
+  ]
+}
+
+No scrapers were run and no database records were changed.
