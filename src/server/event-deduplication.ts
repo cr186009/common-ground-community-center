@@ -50,9 +50,10 @@ export function groupExactDuplicateEvents<T extends Pick<Event, "title" | "start
 const verificationRank = {
   VERIFIED: 5,
   MANUALLY_VERIFIED: 4,
-  AMBIGUOUS: 3,
-  MISSING_EVIDENCE: 2,
-  CONFLICT: 1,
+  SOURCE_LISTED: 3,
+  AMBIGUOUS: 2,
+  MISSING_EVIDENCE: 1,
+  CONFLICT: 0,
 } as const;
 
 function populatedFieldCount(event: DuplicateCandidate) {

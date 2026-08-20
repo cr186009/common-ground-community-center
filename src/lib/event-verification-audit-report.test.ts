@@ -28,9 +28,10 @@ test("date and time verification totals remain independent", () => {
   });
 });
 
-test("manual and automatic verification do not require review", () => {
+test("manual, automatic, and source-listed schedules do not require review", () => {
   assert.equal(needsVerificationReview("VERIFIED"), false);
   assert.equal(needsVerificationReview("MANUALLY_VERIFIED"), false);
+  assert.equal(needsVerificationReview("SOURCE_LISTED"), false);
   assert.equal(needsVerificationReview("CONFLICT"), true);
 });
 
