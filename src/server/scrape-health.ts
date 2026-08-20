@@ -1,3 +1,5 @@
+import { scrapeIntervalMs } from "@/server/scrape-schedule";
+
 export type SourceHealthStatus =
   | "HEALTHY"
   | "DEGRADED"
@@ -27,6 +29,35 @@ export type SourceRunMetrics = {
   successRate: number | null;
   lastSuccessfulAt: Date | null;
 };
+
+export type SourceFreshnessSlo = {
+  expectedIntervalMs: number;
+  overdueAfterMs: number;
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+/**
+ * Operational freshness target for a source. The overdue threshold includes
+ * scheduler/incident grace so one late hourly invocation does not page an
+ * administrator, while a genuinely stalled source becomes visible quickly.
+ */
+export function sourceFreshnessSlo(
+  scrapeFrequency: string | null | undefined,
+): SourceFreshnessSlo {
+  const expectedIntervalMs = scrapeIntervalMs(scrapeFrequency);
+
+  const graceMs = expectedIntervalMs <= 6 * HOUR_MS
+    ? 3 * HOUR_MS
+    : expectedIntervalMs <= DAY_MS
+      ? DAY_MS
+      : expectedIntervalMs <= 7 * DAY_MS
+        ? 3 * DAY_MS
+        : 10 * DAY_MS;
+
+  return { expectedIntervalMs, overdueAfterMs: expectedIntervalMs + graceMs };
+}
 
 export const RETIRED_SOURCE_NOTE_MARKER = "[retired]";
 
@@ -82,38 +113,47 @@ export function assessSourceHealth({
   recentLogs: RecentScrapeLog[];
   publishedContentCount: number;
   now?: Date;
-}): { status: SourceHealthStatus; warning: string | null } {
-  if (retired) return { status: "RETIRED", warning: null };
-  if (!active) return { status: "PAUSED", warning: null };
+}): {
+  status: SourceHealthStatus;
+  warning: string | null;
+  freshnessDeadline: Date | null;
+  overdueByMs: number;
+} {
+  const noDeadline = { freshnessDeadline: null, overdueByMs: 0 };
+  if (retired) return { status: "RETIRED", warning: null, ...noDeadline };
+  if (!active) return { status: "PAUSED", warning: null, ...noDeadline };
   if (!hasAutomatedScraper) {
     return {
       status: "DEGRADED",
       warning: "This active source has no registered automated scraper.",
+      ...noDeadline,
     };
   }
 
   const lastLog = recentLogs[0];
   if (!lastScrapedAt || !lastLog) {
-    return { status: "DEGRADED", warning: "This automated source has never completed a scrape." };
+    return { status: "DEGRADED", warning: "This automated source has never completed a scrape.", ...noDeadline };
   }
+  const { overdueAfterMs } = sourceFreshnessSlo(scrapeFrequency);
+  const freshnessDeadline = new Date(lastScrapedAt.getTime() + overdueAfterMs);
+  const overdueByMs = Math.max(0, now.getTime() - freshnessDeadline.getTime());
   if (lastLog.status === "FAILED") {
-    return { status: "FAILING", warning: "The latest scrape failed." };
+    const failures = recentLogs.findIndex((log) => log.status !== "FAILED");
+    const failureCount = failures === -1 ? recentLogs.length : failures;
+    return {
+      status: "FAILING",
+      warning: `${failureCount || 1} consecutive scrape failure${failureCount === 1 ? "" : "s"}. Preview the source, then inspect its latest log before retrying.`,
+      freshnessDeadline,
+      overdueByMs,
+    };
   }
 
-  const ageMs = now.getTime() - lastScrapedAt.getTime();
-  const freq = (scrapeFrequency ?? "").toLowerCase();
-  let staleMs = 10 * 24 * 60 * 60 * 1000;
-  if (freq.includes("hour")) staleMs = 4 * 60 * 60 * 1000;
-  else if (freq.includes("daily") || freq.includes("day")) staleMs = 2 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("week")) staleMs = 10 * 24 * 60 * 60 * 1000;
-  else if (freq.includes("month")) staleMs = 40 * 24 * 60 * 60 * 1000;
-
-  if (ageMs > staleMs) {
-    return { status: "DEGRADED", warning: "The latest scrape is overdue for this source's schedule." };
+  if (overdueByMs > 0) {
+    return { status: "DEGRADED", warning: "The latest scrape is overdue for this source's freshness target. Check the production scheduler and source logs.", freshnessDeadline, overdueByMs };
   }
 
   if (sourceSection !== "ALERTS" && lastLog.itemsFound === 0) {
-    return { status: "DEGRADED", warning: "The latest scrape found no items." };
+    return { status: "DEGRADED", warning: "The latest scrape found no items.", freshnessDeadline, overdueByMs };
   }
 
   if (
@@ -125,6 +165,8 @@ export function assessSourceHealth({
     return {
       status: "DEGRADED",
       warning: "The scraper saved items, but this source has no published content.",
+      freshnessDeadline,
+      overdueByMs,
     };
   }
 
@@ -132,10 +174,12 @@ export function assessSourceHealth({
     return {
       status: "DEGRADED",
       warning: lastLog.message?.trim() || "The latest scrape completed partially.",
+      freshnessDeadline,
+      overdueByMs,
     };
   }
 
-  return { status: "HEALTHY", warning: null };
+  return { status: "HEALTHY", warning: null, freshnessDeadline, overdueByMs };
 }
 
 export function finalizeScrapeOutcome({

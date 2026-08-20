@@ -118,6 +118,10 @@ estimated after discovery.
 
 ### Sprint 5 — Freshness and lifecycle reliability
 
+Implementation status (August 20, 2026): repository work is complete. Production
+rollout still requires the reviewed source-health and cleanup dry runs, scheduler
+configuration, deployment, and a post-run aggregate audit.
+
 1. Verify the production invocation and monitoring of `scrape:due`.
 2. Define per-source freshness SLOs and administrator alerts.
 3. Expire events after their valid end; use a documented fallback when no end is

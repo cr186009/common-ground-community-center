@@ -14,6 +14,11 @@ import {
 } from "date-fns";
 
 import { ACTIVITY_CATEGORIES } from "@/lib/hub-constants";
+import {
+  getEventLifecycleCandidateStart,
+  isEventInPublicRange,
+  type EventLifecycleInput,
+} from "@/lib/event-lifecycle";
 import { classifyCommunityCoverage } from "@/lib/geographic-coverage";
 import {
   countEventDiscoveryResults,
@@ -34,6 +39,7 @@ import type {
 } from "@/lib/hub-search";
 import { prisma } from "@/lib/prisma";
 import { completeElapsedMeetings } from "@/server/meetings/lifecycle";
+import { summarizeCatalogFreshness } from "@/server/catalog-freshness";
 import { buildWeeklyDigestPreview } from "@/services/weekly-digest";
 import { expiredAlertArchiveCutoff } from "@/server/alert-lifecycle";
 import {
@@ -54,18 +60,32 @@ export type { SourceHealthStatus } from "@/server/scrape-health";
 function buildEventWhere(
   filters: PublicEventFilters,
   activityOnly = false,
+  now = new Date(),
 ): Prisma.EventWhereInput {
   const query = filters.query?.trim();
-  const dateFrom = filters.dateFrom ?? startOfCommunityDay();
+  const dateFrom =
+    filters.dateFrom && filters.dateFrom > now ? filters.dateFrom : now;
+  const dateTo = filters.dateTo
+    ? endOfCommunityDay(filters.dateTo)
+    : undefined;
 
   return {
     status: "APPROVED",
     dateVerificationStatus: { not: "CONFLICT" },
     timeVerificationStatus: { not: "CONFLICT" },
-    startDateTime: {
-      gte: dateFrom,
-      ...(filters.dateTo ? { lte: endOfCommunityDay(filters.dateTo) } : {}),
-    },
+    AND: [
+      {
+        OR: [
+          { endDateTime: { gte: dateFrom } },
+          {
+            startDateTime: {
+              gte: getEventLifecycleCandidateStart(dateFrom),
+            },
+          },
+        ],
+      },
+      ...(dateTo ? [{ startDateTime: { lte: dateTo } }] : []),
+    ],
     ...(filters.city ? { city: filters.city } : {}),
     ...(filters.county ? { county: filters.county } : {}),
     ...(filters.category ? { category: filters.category } : {}),
@@ -84,6 +104,22 @@ function buildEventWhere(
         }
       : {}),
   };
+}
+
+function filterEventsForPublicRange<T extends EventLifecycleInput>(
+  events: T[],
+  filters: Pick<PublicEventFilters, "dateFrom" | "dateTo">,
+  now = new Date(),
+) {
+  const rangeStart =
+    filters.dateFrom && filters.dateFrom > now ? filters.dateFrom : now;
+  const rangeEnd = filters.dateTo
+    ? endOfCommunityDay(filters.dateTo)
+    : undefined;
+
+  return events.filter((event) =>
+    isEventInPublicRange(event, rangeStart, rangeEnd),
+  );
 }
 
 function buildAlertWhere(
@@ -159,7 +195,7 @@ export async function getHomepageData(
     topAlert,
     matchingUpcomingEvents,
     coveredCommunities,
-    lastSuccessfulScrape,
+    relevantEventSources,
     weekendEvents,
     freeEvents,
     kidFriendlyEvents,
@@ -177,45 +213,51 @@ export async function getHomepageData(
     }),
 
     prisma.event.findMany({
-      where: buildEventWhere(filters),
+      where: buildEventWhere(filters, false, now),
       orderBy: { startDateTime: "asc" },
     }),
 
     prisma.event.findMany({
-      where: buildEventWhere(filters),
+      where: buildEventWhere(filters, false, now),
       select: {
         city: true,
       },
       distinct: ["city"],
     }),
 
-    prisma.scrapeLog.findFirst({
+    prisma.source.findMany({
       where: {
-        status: "SUCCESS",
+        active: true,
+        type: { notIn: ["MANUAL", "FACEBOOK"] },
+        events: { some: buildEventWhere(filters, false, now) },
       },
       select: {
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
-
-    prisma.event.findMany({
-      where: {
-        ...buildEventWhere(filters),
-        startDateTime: {
-          gte: now > weekendStart ? now : weekendStart,
-          lte: weekendEnd,
+        scrapeFrequency: true,
+        logs: {
+          where: { status: "SUCCESS" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
         },
       },
+    }),
+
+    prisma.event.findMany({
+      where: buildEventWhere(
+        {
+          ...filters,
+          dateFrom: now > weekendStart ? now : weekendStart,
+          dateTo: weekendEnd,
+        },
+        false,
+        now,
+      ),
       orderBy: { startDateTime: "asc" },
-      take: 4,
     }),
 
     prisma.event.findMany({
       where: {
-        ...buildEventWhere(filters),
+        ...buildEventWhere(filters, false, now),
         OR: [
           { isFree: true },
           { cost: { contains: "cheap" } },
@@ -223,16 +265,14 @@ export async function getHomepageData(
         ],
       },
       orderBy: { startDateTime: "asc" },
-      take: 4,
     }),
 
     prisma.event.findMany({
       where: {
-        ...buildEventWhere(filters),
+        ...buildEventWhere(filters, false, now),
         isKidFriendly: true,
       },
       orderBy: { startDateTime: "asc" },
-      take: 4,
     }),
 
     prisma.meeting.findMany({
@@ -258,7 +298,11 @@ export async function getHomepageData(
     filters.county
       ? prisma.event.findMany({
           where: {
-            ...buildEventWhere({ ...filters, county: undefined }),
+            ...buildEventWhere(
+              { ...filters, county: undefined },
+              false,
+              now,
+            ),
             county: { not: filters.county },
           },
           orderBy: { startDateTime: "asc" },
@@ -269,18 +313,28 @@ export async function getHomepageData(
       : Promise.resolve([]),
   ]);
 
-  const upcomingEventGroups = groupEventsForDisplay(
+  const currentMatchingEvents = filterEventsForPublicRange(
     matchingUpcomingEvents,
+    filters,
+    now,
   );
+  const upcomingEventGroups = groupEventsForDisplay(currentMatchingEvents);
   const upcomingEvents = upcomingEventGroups
     .slice(0, 6)
     .map((group) => group.event);
   const discoveryCounts = countEventDiscoveryResults(
-    matchingUpcomingEvents,
+    currentMatchingEvents,
   );
   const worthTheDriveEventGroups = groupEventsForDisplay(
-    worthTheDriveCandidates,
+    filterEventsForPublicRange(worthTheDriveCandidates, filters, now),
   ).slice(0, 4);
+  const catalogFreshness = summarizeCatalogFreshness(
+    relevantEventSources.map((source) => ({
+      scrapeFrequency: source.scrapeFrequency,
+      lastSuccessfulAt: source.logs[0]?.createdAt ?? null,
+    })),
+    now,
+  );
 
   return {
     activeAlerts: topAlert,
@@ -298,27 +352,40 @@ export async function getHomepageData(
     communitiesCovered: coveredCommunities.filter(
       (community) => community.city.trim().length > 0,
     ).length,
-    lastUpdatedAt: lastSuccessfulScrape?.createdAt ?? null,
-    weekendEvents,
-    freeEvents,
-    kidFriendlyEvents,
+    lastUpdatedAt: catalogFreshness.status === "CURRENT" ? catalogFreshness.asOf : null,
+    catalogFreshness,
+    weekendEvents: filterEventsForPublicRange(
+      weekendEvents,
+      { dateFrom: now > weekendStart ? now : weekendStart, dateTo: weekendEnd },
+      now,
+    ).slice(0, 4),
+    freeEvents: filterEventsForPublicRange(freeEvents, filters, now).slice(0, 4),
+    kidFriendlyEvents: filterEventsForPublicRange(
+      kidFriendlyEvents,
+      filters,
+      now,
+    ).slice(0, 4),
     upcomingMeetings,
     volunteerOpportunities,
   };
 }
 
 export async function getEvents(filters: PublicEventFilters) {
-  return prisma.event.findMany({
-    where: buildEventWhere(filters),
+  const now = new Date();
+  const events = await prisma.event.findMany({
+    where: buildEventWhere(filters, false, now),
     orderBy: { startDateTime: filters.sort === "desc" ? "desc" : "asc" },
   });
+  return filterEventsForPublicRange(events, filters, now);
 }
 
 export async function getActivities(filters: PublicEventFilters) {
-  return prisma.event.findMany({
-    where: buildEventWhere(filters, true),
+  const now = new Date();
+  const events = await prisma.event.findMany({
+    where: buildEventWhere(filters, true, now),
     orderBy: { startDateTime: filters.sort === "desc" ? "desc" : "asc" },
   });
+  return filterEventsForPublicRange(events, filters, now);
 }
 
 export async function getEventsForCalendar(
@@ -334,16 +401,19 @@ export async function getEventsForCalendar(
   const monthStart = parseCommunityDateTime(`${monthStartKey}-01T00:00`);
   const monthEnd = new Date(parseCommunityDateTime(`${nextMonthKey}-01T00:00`).getTime() - 1);
 
-  return prisma.event.findMany({
+  const now = new Date();
+  const calendarFilters = {
+    ...filters,
+    dateFrom: monthStart,
+    dateTo: monthEnd,
+  };
+  const events = await prisma.event.findMany({
     where: {
-      ...buildEventWhere(filters, activityOnly),
-      startDateTime: {
-        gte: monthStart,
-        lte: monthEnd,
-      },
+      ...buildEventWhere(calendarFilters, activityOnly, now),
     },
     orderBy: { startDateTime: "asc" },
   });
+  return filterEventsForPublicRange(events, calendarFilters, now);
 }
 
 export async function getEventById(id: string) {
@@ -469,14 +539,18 @@ export async function getPublicSources() {
 }
 
 export async function getSearchResults(filters: GlobalSearchFilters) {
+  const now = new Date();
   const query = filters.query?.trim();
-  const dateClause =
-    filters.dateFrom || filters.dateTo
-      ? {
-          gte: filters.dateFrom ?? startOfDay(new Date()),
-          ...(filters.dateTo ? { lte: endOfDay(filters.dateTo) } : {}),
-        }
-      : undefined;
+  const eventDateFilters = {
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+  };
+  const dateClause = filters.dateFrom || filters.dateTo
+    ? {
+        gte: filters.dateFrom ?? startOfDay(now),
+        ...(filters.dateTo ? { lte: endOfDay(filters.dateTo) } : {}),
+      }
+    : undefined;
 
   const sourceFilter = filters.sourceType
     ? { source: { is: { type: filters.sourceType } } }
@@ -485,17 +559,12 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
   const [events, alerts, meetings, volunteer] = await Promise.all([
     prisma.event.findMany({
       where: {
-        status: "APPROVED",
-        dateVerificationStatus: { not: "CONFLICT" },
-        timeVerificationStatus: { not: "CONFLICT" },
+        ...buildEventWhere(eventDateFilters, false, now),
         ...(filters.city ? { city: filters.city } : {}),
         ...(filters.county ? { county: filters.county } : {}),
         ...(filters.category ? { category: filters.category } : {}),
         ...(filters.isFree ? { isFree: true } : {}),
         ...(filters.isKidFriendly ? { isKidFriendly: true } : {}),
-        ...(dateClause
-          ? { startDateTime: dateClause }
-          : { startDateTime: { gte: startOfDay(new Date()) } }),
         ...sourceFilter,
         ...(query
           ? {
@@ -508,7 +577,6 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
           : {}),
       },
       orderBy: { startDateTime: "asc" },
-      take: 12,
     }),
     prisma.alert.findMany({
       where: {
@@ -568,7 +636,15 @@ export async function getSearchResults(filters: GlobalSearchFilters) {
     }),
   ]);
 
-  return { events, alerts, meetings, volunteer };
+  return {
+    events: filterEventsForPublicRange(events, eventDateFilters, now).slice(
+      0,
+      12,
+    ),
+    alerts,
+    meetings,
+    volunteer,
+  };
 }
 
 export async function getAdminDashboardData(editEventId?: string | null) {
@@ -708,11 +784,32 @@ export async function getAdminOverviewCounts() {
 }
 
 export async function getLastUpdatedTimestamp() {
-  const latest = await prisma.source.findFirst({
-    orderBy: { lastScrapedAt: "desc" },
-  });
+  const freshness = await getEventCatalogFreshness({ sort: "asc" });
+  return freshness.status === "CURRENT" ? freshness.asOf : null;
+}
 
-  return latest?.lastScrapedAt ?? null;
+export async function getEventCatalogFreshness(filters: PublicEventFilters) {
+  const now = new Date();
+  const sources = await prisma.source.findMany({
+    where: {
+      active: true,
+      type: { notIn: ["MANUAL", "FACEBOOK"] },
+      events: { some: buildEventWhere(filters, false, now) },
+    },
+    select: {
+      scrapeFrequency: true,
+      logs: {
+        where: { status: "SUCCESS" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+  return summarizeCatalogFreshness(sources.map((source) => ({
+    scrapeFrequency: source.scrapeFrequency,
+    lastSuccessfulAt: source.logs[0]?.createdAt ?? null,
+  })), now);
 }
 
 export function getUpcomingMonthOptions() {
@@ -744,6 +841,7 @@ export async function getEventStatusCounts() {
 }
 
 export async function getDigestPreview(subscriberId?: string | null) {
+  const now = new Date();
   const [subscriber, events, alerts, meetings, volunteer] = await Promise.all([
     subscriberId
       ? prisma.subscriber.findUnique({ where: { id: subscriberId } })
@@ -752,14 +850,8 @@ export async function getDigestPreview(subscriberId?: string | null) {
           orderBy: { createdAt: "asc" },
         }),
     prisma.event.findMany({
-      where: {
-        status: "APPROVED",
-        dateVerificationStatus: { not: "CONFLICT" },
-        timeVerificationStatus: { not: "CONFLICT" },
-        startDateTime: { gte: startOfDay(new Date()) },
-      },
+      where: buildEventWhere({}, false, now),
       orderBy: { startDateTime: "asc" },
-      take: 8,
     }),
     prisma.alert.findMany({
       where: { status: "ACTIVE" },
@@ -783,7 +875,7 @@ export async function getDigestPreview(subscriberId?: string | null) {
 
   return buildWeeklyDigestPreview({
     subscriber,
-    events,
+    events: filterEventsForPublicRange(events, {}, now).slice(0, 8),
     alerts,
     meetings,
     volunteer,
@@ -921,6 +1013,9 @@ export type AdminSourceHealth = {
   };
   publishedContentCount: number;
   healthWarning: string | null;
+  /** The latest acceptable attempt time under this source's freshness SLO. */
+  freshnessDeadline: Date | null;
+  overdueByMs: number;
   hasAutomatedScraper: boolean;
   inventoryMismatch: ScraperInventoryMismatch;
   coverage: ReturnType<typeof classifyCommunityCoverage>;
@@ -1052,6 +1147,8 @@ export async function getAdminSourceHealth(
       lastSuccessfulAt: runMetrics.lastSuccessfulAt,
       health: healthAssessment.status,
       healthWarning: healthAssessment.warning,
+      freshnessDeadline: healthAssessment.freshnessDeadline,
+      overdueByMs: healthAssessment.overdueByMs,
       consecutiveFailures: runMetrics.consecutiveFailures,
       eventCount: source._count.events,
       verifiedEventCount,

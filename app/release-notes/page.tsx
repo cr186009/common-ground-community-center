@@ -30,9 +30,16 @@ export default function ReleaseNotesPage() {
             id={release.slug}
             className="scroll-mt-40 rounded-[1.75rem] border border-[color:var(--line)] bg-white p-6 sm:p-8"
           >
-            <time dateTime={release.publishedOn} className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--forest)]">
-              {releaseDateFormatter.format(new Date(`${release.publishedOn}T00:00:00Z`))}
-            </time>
+            <div className="flex flex-wrap items-center gap-3">
+              {release.version ? (
+                <span className="rounded-full bg-[color:var(--navy)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-white">
+                  Version {release.version}
+                </span>
+              ) : null}
+              <time dateTime={release.publishedOn} className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--forest)]">
+                {releaseDateFormatter.format(new Date(`${release.publishedOn}T00:00:00Z`))}
+              </time>
+            </div>
             <h2 className="mt-3 font-serif text-3xl text-[color:var(--navy)]">{release.title}</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">{release.summary}</p>
             <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-700">
@@ -49,4 +56,3 @@ export default function ReleaseNotesPage() {
     </div>
   );
 }
-

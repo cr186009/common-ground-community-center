@@ -56,7 +56,7 @@ export function EventMapPrototype({ points }: { points: EventMapPoint[] }) {
             weight: 2,
           }).addTo(map);
           marker.bindPopup(
-            `<strong>${escapeHtml(point.title)}</strong><br>${escapeHtml(point.city)}<br><small>Approximate city-center location</small>`,
+            `<strong>${escapeHtml(point.title)}</strong><br>${escapeHtml(point.dateTimeLabel)}<br>${escapeHtml(point.city)}<br><small>Approximate city-center location</small>`,
           );
           marker.on("click", () => setSelectedId(point.id));
           const markerElement = marker.getElement();
@@ -65,7 +65,7 @@ export function EventMapPrototype({ points }: { points: EventMapPoint[] }) {
             markerElement.setAttribute("role", "button");
             markerElement.setAttribute(
               "aria-label",
-              `${point.title}, ${point.city}, approximate city-center location`,
+              `${point.title}, ${point.dateTimeLabel}, ${point.city}, approximate city-center location`,
             );
             markerElement.addEventListener("keydown", (event) => {
               const keyboardEvent = event as KeyboardEvent;
@@ -116,7 +116,7 @@ export function EventMapPrototype({ points }: { points: EventMapPoint[] }) {
         <p id="event-map-instructions" className="sr-only">
           Interactive map with approximate city-center markers. Use Tab to reach markers, Enter or Space to open one, and Escape to close it. Scroll-wheel zoom is disabled.
         </p>
-        <div ref={containerRef} className="event-leaflet-map h-[22rem] w-full bg-stone-100 md:h-[26rem]" role="region" aria-label="Map of approximate event locations" aria-describedby="event-map-instructions" />
+        <div ref={containerRef} className="event-leaflet-map h-[30rem] w-full bg-stone-100 md:h-[38rem]" role="region" aria-label="Map of approximate event locations" aria-describedby="event-map-instructions" />
         {mapStatus === "loading" ? (
           <p className="absolute inset-0 grid place-items-center bg-stone-100 text-sm text-slate-600">Loading map…</p>
         ) : null}
@@ -132,6 +132,7 @@ export function EventMapPrototype({ points }: { points: EventMapPoint[] }) {
         <div className="border-b border-[color:var(--line)] bg-[color:var(--navy-soft)]/40 px-6 py-4" aria-live="polite">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Selected event</p>
           <p className="mt-1 font-semibold text-[color:var(--navy)]">{selected.title}</p>
+          <p className="mt-1 text-sm font-medium text-slate-700">{selected.dateTimeLabel}</p>
           <p className="mt-1 text-sm text-slate-600">{selected.city} · approximate city-center pin</p>
           <a href={`/events/${selected.id}`} className="mt-2 inline-block text-sm font-semibold text-[color:var(--forest)] hover:underline">View event details →</a>
         </div>
@@ -150,6 +151,7 @@ export function EventMapPrototype({ points }: { points: EventMapPoint[] }) {
             >
               {point.title}
             </button>
+            <p className="mt-1 text-sm font-medium text-slate-700">{point.dateTimeLabel}</p>
             <p className="mt-1 text-xs text-slate-500">{point.city} · approximate location</p>
             <a href={`/events/${point.id}`} className="mt-2 inline-block text-xs font-semibold text-[color:var(--forest)] hover:underline">
               Event details →

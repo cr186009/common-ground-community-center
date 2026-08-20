@@ -10,6 +10,27 @@ due. Facebook and manual-review sources are excluded. A cron example is:
 7 * * * * cd /path/to/app && pnpm scrape:due >> /var/log/community-scrape.log 2>&1
 ```
 
+For Replit production, configure a Scheduled Deployment (or another external
+scheduler) to run `pnpm scrape:due` hourly from the deployed `main` revision.
+The production `DATABASE_URL` must be available to that job as a secret. Treat
+a nonzero exit status as an incident: at least one due scraper failed. Do not
+point this job at `PRODUCTION_DATABASE_URL` from an interactive development
+workspace; the deployed production database should be its normal
+`DATABASE_URL`.
+
+Run the independent, read-only monitor after the scraper job or from a second
+hourly check:
+
+```sh
+pnpm scrape:health
+```
+
+The monitor exits nonzero when an active automated source has never run, its
+latest run failed, or its freshness deadline has passed. Its JSON output names
+the affected source, deadline, failure streak, and last successful run so an
+alert can direct an administrator to **Admin → Sources**. It does not fetch
+external pages or modify the database.
+
 The scheduler treats the newest scrape log as the **last attempt**, including
 failures and zero-result runs. The newest successful log remains the **last
 success**. Keeping these timestamps separate prevents a failing source from
@@ -21,6 +42,23 @@ hours within seven days, every 12 hours within 48 hours, and every three hours
 within 12 hours. This rechecks source calendars for late date, time,
 cancellation, or postponement changes. Blank or unrecognized source frequency
 values default to daily.
+
+## Freshness service levels
+
+Each source's stored frequency is its expected run interval. Health monitoring
+adds bounded grace for scheduler delay and short incidents:
+
+| Stored frequency | Expected run | Marked overdue after |
+| --- | ---: | ---: |
+| Hourly | 1 hour | 4 hours since last attempt |
+| Daily or blank | 24 hours | 48 hours since last attempt |
+| Weekly | 7 days | 10 days since last attempt |
+| Monthly | 30 days | 40 days since last attempt |
+
+Numeric values such as `2 hours` and `3 days` use their stated interval and the
+same bounded grace rule. The source card shows its deadline or overdue duration.
+The latest attempt controls freshness; the latest successful run remains
+separate so a failed attempt cannot make a source look successful.
 
 ### Marietta fallback feeds
 

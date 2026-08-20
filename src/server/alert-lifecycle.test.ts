@@ -8,16 +8,16 @@ import {
 
 const NOW = new Date("2026-07-31T16:00:00.000Z");
 
-test("alerts remain visible as expired for 48 hours", () => {
+test("alerts remain visible as expired for 14 days", () => {
   assert.equal(
-    alertStatusForExpiration(new Date("2026-07-29T16:00:00.000Z"), NOW),
+    alertStatusForExpiration(new Date("2026-07-17T16:00:00.000Z"), NOW),
     "EXPIRED",
   );
 });
 
-test("alerts older than 48 hours are archived", () => {
+test("alerts older than 14 days are archived", () => {
   assert.equal(
-    alertStatusForExpiration(new Date("2026-07-29T15:59:59.999Z"), NOW),
+    alertStatusForExpiration(new Date("2026-07-17T15:59:59.999Z"), NOW),
     "ARCHIVED",
   );
 });

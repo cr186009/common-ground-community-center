@@ -1,6 +1,6 @@
 {
   "name": "paulding-polk-digital-community-center",
-  "version": "0.1.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Local civic and community hub for Paulding County and Polk County, Georgia.",
   "scripts": {
@@ -16,8 +16,10 @@
     "db:seed": "node --import tsx prisma/seed.ts",
     "scrape": "node --import tsx scripts/scrape.ts",
     "scrape:due": "node --import tsx scripts/scrape-due.ts",
+    "scrape:health": "node --import tsx scripts/check-source-health.ts",
     "events:send-reminders": "node --import tsx scripts/send-event-reminders.ts",
     "cleanup:mvp": "node --import tsx scripts/cleanup-mvp-data.ts",
+    "cleanup:production": "node --import tsx scripts/cleanup-production-data.ts",
     "meetings:backfill": "node --import tsx scripts/backfill-government-meetings.ts",
     "events:audit": "node --import tsx scripts/audit-event-quality.ts",
     "events:audit-dates": "node --import tsx scripts/audit-event-dates.ts",

@@ -116,6 +116,12 @@ function Stat({ label, value, tone = "text-[color:var(--navy)]" }: { label: stri
   );
 }
 
+function formatOverdueDuration(milliseconds: number) {
+  const hours = Math.max(1, Math.ceil(milliseconds / (60 * 60 * 1000)));
+  if (hours < 48) return `${hours}h overdue`;
+  return `${Math.ceil(hours / 24)}d overdue`;
+}
+
 export async function SourcesSection(filters: Props) {
   const scraperNames = getSupportedScraperNames();
   const allSources = await getAdminSourceHealth(scraperNames);
@@ -334,8 +340,9 @@ export async function SourcesSection(filters: Props) {
                     <span>{[source.city, source.county].filter(Boolean).join(", ")}</span>
                     {source.scrapeFrequency && <span>Runs {source.scrapeFrequency}</span>}
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Last run</p><p className="mt-1 text-sm font-medium text-slate-800">{source.lastScrapedAt ? formatTimestamp(source.lastScrapedAt) : "Never"}</p></div>
+                    <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Freshness target</p><p className={`mt-1 text-sm font-medium ${source.overdueByMs > 0 ? "text-red-700" : "text-slate-800"}`}>{source.overdueByMs > 0 ? formatOverdueDuration(source.overdueByMs) : source.freshnessDeadline ? `Through ${formatTimestamp(source.freshnessDeadline)}` : "Not scheduled"}</p></div>
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Found last run</p><p className="mt-1 text-sm font-medium text-slate-800">{source.lastLog?.itemsFound ?? "—"}</p></div>
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Created / updated</p><p className="mt-1 text-sm font-medium text-slate-800">{source.lastLog ? `${source.lastLog.itemsCreated} / ${source.lastLog.itemsUpdated}` : "—"}</p></div>
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Published / total</p><p className="mt-1 text-sm font-medium text-slate-800">{source.publishedContentCount} / {source.eventCount}</p></div>

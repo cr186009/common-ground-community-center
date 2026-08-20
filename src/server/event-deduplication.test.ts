@@ -49,6 +49,12 @@ test("canonical selection prefers verified and richer records", () => {
   assert.equal(selectCanonicalEvent([event(), verified]).id, "verified");
 });
 
+test("canonical selection prefers source-listed data over disputed evidence", () => {
+  const listed = event({ id: "listed", dateVerificationStatus: "SOURCE_LISTED" });
+  const ambiguous = event({ id: "ambiguous", dateVerificationStatus: "AMBIGUOUS" });
+  assert.equal(selectCanonicalEvent([ambiguous, listed]).id, "listed");
+});
+
 test("merge preserves strongest details, flags, evidence, and non-fallback image", () => {
   const weak = event({ id: "weak", isFree: true, dateEvidence: JSON.stringify([{ source: "api" }]), imageUrl: "fallback.jpg", imageIsFallback: true });
   const rich = event({ id: "rich", description: "A much richer official description", dateVerificationStatus: "VERIFIED", dateEvidence: JSON.stringify([{ source: "page" }]), imageUrl: "official.jpg", imageSource: "Official", sourceId: "source-1" });
