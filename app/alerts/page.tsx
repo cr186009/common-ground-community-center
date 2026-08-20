@@ -22,7 +22,7 @@ export default async function AlertsPage({ searchParams }: PageProps) {
         <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Alerts & notices</p>
         <h1 className="mt-3 font-serif text-4xl text-[color:var(--navy)]">Local alerts, notices, and public safety updates</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Active notices appear first, followed by expired items for short-term reference.
+          Active notices appear first, followed by expired items from the past two weeks for reference.
         </p>
       </section>
 
@@ -119,7 +119,7 @@ export default async function AlertsPage({ searchParams }: PageProps) {
       <section className="space-y-4">
         <div>
           <p className="text-sm uppercase tracking-[0.14em] text-slate-500">Expired</p>
-          <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Recent past notices</h2>
+          <h2 className="mt-2 font-serif text-3xl text-[color:var(--navy)]">Past two weeks</h2>
         </div>
         <div className="grid gap-4">
           {expiredAlerts.map((alert) => (

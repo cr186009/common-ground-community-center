@@ -142,22 +142,28 @@ export default async function HomePage({ searchParams }: PageProps) {
                 Last updated
               </p>
               <p className="mt-2 font-serif text-xl text-white">
-                {data.lastUpdatedAt
+                {data.catalogFreshness.status === "CURRENT" && data.lastUpdatedAt
                   ? formatTimestamp(data.lastUpdatedAt)
-                  : "Update pending"}
+                  : "Refresh status pending"}
               </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
-              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming listings</p>
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Upcoming event series</p>
               <p className="mt-2 font-serif text-3xl text-white">{data.upcomingEventSeriesCount}</p>
               <p className="mt-1 text-xs leading-5 text-white/75">
-                Event series · {data.upcomingDateCount} upcoming dates
+                {data.upcomingDateCount} scheduled {data.upcomingDateCount === 1 ? "date" : "dates"} in this view
               </p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-black/20 p-4 backdrop-blur-md">
-              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Cities represented</p>
-              <p className="mt-2 font-serif text-3xl text-white">{data.communitiesCovered}</p>
-              <p className="mt-1 text-xs leading-5 text-white/75">Cities with at least one approved upcoming event.</p>
+              <p className="text-sm uppercase tracking-[0.14em] text-white/70">Area selected</p>
+              <p className="mt-2 font-serif text-xl text-white">
+                {selectedCounty ? `${selectedCounty} County` : "All nearby counties"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-white/75">
+                {selectedCounty
+                  ? "Local results first · other counties under Worth the drive"
+                  : "Paulding · Polk · Cobb · Bartow · Cherokee"}
+              </p>
             </div>
           </div>
         </div>
@@ -223,7 +229,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
           {localEventGroups.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white p-6 text-sm text-slate-600">
-              No upcoming listings are available for this county yet. Know about one?{" "}
+              No upcoming events are available for this county yet. Know about one?{" "}
               <Link href={`/submit${selectedCounty ? `?county=${encodeURIComponent(selectedCounty)}` : ""}`} className="font-semibold text-[color:var(--forest)]">
                 Add it.
               </Link>
@@ -427,20 +433,28 @@ export default async function HomePage({ searchParams }: PageProps) {
                 verify details fast.
               </p>
             </div>
-            {data.lastUpdatedAt ? (
+            {data.catalogFreshness.status === "CURRENT" && data.lastUpdatedAt ? (
               <div className="rounded-2xl bg-stone-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Last scraper refresh</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{formatTimestamp(data.lastUpdatedAt)}</p>
               </div>
-            ) : null}
+            ) : (
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Source refresh status</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  Current refresh information is temporarily unavailable. Use each listing’s original-source link for the latest details.
+                </p>
+              </div>
+            )}
             <div className="rounded-2xl bg-stone-50 p-4 md:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Corrections and freshness
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                Refresh times show when our collectors last completed a run.
-                Event details can change, so each listing retains a link to its
-                original source for corrections and the latest information.
+                Refresh times reflect the relevant event sources only and appear
+                when every one is within its expected collection schedule. Event
+                details can change, so each listing retains a link to its original
+                source for corrections and the latest information.
               </p>
             </div>
           </div>

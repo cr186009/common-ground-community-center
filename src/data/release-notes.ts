@@ -1,5 +1,6 @@
 export type ReleaseNote = {
   slug: string;
+  version?: string;
   publishedOn: string;
   title: string;
   summary: string;
@@ -12,32 +13,23 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    slug: "clearer-source-listed-event-times",
+    slug: "v2-1-local-discovery-and-dependable-listings",
+    version: "2.1.0",
     publishedOn: "2026-08-20",
-    title: "Clearer confidence labels for event schedules",
+    title: "Local discovery and dependable listings",
     summary:
-      "Common Ground now distinguishes a valid date and time published by an identifiable source from a schedule that has been independently confirmed.",
+      "Common Ground 2.1 makes nearby plans easier to find while strengthening schedule confidence, classification safety, freshness monitoring, and production cleanup safeguards.",
     highlights: [
-      "Added a neutral source-listed status so valid legacy calendar dates no longer receive an unnecessary warning.",
-      "Kept independently confirmed and manually confirmed schedules clearly distinct from source-listed information.",
-      "Added a guarded backfill that previews every eligible record before any change can be applied.",
-      "Kept malformed ranges, cancellation or postponement language, invalid source links, and existing conflicts in the review queue.",
-      "Added a read-only managed-source rescan plan so administrators can review source coverage before refreshing records.",
-    ],
-  },
-  {
-    slug: "county-first-discovery-and-safer-listings",
-    publishedOn: "2026-08-19",
-    title: "More local discovery and safer event labels",
-    summary:
-      "Common Ground now makes it easier to start with your county while applying stronger safeguards to event times, public meetings, and family-friendly recommendations.",
-    highlights: [
-      "Added county-first homepage browsing for Paulding, Polk, Cobb, Bartow, and Cherokee, with an easy way to return to all nearby counties.",
-      "Added shortcuts for tonight, this weekend, the next seven days, free events, kids’ activities, music, outdoor plans, food and drink, and public meetings.",
-      "Separated local results from a new “Worth the drive” section and clarified the difference between event series and upcoming dates.",
-      "Corrected Eastern Time and all-day handling for key Paulding-area calendars and improved calendar-link accuracy.",
-      "Strengthened safeguards so ordinary clubs and entertainment do not appear as government meetings and mature-content events are not promoted as kid-friendly.",
-      "Made it easier to submit a missing event or volunteer opportunity with the selected community carried into the review form.",
+      "Added county-first homepage browsing with a remembered preference, clearer selected-area metrics, intent shortcuts, and a separate Worth the drive section.",
+      "Added dedicated List, Calendar, and Map event views, with larger map navigation and visible date and time details on every mapped event.",
+      "Clarified the difference between event series and scheduled dates and made missing-event and volunteer submissions easier to start in context.",
+      "Corrected Eastern Time and all-day handling, strengthened government-meeting and kid-friendly classification, and introduced a neutral source-listed schedule status.",
+      "Kept events visible while they are still in progress and applied consistent end-time handling across Home, Events, Activities, Search, calendar views, and digest previews.",
+      "Added per-source refresh targets, overdue deadlines, failure-streak guidance, and a read-only production health check for administrators.",
+      "Stopped unrelated scraper activity from making the public event catalog appear current.",
+      "Added guarded dry-run cleanup for invalid ranges and exact duplicates, with ambiguous evidence held for review and reminder records preserved.",
+      "Extended public expired-alert history from 48 hours to two weeks.",
+      "Published clearer sourcing, freshness, privacy, and corrections guidance.",
     ],
   },
   {

@@ -1,6 +1,6 @@
 import type { AlertStatus } from "@prisma/client";
 
-export const EXPIRED_ALERT_RETENTION_MS = 48 * 60 * 60 * 1_000;
+export const EXPIRED_ALERT_RETENTION_MS = 14 * 24 * 60 * 60 * 1_000;
 
 export function alertStatusForExpiration(
   expiresAt: Date | null | undefined,

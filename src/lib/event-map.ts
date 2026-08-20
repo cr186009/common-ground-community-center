@@ -1,10 +1,14 @@
 import { COMMUNITY_COORDINATES } from "@/lib/geographic-coverage";
+import { formatDateTimeRange } from "@/lib/hub-format";
 
 export type EventMapSource = {
   id: string;
   title: string;
   city: string;
   county: string;
+  startDateTime: Date;
+  endDateTime?: Date | null;
+  isAllDay: boolean;
   locationName?: string | null;
   address?: string | null;
 };
@@ -14,6 +18,7 @@ export type EventMapPoint = EventMapSource & {
   longitude: number;
   precision: "city-center";
   locationQuery: string;
+  dateTimeLabel: string;
 };
 
 export function buildEventLocationQuery(event: EventMapSource) {
@@ -36,6 +41,11 @@ export function mapEventsToApproximatePoints(events: EventMapSource[]) {
       ...coordinates,
       precision: "city-center",
       locationQuery: buildEventLocationQuery(event),
+      dateTimeLabel: formatDateTimeRange(
+        event.startDateTime,
+        event.endDateTime,
+        event.isAllDay,
+      ),
     }];
   });
 }

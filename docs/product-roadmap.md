@@ -1,5 +1,13 @@
 # Common Ground product roadmap
 
+## Current release — Version 2.1.0
+
+Version 2.1.0 combines county-first homepage discovery, intent shortcuts,
+dedicated list/calendar/map event views, safer schedule and content trust
+signals, consistent event lifecycle rules, relevant-source freshness, guarded
+production cleanup, and a two-week public alert history. Tag and publish the
+release only after the Sprint 5 production health and cleanup dry runs pass.
+
 ## Now — trust and engagement foundation
 
 - Keep event date and time verification visible and auditable.

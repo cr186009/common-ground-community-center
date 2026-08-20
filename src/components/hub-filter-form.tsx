@@ -86,13 +86,25 @@ export function HubFilterForm({
       </fieldset>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium text-slate-700">
-          View
-          <select name="view" defaultValue={view} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">
-            <option value="list">List view</option>
-            <option value="calendar">Calendar view</option>
-          </select>
-        </label>
+        <fieldset className="grid gap-2 text-sm font-medium text-slate-700">
+          <legend>View</legend>
+          <div className="grid grid-cols-3 rounded-2xl border border-[color:var(--line)] bg-stone-50 p-1">
+            {[{ value: "list", label: "List" }, { value: "calendar", label: "Calendar" }, { value: "map", label: "Map" }].map((option) => (
+              <label key={option.value} className="cursor-pointer">
+                <input
+                  className="peer sr-only"
+                  type="radio"
+                  name="view"
+                  value={option.value}
+                  defaultChecked={view === option.value}
+                />
+                <span className="block rounded-xl px-2 py-2 text-center text-xs font-semibold text-slate-600 peer-checked:bg-white peer-checked:text-[color:var(--navy)] peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--forest)]">
+                  {option.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           Month
           <select name="month" defaultValue={month} className="rounded-2xl border border-[color:var(--line)] px-4 py-3 text-sm font-normal">

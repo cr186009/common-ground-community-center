@@ -5,11 +5,63 @@ import {
   assessSourceHealth,
   finalizeScrapeOutcome,
   isRetiredSource,
+  sourceFreshnessSlo,
   summarizeSourceRuns,
 } from "@/server/scrape-health";
 
 const now = new Date("2026-08-01T12:00:00Z");
 const latest = new Date("2026-08-01T11:00:00Z");
+
+test("freshness SLOs are derived consistently from each source frequency", () => {
+  assert.deepEqual(sourceFreshnessSlo("hourly"), {
+    expectedIntervalMs: 60 * 60 * 1000,
+    overdueAfterMs: 4 * 60 * 60 * 1000,
+  });
+  assert.equal(sourceFreshnessSlo("daily").overdueAfterMs, 2 * 24 * 60 * 60 * 1000);
+  assert.equal(sourceFreshnessSlo("weekly").overdueAfterMs, 10 * 24 * 60 * 60 * 1000);
+  assert.equal(sourceFreshnessSlo("monthly").overdueAfterMs, 40 * 24 * 60 * 60 * 1000);
+  assert.equal(sourceFreshnessSlo(null).expectedIntervalMs, 24 * 60 * 60 * 1000);
+});
+
+test("an overdue source exposes its deadline and actionable delay", () => {
+  const lastScrapedAt = new Date("2026-07-29T10:00:00Z");
+  const result = assessSourceHealth({
+    active: true,
+    lastScrapedAt,
+    scrapeFrequency: "daily",
+    hasAutomatedScraper: true,
+    sourceSection: "EVENTS",
+    recentLogs: [{ status: "SUCCESS", itemsFound: 2, itemsCreated: 0, itemsUpdated: 0 }],
+    publishedContentCount: 2,
+    now,
+  });
+
+  assert.equal(result.status, "DEGRADED");
+  assert.deepEqual(result.freshnessDeadline, new Date("2026-07-31T10:00:00Z"));
+  assert.equal(result.overdueByMs, 26 * 60 * 60 * 1000);
+  assert.match(result.warning ?? "", /production scheduler/i);
+});
+
+test("failure streak warnings tell administrators what to do next", () => {
+  const result = assessSourceHealth({
+    active: true,
+    lastScrapedAt: latest,
+    scrapeFrequency: "daily",
+    hasAutomatedScraper: true,
+    sourceSection: "EVENTS",
+    recentLogs: [
+      { status: "FAILED", itemsFound: 0, itemsCreated: 0, itemsUpdated: 0 },
+      { status: "FAILED", itemsFound: 0, itemsCreated: 0, itemsUpdated: 0 },
+      { status: "SUCCESS", itemsFound: 2, itemsCreated: 0, itemsUpdated: 0 },
+    ],
+    publishedContentCount: 2,
+    now,
+  });
+
+  assert.equal(result.status, "FAILING");
+  assert.match(result.warning ?? "", /2 consecutive/i);
+  assert.match(result.warning ?? "", /preview/i);
+});
 
 test("a zero-result event scrape is immediately visible as a warning", () => {
   const result = assessSourceHealth({

@@ -17,6 +17,12 @@ test("release notes contain useful plain-language content", () => {
     assert.ok(release.title.length > 0);
     assert.ok(release.summary.length > 0);
     assert.ok(release.highlights.length > 0);
+    if (release.version) assert.match(release.version, /^\d+\.\d+\.\d+$/);
   }
 });
 
+test("versioned releases use unique semantic versions", () => {
+  const versions = RELEASE_NOTES.flatMap((release) => release.version ? [release.version] : []);
+  assert.equal(new Set(versions).size, versions.length);
+  assert.equal(RELEASE_NOTES[0].version, "2.1.0");
+});

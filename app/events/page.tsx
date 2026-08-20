@@ -16,8 +16,8 @@ import {
 } from "@/lib/hub-search";
 import {
   getEvents,
+  getEventCatalogFreshness,
   getEventsForCalendar,
-  getLastUpdatedTimestamp,
   getUpcomingMonthOptions,
 } from "@/server/hub-data";
 
@@ -30,7 +30,8 @@ export default async function EventsPage({
 }: PageProps) {
   const params = await searchParams;
   const filters = parsePublicFilters(params);
-  const view = readSearchParam(params, "view") || "list";
+  const requestedView = readSearchParam(params, "view");
+  const view = requestedView === "calendar" || requestedView === "map" ? requestedView : "list";
 
   const monthOptions = getUpcomingMonthOptions().map(
     (option) => ({
@@ -43,11 +44,11 @@ export default async function EventsPage({
     readSearchParam(params, "month") ||
     monthOptions[0].value;
 
-  const [events, calendarEvents, lastUpdatedAt] =
+  const [events, calendarEvents, catalogFreshness] =
     await Promise.all([
       getEvents(filters),
       getEventsForCalendar(filters, month),
-      getLastUpdatedTimestamp(),
+      getEventCatalogFreshness(filters),
     ]);
 
   const groupedEvents = groupEventsForDisplay(events);
@@ -70,15 +71,16 @@ export default async function EventsPage({
 
             <p className="mt-2 text-sm text-slate-600">
               Search by keyword, filter by county or city,
-              and switch between list and calendar views.
-              Last refreshed{" "}
-              {formatTimestamp(lastUpdatedAt)}.
+              and switch between list, calendar, and map views. {" "}
+              {catalogFreshness.status === "CURRENT" && catalogFreshness.asOf
+                ? `Relevant sources current as of ${formatTimestamp(catalogFreshness.asOf)}.`
+                : "Current source refresh information is temporarily unavailable; use each listing’s original-source link for the latest details."}
             </p>
           </div>
 
           <p className="text-sm font-medium text-slate-600">
-            {view === "calendar"
-              ? `${events.length} matching events`
+            {view === "calendar" || view === "map"
+              ? `${events.length} matching event${events.length === 1 ? "" : "s"}`
               : `${groupedEvents.length} matching event${
                   groupedEvents.length === 1 ? "" : "s"
                 }`}
@@ -99,10 +101,14 @@ export default async function EventsPage({
         isOutdoor={filters.isOutdoor}
       />
 
-      {view === "list" ? (
-        <EventMapPrototype
-          points={mapPoints}
-        />
+      {view === "map" ? (
+        mapPoints.length > 0 ? (
+          <EventMapPrototype points={mapPoints} />
+        ) : (
+          <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8 text-sm text-slate-600">
+            None of the matching events has a mappable community location yet. Try the List view for every result.
+          </div>
+        )
       ) : null}
 
       {view === "calendar" ? (
@@ -110,7 +116,7 @@ export default async function EventsPage({
           events={calendarEvents}
           monthValue={month}
         />
-      ) : (
+      ) : view === "list" ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {groupedEvents.map(
             ({ event, additionalOccurrences }) => (
@@ -124,7 +130,7 @@ export default async function EventsPage({
             ),
           )}
         </div>
-      )}
+      ) : null}
 
       {events.length === 0 ? (
         <div className="rounded-[1.75rem] border border-dashed border-[color:var(--line)] bg-white p-8">

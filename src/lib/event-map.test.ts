@@ -13,6 +13,9 @@ const event = {
   address: "100 Main St",
   city: " Dallas ",
   county: "Paulding",
+  startDateTime: new Date("2026-09-05T13:00:00.000Z"),
+  endDateTime: new Date("2026-09-05T18:00:00.000Z"),
+  isAllDay: false,
 };
 
 test("location queries are deterministic and include venue through state", () => {
@@ -29,6 +32,7 @@ test("known cities receive explicitly approximate points and unknown cities are 
   ]);
   assert.equal(points.length, 1);
   assert.equal(points[0].precision, "city-center");
+  assert.equal(points[0].dateTimeLabel, "Sat, Sep 5, 9:00 AM - 2:00 PM");
   assert.deepEqual(
     { latitude: points[0].latitude, longitude: points[0].longitude },
     { latitude: 33.9237, longitude: -84.8408 },
